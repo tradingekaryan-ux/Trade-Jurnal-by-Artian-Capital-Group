@@ -22,17 +22,18 @@ const imageFilePresent = (form: FormData) => {
 
 export const GET = handler(async () => {
   const rows = await sql`
-    select p.id, p.user_id, u.username as author, p.kind, p.title, p.description,
+    select p.id, p.user_id, u.username as author, u.role as author_role, p.kind, p.title, p.description,
            p.image_url, p.image_name, p.promo_code, p.code_enabled, p.url, p.url_enabled, p.created_at
     from promos p join users u on p.user_id = u.id
     where p.kind = 'promo'
     order by p.created_at desc
   `;
   return ok({
-    promos: rows.map(({ user_id, ...row }) => ({
+    promos: rows.map(({ user_id, author_role, ...row }) => ({
       ...row,
       userId: user_id,
       author: row.author ?? "",
+      authorRole: author_role ?? "member",
       hasImage: Boolean(row.image_url),
       codeEnabled: Boolean(row.code_enabled),
       urlEnabled: Boolean(row.url_enabled),

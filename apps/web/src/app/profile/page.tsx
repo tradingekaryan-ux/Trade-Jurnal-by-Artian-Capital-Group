@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { VerifiedBadge, RoleName } from "@/components/verified-badge";
 
 interface OwnPost {
   id: string;
@@ -113,11 +114,12 @@ export default function ProfilePage() {
                 )}
               </div>
               <div>
-                <p className="font-semibold">
+                <p className="inline-flex items-center gap-1 font-semibold">
                   {profile?.display_name || profile?.username || "Profil"}
+                  <VerifiedBadge role={profile?.role} />
                 </p>
-                <p className="text-xs capitalize text-muted-foreground">
-                  @{profile?.username} · {profile?.role}
+                <p className="text-xs text-muted-foreground">
+                  @{profile?.username} · <RoleName role={profile?.role ?? "member"} />
                 </p>
               </div>
             </div>
@@ -184,7 +186,9 @@ export default function ProfilePage() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Postingan saya</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Postingan saya</CardTitle>
+          </CardHeader>
           <CardContent>
             {myPosts.length === 0 ? (
               <p className="text-sm text-muted-foreground">Belum ada postingan.</p>
@@ -193,7 +197,10 @@ export default function ProfilePage() {
                 {myPosts.map((post) => (
                   <li key={post.id} className="flex items-center justify-between gap-3 py-2">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{post.title}</p>
+                      <p className="inline-flex max-w-full items-center gap-1 truncate text-sm font-medium">
+                        {post.title}
+                        <VerifiedBadge role={profile?.role} />
+                      </p>
                       <p className="text-xs text-muted-foreground">
                         {new Date(post.createdAt).toLocaleDateString()}
                       </p>

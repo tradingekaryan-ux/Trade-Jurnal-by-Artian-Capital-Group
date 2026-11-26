@@ -7,12 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { canEditPromo, canModeratePromos, isUserRole, type UserRole } from "@/lib/roles";
+import { VerifiedBadge } from "@/components/verified-badge";
 import { VoteBar } from "@/components/vote-bar";
 
 interface Promo {
   id: string;
   userId: string;
   author: string;
+  authorRole?: string;
   title: string;
   description: string;
   imageMime: string | null;
@@ -277,7 +279,10 @@ export default function PromoPage() {
                   )}
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="font-semibold">{promo.title}</h3>
-                    <span className="text-xs text-muted-foreground">{promo.author}</span>
+                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                      {promo.author}
+                      <VerifiedBadge role={promo.authorRole} />
+                    </span>
                   </div>
                   <p className="whitespace-pre-wrap text-sm text-muted-foreground">
                     {promo.description}

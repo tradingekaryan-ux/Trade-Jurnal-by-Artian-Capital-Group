@@ -5,6 +5,8 @@ export interface Post {
   id: string;
   userId: string;
   author: string;
+  /** Role of the author, used for the owner/admin verification badge. */
+  authorRole?: string;
   kind: PostKind;
   title: string;
   description: string;

@@ -159,6 +159,8 @@ export function openSystemDatabase(file: string): Database.Database {
     sqlite.exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'member'");
     sqlite.exec("UPDATE users SET role = 'owner' WHERE is_admin = 1");
   }
+  // Role lama (staff/company) kini menjadi member.
+  sqlite.exec("UPDATE users SET role = 'member' WHERE role IN ('staff', 'company')");
   ensureOwner(sqlite, file);
   return sqlite;
 }

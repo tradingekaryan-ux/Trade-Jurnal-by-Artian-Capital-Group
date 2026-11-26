@@ -42,7 +42,9 @@ const imagePart = () => new Blob([image], { type: "image/png" });
 // --- Bersihkan smoke lama di Supabase ---
 for (const mode of ["cfd", "futures", "crypto-spot", "crypto-perp", "stock"])
   await api(`/api/cfd-journal?mode=${mode}`, undefined, ekaryan, "DELETE");
-for (const post of (await (await fetch(`${base}/api/posts`, { headers: { cookie: ekaryan } })).json()).posts)
+for (const post of (
+  await (await fetch(`${base}/api/posts`, { headers: { cookie: ekaryan } })).json()
+).posts)
   await api(`/api/promos?id=${encodeURIComponent(post.id)}`, undefined, ekaryan, "DELETE");
 
 // --- Jurnal: tanggal, instrumen, dan hasil bervariasi ---
@@ -55,7 +57,9 @@ add("cfd", "EURUSD", "buy", 1, 1.084, 1.089, 1.081, 1.092, "2026-08-04T08:15:00Z
 add("cfd", "GBPUSD", "sell", 0.7, 1.276, 1.272, 1.28, 1.268, "2026-08-19T11:30:00Z"); // +280
 add("cfd", "XAUUSD", "buy", 0.5, 1875.2, 1871.7, 1872.5, 1880, "2026-09-02T14:00:00Z"); // kena SL -175
 add("cfd", "USDJPY", "sell", 1, 149.2, 149.65, 148.9, 150.1, "2026-09-15T01:45:00Z"); // -450
-add("cfd", "US30", "buy", 1, 34200, 34200, 34150, 34280, "2026-09-28T13:30:00Z", { resultMode: "breakeven" });
+add("cfd", "US30", "buy", 1, 34200, 34200, 34150, 34280, "2026-09-28T13:30:00Z", {
+  resultMode: "breakeven",
+});
 add("cfd", "WTIUSD", "buy", 1, 82.4, 83.1, 81.9, 83.4, "2026-10-06T16:20:00Z"); // +700
 add("cfd", "XAGUSD", "sell", 1, 22.15, 21.98, 22.3, 21.8, "2026-10-17T15:40:00Z"); // +170
 add("cfd", "AUDUSD", "sell", 1.2, 0.658, 0.6595, 0.66, 0.654, "2026-10-29T03:15:00Z"); // -180
@@ -71,7 +75,9 @@ add("futures", "MNQ", "buy", 4, 15080, 15095, 15068, 15105, "2026-09-30T13:45:00
 add("futures", "RTY", "sell", 2, 1875.4, 1873.9, 1877.5, 1871, "2026-10-14T14:20:00Z"); // +30 tick
 add("futures", "MGC", "buy", 2, 1880.1, 1878.6, 1877, 1884, "2026-10-31T16:00:00Z"); // -30 tick
 add("futures", "SPX", "buy", 1, 4160, 4169, 4153, 4172, "2026-11-18T15:30:00Z"); // +36 tick
-add("futures", "NQ100N", "sell", 5, 15120, null, 15135, 15090, "2026-11-24T14:00:00Z", { running: true });
+add("futures", "NQ100N", "sell", 5, 15120, null, 15135, 15090, "2026-11-24T14:00:00Z", {
+  running: true,
+});
 
 // Crypto spot — nominal masuk USD
 add("crypto-spot", "BTCUSD", "buy", 1000, 58500, 61000, 57000, 63000, "2026-08-15T07:20:00Z"); // +4.3%
@@ -81,11 +87,21 @@ add("crypto-spot", "XRPUSD", "sell", 600, 0.58, 0.56, 0.595, 0.54, "2026-11-02T0
 add("crypto-spot", "DOGEUSD", "buy", 400, 0.14, 0.132, 0.128, 0.155, "2026-11-16T17:10:00Z"); // -5.7%
 
 // Crypto perpetual — nominal setelah leverage
-add("crypto-perp", "BTCUSDT", "buy", 5000, 61000, 58500, 59500, 65000, "2026-08-29T21:15:00Z", { leverage: 5 }); // -4.1%
-add("crypto-perp", "ETHUSDT", "sell", 3000, 2900, 2790, 2970, 2680, "2026-09-17T08:30:00Z", { leverage: 3 }); // +3.8%
-add("crypto-perp", "SOLUSDT", "buy", 2000, 142, 151, 136, 158, "2026-10-23T17:10:00Z", { leverage: 4 }); // +6.3%
-add("crypto-perp", "XRPUSDT", "buy", 1500, 0.52, 0.5, 0.5, 0.57, "2026-11-05T10:00:00Z", { leverage: 2 }); // kena SL
-add("crypto-perp", "DOGEUSDT", "sell", 1200, 0.16, 0.152, 0.168, 0.145, "2026-11-22T22:40:00Z", { leverage: 3 }); // +5%
+add("crypto-perp", "BTCUSDT", "buy", 5000, 61000, 58500, 59500, 65000, "2026-08-29T21:15:00Z", {
+  leverage: 5,
+}); // -4.1%
+add("crypto-perp", "ETHUSDT", "sell", 3000, 2900, 2790, 2970, 2680, "2026-09-17T08:30:00Z", {
+  leverage: 3,
+}); // +3.8%
+add("crypto-perp", "SOLUSDT", "buy", 2000, 142, 151, 136, 158, "2026-10-23T17:10:00Z", {
+  leverage: 4,
+}); // +6.3%
+add("crypto-perp", "XRPUSDT", "buy", 1500, 0.52, 0.5, 0.5, 0.57, "2026-11-05T10:00:00Z", {
+  leverage: 2,
+}); // kena SL
+add("crypto-perp", "DOGEUSDT", "sell", 1200, 0.16, 0.152, 0.168, 0.145, "2026-11-22T22:40:00Z", {
+  leverage: 3,
+}); // +5%
 
 // US Stock — nominal masuk USD
 add("stock", "NVDA", "buy", 1200, 118, 127, 112, 132, "2026-08-21T15:30:00Z"); // +7.6%
@@ -106,14 +122,14 @@ for (const x of t) {
     leverage: x.leverage,
     stopLoss: x.sl,
     takeProfit: x.tp,
-    resultMode: x.manual !== undefined ? "manual" : x.resultMode ?? "auto",
+    resultMode: x.manual !== undefined ? "manual" : (x.resultMode ?? "auto"),
     manualPnl: x.manual,
     openedAt: x.date,
   });
 }
 
 // --- Postingan & voting di Supabase ---
-const makePromo = async (title, description, code, enabled, url, urlEnabled) => {
+const makePromo = async (title, description, code, enabled, url, urlEnabled, cookie = ekaryan) => {
   const form = new FormData();
   form.set("title", title);
   form.set("description", description);
@@ -122,22 +138,65 @@ const makePromo = async (title, description, code, enabled, url, urlEnabled) => 
   form.set("url", url);
   form.set("urlEnabled", String(urlEnabled));
   form.set("image", imagePart(), "artian-icon.png");
-  return postForm("/api/promos", form);
+  return postForm("/api/promos", form, cookie);
 };
-const makeIdea = async (title, description) => {
+const makeIdea = async (title, description, cookie = ekaryan) => {
   const form = new FormData();
   form.set("kind", "idea");
   form.set("title", title);
   form.set("description", description);
   form.set("image", imagePart(), "artian-icon.png");
-  return postForm("/api/promos", form);
+  return postForm("/api/promos", form, cookie);
 };
 
-const p1 = await makePromo("Diskon 20% paket bulanan", "Kode berlaku untuk paket bulanan.", "ARTIAN20", true, "https://www.luxalgo.com/", true);
-const p2 = await makePromo("Gratis 1 bulan VPS", "Untuk pengguna baru yang mendaftar bulan ini.", "VPSFREE", true, "", false);
-const p3 = await makePromo("Diskon 50% seeding", "Promo khusus komunitas, terbatas.", "SEED50", false, "https://github.com/", true);
-const i1 = await makeIdea("Breakout XAUUSD sesi London", "Entry setelah close 15m di atas resistance. SL di bawah candle breakout, TP minimal 2R.");
-const i2 = await makeIdea("Pullback BTCUSDT", "Entry pullback ke EMA20 pada trend naik. SL di bawah swing low, TP 3R.");
+const p1 = await makePromo(
+  "Diskon 20% paket bulanan",
+  "Kode berlaku untuk paket bulanan.",
+  "ARTIAN20",
+  true,
+  "https://www.luxalgo.com/",
+  true,
+);
+const p2 = await makePromo(
+  "Gratis 1 bulan VPS",
+  "Untuk pengguna baru yang mendaftar bulan ini.",
+  "VPSFREE",
+  true,
+  "",
+  false,
+);
+const p3 = await makePromo(
+  "Diskon 50% seeding",
+  "Promo khusus komunitas, terbatas.",
+  "SEED50",
+  false,
+  "https://github.com/",
+  true,
+);
+const i1 = await makeIdea(
+  "Breakout XAUUSD sesi London",
+  "Entry setelah close 15m di atas resistance. SL di bawah candle breakout, TP minimal 2R.",
+);
+const i2 = await makeIdea(
+  "Pullback BTCUSDT",
+  "Entry pullback ke EMA20 pada trend naik. SL di bawah swing low, TP 3R.",
+);
+
+// Postingan owner — menampilkan badge centang kuning di promo & trade idea.
+const p4 = await makePromo(
+  "Promo resmi Artian Capital Group",
+  "Penawaran resmi dari owner. Hubungi komunitas untuk detailnya.",
+  "ARTIANOFFICIAL",
+  true,
+  "https://www.luxalgo.com/",
+  true,
+  owner,
+);
+const i3 = await makeIdea(
+  "Setup resmi XAUUSD session New York",
+  "Ide dari owner: tunggu konfirmasi engulfing di H1, SL di bawah swing low, TP 2R.",
+  owner,
+);
 
 await api("/api/promos/vote", { promoId: p1.id, value: "working" });
 await api("/api/promos/vote", { promoId: p1.id, value: "not_working" }, owner);
@@ -146,14 +205,16 @@ await api("/api/promos/vote", { promoId: p3.id, value: "not_working" });
 await api("/api/ideas/vote", { ideaId: i1.id, value: "take_profit" });
 await api("/api/ideas/vote", { ideaId: i1.id, value: "stop_loss" }, owner);
 await api("/api/ideas/vote", { ideaId: i2.id, value: "take_profit" }, owner);
+await api("/api/promos/vote", { promoId: p4.id, value: "working" });
+await api("/api/ideas/vote", { ideaId: i3.id, value: "take_profit" });
 
 await api("/api/snapshot", {});
 const summary = {
   trades: t.length,
   dates: new Set(t.map((x) => x.date.slice(0, 10))).size,
   instruments: new Set(t.map((x) => x.symbol)).size,
-  promos: 3,
-  ideas: 2,
-  votes: 7,
+  promos: 4,
+  ideas: 3,
+  votes: 9,
 };
 console.log("DONE", summary);

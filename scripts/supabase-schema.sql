@@ -154,3 +154,6 @@ CREATE TABLE IF NOT EXISTS journal_snapshots (
   payload jsonb NOT NULL,
   updated_at text NOT NULL
 );
+
+-- Role disederhanakan menjadi owner / admin / member.
+UPDATE users SET role = 'member', is_admin = false WHERE role IN ('staff', 'company');

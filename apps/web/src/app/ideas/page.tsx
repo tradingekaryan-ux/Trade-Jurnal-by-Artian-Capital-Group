@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { VoteBar } from "@/components/vote-bar";
+import { VerifiedBadge } from "@/components/verified-badge";
 import { canEditPromo, isUserRole, type UserRole } from "@/lib/roles";
 import type { Post } from "@/lib/posts";
 
@@ -179,7 +180,10 @@ export default function IdeasPage() {
                     />
                   )}
                   <h3 className="font-semibold">{idea.title}</h3>
-                  <p className="text-xs text-muted-foreground">oleh {idea.author}</p>
+                  <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    oleh {idea.author}
+                    <VerifiedBadge role={idea.authorRole} />
+                  </p>
                   <p className="whitespace-pre-wrap text-sm text-muted-foreground">
                     {idea.description}
                   </p>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LogOut, Shield } from "lucide-react";
 import { postJson } from "@/lib/use-api";
+import { VerifiedBadge, RoleName } from "./verified-badge";
 import { Button } from "./ui/button";
 
 interface SessionInfo {
@@ -69,11 +70,19 @@ export function UserMenu() {
   return (
     <div className="space-y-1">
       {session?.username && (
-        <div className="truncate text-xs font-medium" title={session.username}>
+        <div
+          className="inline-flex max-w-full items-center gap-1 truncate text-xs font-medium"
+          title={session.username}
+        >
           {session.username}
+          <VerifiedBadge role={session.role} />
         </div>
       )}
-      {session?.role && <div className="text-xs text-muted-foreground">{session.role}</div>}
+      {session?.role && (
+        <div className="text-xs text-muted-foreground">
+          <RoleName role={session.role} />
+        </div>
+      )}
       {session?.isAdmin && (
         <Link
           href="/admin"

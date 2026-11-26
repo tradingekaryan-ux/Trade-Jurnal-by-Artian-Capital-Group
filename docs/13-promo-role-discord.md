@@ -2,7 +2,7 @@
 
 ## Tombol Discord mengambang
 
-Tombol Discord muncul di semua halaman (kanan bawah). URL diambil dari `NEXT_PUBLIC_DISCORD_URL`. Jika belum diisi, tautan mengarah ke `https://discord.com/` — **ganti dengan invite server Anda** di environment produksi.
+Tombol Discord muncul di semua halaman (kanan bawah) memakai **logo Discord asli**. Owner bisa mengubah URL dan visibilitas tombol di **Admin → Konfigurasi situs** (`/api/admin/site`, disimpan di `global_settings`). Nilai bawaan diambil dari `NEXT_PUBLIC_DISCORD_URL`; jika kosong, tautan `https://discord.com/`. Perubahan berlaku untuk semua akun pada permintaan halaman berikutnya.
 
 ## Halaman Promo — `/promo`
 
@@ -19,7 +19,7 @@ Promo disimpan di database global agar bisa dilihat semua akun; gambar ikut ters
 
 Setiap promo menampilkan testimoni komunitas: tombol **Working** dan **Not Working** dengan jumlah vote. Satu akun hanya punya **satu vote per promo**, dan bisa mengubah atau membatalkan pilihannya dengan mengklik tombol lain. Ringkasan vote diambil lewat `GET /api/promos/vote?ids=...`; pengiriman vote lewat `POST /api/promos/vote`. Pengguna belum login tidak bisa vote (tombol dinonaktifkan).
 
-API: `GET/POST/PATCH/DELETE /api/promos`. Moderator bisa mengubah status promo siapa pun; akun company hanya promo miliknya sendiri.
+API: `GET/POST/PATCH/DELETE /api/promos`. `GET` hanya mengembalikan `kind = 'promo'`; trade idea tidak ikut muncul di halaman promo. Owner/admin bisa mengelola promo siapa pun; member hanya promo miliknya sendiri.
 
 ## Halaman Trades Idea — `/ideas`
 
@@ -34,15 +34,15 @@ Feed gabungan: `GET /api/posts? ...` mengembalikan promo dan idea dengan field `
 
 ## Role & hak akses
 
-| Role        | Hak                                                                 |
-| ----------- | ------------------------------------------------------------------- |
-| **Owner**   | Semua akses, satu-satunya yang bisa **membuat user & memberi role** |
-| **Admin**   | Akses halaman Admin (katalog model) + moderasi semua promo          |
-| **Staff**   | Moderasi semua promo (tanpa akses halaman Admin)                    |
-| **Company** | Membuat promo dan mengelola promo miliknya sendiri                  |
-| **Member**  | Membuat promo miliknya sendiri (default untuk pendaftar baru)       |
+| Role       | Hak                                                                                                         |
+| ---------- | ----------------------------------------------------------------------------------------------------------- |
+| **Owner**  | Hak admin + **konfigurasi situs** (link/button Discord, judul situs), satu-satunya yang membuat user & role |
+| **Admin**  | Akses halaman Admin, **seluruh jurnal & data member**, dan **hapus akun** (kecuali owner & diri sendiri)    |
+| **Member** | Jurnal dan postingan sendiri (default untuk pendaftar baru)                                                 |
 
-Halaman `/admin` hanya bisa diakses **Owner/Admin**. API `/api/admin/models` dan `/api/admin/users` memeriksa role di server, bukan hanya menyembunyikan UI.
+Role lama `staff`/`company` dinormalisasi menjadi `member` saat aplikasi berjalan. Halaman `/admin` hanya bisa diakses **Owner/Admin**. API `/api/admin/models`, `/api/admin/users` (GET/DELETE), `/api/admin/member-data`, dan `/api/admin/site` memeriksa role di server, bukan hanya menyembunyikan UI.
+
+Owner ditandai **centang kuning**, admin **centang biru** — muncul di user menu, daftar akun, profil, dan postingan yang mereka upload (`authorRole` dari API). `GET /api/admin/member-data` menampilkan ringkasan semua member; `?userId=...` mengembalikan jurnal, postingan, dan snapshot Supabase lengkap untuk member tersebut.
 
 ### Akun owner khusus
 

@@ -8,8 +8,17 @@ import { Label } from "@/components/ui/label";
 import { OptionSelect } from "@/components/ui/option-select";
 import { PoweredByLuxAlgo } from "@/components/powered-by-luxalgo";
 import { LogoutButton } from "@/components/user-menu";
+import { VerifiedBadge, RoleName } from "@/components/verified-badge";
 import { postJson } from "@/lib/use-api";
-import { ROLE_LABELS, USER_ROLES, canAccessAdmin, isUserRole, type UserRole } from "@/lib/roles";
+import {
+  ROLE_LABELS,
+  USER_ROLES,
+  canAccessAdmin,
+  canDeleteAccounts,
+  canManageSite,
+  isUserRole,
+  type UserRole,
+} from "@/lib/roles";
 
 interface ModelRow {
   id: string;
@@ -37,10 +46,42 @@ interface AdminUser {
   createdAt: string;
 }
 
+interface MemberRow extends AdminUser {
+  lastLoginAt: string | null;
+  trades: number;
+  wins: number;
+  losses: number;
+  running: number;
+  snapshotUpdatedAt: string | null;
+}
+
+interface MemberDetail {
+  user: { id: string; username: string; role: string };
+  trades: Record<string, unknown>[];
+  promos: Record<string, unknown>[];
+  snapshot: Record<string, unknown[]> | null;
+  snapshotUpdatedAt: string | null;
+}
+
+interface SiteConfig {
+  discordUrl: string;
+  showFloatingDiscord: boolean;
+  siteTitle: string;
+}
+
+const emptySite: SiteConfig = {
+  discordUrl: "https://discord.com/",
+  showFloatingDiscord: true,
+  siteTitle: "",
+};
+
 export default function AdminPage() {
   const [data, setData] = useState<AdminData | null>(null);
   const [role, setRole] = useState<UserRole | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [members, setMembers] = useState<MemberRow[]>([]);
+  const [detail, setDetail] = useState<{ name: string; data: MemberDetail } | null>(null);
+  const [site, setSite] = useState<SiteConfig>(emptySite);
   const [newUser, setNewUser] = useState({
     username: "",
     password: "",
@@ -72,8 +113,25 @@ export default function AdminPage() {
       .then((body: { users: AdminUser[] }) => setUsers(body.users))
       .catch(() => setError("Gagal memuat user."));
   };
+  const loadMembers = () => {
+    fetch("/api/admin/member-data")
+      .then((response) => (response.ok ? response.json() : Promise.reject()))
+      .then((body: { members: MemberRow[] }) => setMembers(body.members))
+      .catch(() => setError("Gagal memuat data member."));
+  };
   useEffect(() => {
-    if (role === "owner") loadUsers();
+    if (role !== null && canAccessAdmin(role)) {
+      loadUsers();
+      loadMembers();
+    }
+  }, [role]);
+
+  useEffect(() => {
+    if (role !== "owner") return;
+    fetch("/api/admin/site")
+      .then((response) => (response.ok ? response.json() : Promise.reject()))
+      .then((body: SiteConfig) => setSite(body))
+      .catch(() => setError("Gagal memuat konfigurasi situs."));
   }, [role]);
 
   const createUser = async () => {
@@ -82,6 +140,7 @@ export default function AdminPage() {
       setNewUser({ username: "", password: "", role: "member" });
       setMessage("User berhasil dibuat.");
       loadUsers();
+      loadMembers();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Gagal membuat user.");
     }
@@ -92,8 +151,49 @@ export default function AdminPage() {
       await postJson("/api/admin/users", { id, role: next }, "PATCH");
       setMessage("Role diperbarui.");
       loadUsers();
+      loadMembers();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Gagal mengubah role.");
+    }
+  };
+
+  const removeUser = async (user: AdminUser) => {
+    if (!window.confirm(`Hapus akun "${user.username}" beserta seluruh datanya?`)) return;
+    try {
+      await postJson("/api/admin/users", { id: user.id }, "DELETE");
+      setMessage(`Akun ${user.username} beserta datanya dihapus.`);
+      if (detail?.data.user.id === user.id) setDetail(null);
+      loadUsers();
+      loadMembers();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Gagal menghapus akun.");
+    }
+  };
+
+  const openDetail = async (member: MemberRow) => {
+    try {
+      const body = await fetch(
+        `/api/admin/member-data?userId=${encodeURIComponent(member.id)}`,
+      ).then((response) => (response.ok ? response.json() : Promise.reject()));
+      setDetail({ name: member.username, data: body as MemberDetail });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Gagal memuat detail member.");
+    }
+  };
+
+  const saveSite = async () => {
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await postJson("/api/admin/site", site);
+      setMessage(
+        "Konfigurasi situs disimpan. Tombol Discord akan diperbarui pada halaman berikutnya.",
+      );
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Gagal menyimpan konfigurasi.");
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -156,8 +256,7 @@ export default function AdminPage() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
-              Halaman admin hanya untuk akun dengan role Owner atau Admin yang ditetapkan oleh
-              owner.
+              Halaman admin hanya untuk akun Owner atau Admin yang ditetapkan oleh owner.
             </p>
           </CardContent>
         </Card>
@@ -169,6 +268,7 @@ export default function AdminPage() {
   const visible = data.models.filter((m) =>
     `${m.id} ${m.name}`.toLowerCase().includes(filter.toLowerCase()),
   );
+  const isOwner = role === "owner";
 
   return (
     <div className="mx-auto max-w-6xl space-y-4 p-4 md:p-8">
@@ -197,16 +297,16 @@ export default function AdminPage() {
         </p>
       )}
 
-      {role === "owner" && (
-        <Card>
-          <CardHeader>
-            <CardTitle>User & Role</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-xs text-muted-foreground">
-              Hanya owner yang bisa membuat akun dan memberi role. Owner bawaan dibuat otomatis saat
-              pertama kali aplikasi berjalan.
-            </p>
+      <Card>
+        <CardHeader>
+          <CardTitle>User & Role</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Owner membuat akun dan menetapkan role. Admin dan owner bisa melihat seluruh jurnal &
+            data member serta menghapus akun. Centang kuning = Owner, centang biru = Admin.
+          </p>
+          {isOwner && (
             <div className="grid gap-3 sm:grid-cols-4">
               <Input
                 placeholder="Username"
@@ -233,41 +333,225 @@ export default function AdminPage() {
                 Tambah user
               </Button>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="text-muted-foreground">
-                  <tr>
-                    <th className="p-2">Username</th>
-                    <th className="p-2">Role</th>
-                    <th className="p-2">Dibuat</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((item) => (
-                    <tr key={item.id} className="border-t">
-                      <td className="p-2">{item.username}</td>
+          )}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="text-muted-foreground">
+                <tr>
+                  <th className="p-2">Username</th>
+                  <th className="p-2">Role</th>
+                  <th className="p-2">Dibuat</th>
+                  {canDeleteAccounts(role ?? "member") && <th className="p-2">Aksi</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((item) => (
+                  <tr key={item.id} className="border-t">
+                    <td className="p-2">
+                      <span className="inline-flex items-center gap-1">
+                        {item.username}
+                        <VerifiedBadge role={item.role} />
+                      </span>
+                    </td>
+                    <td className="p-2">
+                      {item.role === "owner" ? (
+                        <RoleName role={item.role} />
+                      ) : isOwner ? (
+                        <OptionSelect
+                          value={item.role}
+                          onValueChange={(value) => void changeRole(item.id, value)}
+                        >
+                          {USER_ROLES.filter((r) => r !== "owner").map((r) => (
+                            <option key={r} value={r}>
+                              {ROLE_LABELS[r]}
+                            </option>
+                          ))}
+                        </OptionSelect>
+                      ) : (
+                        <RoleName role={item.role} />
+                      )}
+                    </td>
+                    <td className="p-2">{new Date(item.createdAt).toLocaleDateString()}</td>
+                    {canDeleteAccounts(role ?? "member") && (
                       <td className="p-2">
-                        {item.role === "owner" ? (
-                          ROLE_LABELS.owner
-                        ) : (
-                          <OptionSelect
-                            value={item.role}
-                            onValueChange={(value) => void changeRole(item.id, value)}
-                          >
-                            {USER_ROLES.filter((r) => r !== "owner").map((r) => (
-                              <option key={r} value={r}>
-                                {ROLE_LABELS[r]}
-                              </option>
-                            ))}
-                          </OptionSelect>
-                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={item.role === "owner"}
+                          onClick={() => void removeUser(item)}
+                        >
+                          Hapus akun
+                        </Button>
                       </td>
-                      <td className="p-2">{new Date(item.createdAt).toLocaleDateString()}</td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Data seluruh member</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Admin dan owner bisa membaca jurnal serta data setiap member langsung dari Supabase.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="text-muted-foreground">
+                <tr>
+                  <th className="p-2">Member</th>
+                  <th className="p-2">Role</th>
+                  <th className="p-2">Trade</th>
+                  <th className="p-2">Profit / Loss</th>
+                  <th className="p-2">Running</th>
+                  <th className="p-2">Snapshot</th>
+                  <th className="p-2">Detail</th>
+                </tr>
+              </thead>
+              <tbody>
+                {members.map((member) => (
+                  <tr key={member.id} className="border-t">
+                    <td className="p-2">
+                      <span className="inline-flex items-center gap-1">
+                        {member.username}
+                        <VerifiedBadge role={member.role} />
+                      </span>
+                    </td>
+                    <td className="p-2">
+                      <RoleName role={member.role} />
+                    </td>
+                    <td className="p-2">{member.trades}</td>
+                    <td className="p-2">
+                      <span className="text-profit">{member.wins}</span> /{" "}
+                      <span className="text-loss">{member.losses}</span>
+                    </td>
+                    <td className="p-2">{member.running}</td>
+                    <td className="p-2 text-muted-foreground">
+                      {member.snapshotUpdatedAt
+                        ? new Date(member.snapshotUpdatedAt).toLocaleDateString()
+                        : "—"}
+                    </td>
+                    <td className="p-2">
+                      <Button size="sm" variant="outline" onClick={() => void openDetail(member)}>
+                        Lihat data
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {detail && (
+            <div className="space-y-2 rounded-md border p-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold">
+                  Data {detail.name} <VerifiedBadge role={detail.data.user.role} />
+                </p>
+                <Button size="sm" variant="ghost" onClick={() => setDetail(null)}>
+                  Tutup
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {detail.data.trades.length} trade · {detail.data.promos.length} postingan · snapshot{" "}
+                {detail.data.snapshotUpdatedAt
+                  ? new Date(detail.data.snapshotUpdatedAt).toLocaleString()
+                  : "tidak ada"}
+              </p>
+              <div className="max-h-64 overflow-auto rounded border">
+                <table className="w-full text-left text-xs">
+                  <thead className="sticky top-0 bg-muted/80">
+                    <tr>
+                      <th className="p-2">Tanggal</th>
+                      <th className="p-2">Simbol</th>
+                      <th className="p-2">Mode</th>
+                      <th className="p-2">Side</th>
+                      <th className="p-2">PnL</th>
+                      <th className="p-2">Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {detail.data.trades.map((trade) => (
+                      <tr key={String(trade.id)} className="border-t">
+                        <td className="p-2">
+                          {new Date(String(trade.opened_at)).toLocaleDateString()}
+                        </td>
+                        <td className="p-2">{String(trade.symbol)}</td>
+                        <td className="p-2">{String(trade.mode)}</td>
+                        <td className="p-2">{String(trade.side)}</td>
+                        <td className="p-2">{String(trade.pnl ?? "—")}</td>
+                        <td className="p-2">{String(trade.status)}</td>
+                      </tr>
+                    ))}
+                    {detail.data.trades.length === 0 && (
+                      <tr>
+                        <td className="p-2 text-muted-foreground" colSpan={6}>
+                          Belum ada trade.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <details className="text-xs">
+                <summary className="cursor-pointer text-muted-foreground">
+                  Lihat snapshot jurnal lengkap (JSON)
+                </summary>
+                <pre className="mt-2 max-h-64 overflow-auto rounded bg-muted/40 p-2 text-[11px]">
+                  {JSON.stringify(detail.data.snapshot ?? {}, null, 2)}
+                </pre>
+              </details>
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {isOwner && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Konfigurasi situs</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Hanya owner yang bisa mengubah pengaturan ini. Berlaku untuk seluruh akun.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label htmlFor="site-title">Judul situs</Label>
+                <Input
+                  id="site-title"
+                  value={site.siteTitle}
+                  maxLength={120}
+                  onChange={(e) => setSite({ ...site, siteTitle: e.target.value })}
+                  placeholder="Trade Jurnal by Artian Capital Group"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="discord-url">Link Discord (tombol mengambang)</Label>
+                <Input
+                  id="discord-url"
+                  type="url"
+                  value={site.discordUrl}
+                  onChange={(e) => setSite({ ...site, discordUrl: e.target.value })}
+                  placeholder="https://discord.gg/…"
+                />
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={site.showFloatingDiscord}
+                onChange={(e) => setSite({ ...site, showFloatingDiscord: e.target.checked })}
+              />
+              Tampilkan tombol Discord mengambang
+            </label>
+            <Button disabled={busy} onClick={() => void saveSite()}>
+              Simpan konfigurasi situs
+            </Button>
           </CardContent>
         </Card>
       )}

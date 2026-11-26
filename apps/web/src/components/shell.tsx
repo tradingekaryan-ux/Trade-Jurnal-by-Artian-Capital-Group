@@ -37,6 +37,8 @@ import { HoverHint } from "./ui/tooltip";
 const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/cfd-journal", label: "CFD journal", icon: BarChart3 },
+  { href: "/charts", label: "Chart", icon: BarChart3 },
+  { href: "/prop-sim", label: "Strategy lab", icon: BarChart3 },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/journal", label: "Daily journal", icon: NotebookPen },
   { href: "/trades", label: "Trades", icon: ListOrdered },

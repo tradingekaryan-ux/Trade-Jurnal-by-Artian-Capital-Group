@@ -50,6 +50,9 @@ importers:
       '@luxalgo/journal-importers':
         specifier: workspace:*
         version: link:../../packages/importers
+      '@luxalgo/prop-firm-sim-core':
+        specifier: ^1.3.0
+        version: 1.3.0
       '@luxalgo/vela':
         specifier: ^0.6.8
         version: 0.6.8
@@ -626,6 +629,10 @@ packages:
     peerDependenciesMeta:
       react:
         optional: true
+
+  '@luxalgo/prop-firm-sim-core@1.3.0':
+    resolution: {integrity: sha512-jtP9qq3GpnGM684AaKLOSNL8TD9Sk0aIDp2wvpW5m8B7qpcS05YbaB1nCRttBOGblW9NL/V48K80nFfQHc5Q7Q==}
+    engines: {node: '>=20'}
 
   '@luxalgo/vela@0.6.8':
     resolution: {integrity: sha512-BMLIqmeXIHZCSsxh/SQFnNA1D6A/M2ENbCJjmMq03aYu2uARZjQL9EdcM8F4IGNpDusoKjDIS+D21OMpI89G4g==}
@@ -3212,6 +3219,10 @@ snapshots:
   '@luxalgo/broker-sdk@0.6.0(react@19.2.8)':
     optionalDependencies:
       react: 19.2.8
+
+  '@luxalgo/prop-firm-sim-core@1.3.0':
+    dependencies:
+      zod: 4.4.3
 
   '@luxalgo/vela@0.6.8':
     dependencies:

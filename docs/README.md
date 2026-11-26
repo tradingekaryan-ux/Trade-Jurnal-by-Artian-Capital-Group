@@ -36,3 +36,4 @@ Konsekuensi teknis dari keputusan model: tersedia tabel/halaman **Admin → Mode
 | [09 — Deployment & legalitas](09-deployment-dan-legalitas.md)       | Hosting, environment, backup, atribusi MIT & trademark                    |
 | [10 — Deployment Northflank](10-deployment-northflank.md)           | Panduan deploy pilihan: combined service, volume `/data`, environment     |
 | [11 — CFD journal](11-cfd-journal.md)                               | Sistem jurnal CFD: lot, pips, mode instrumen, running/closed, statistik   |
+| [12 — Chart Vela & Strategy Lab](12-chart-dan-strategy-lab.md)      | Chart workspace Vela + simulator prop firm berbasis parameter pengguna    |

@@ -40,3 +40,4 @@ Konsekuensi teknis dari keputusan model: tersedia tabel/halaman **Admin → Mode
 | [13 — Promo, Role & Discord](13-promo-role-discord.md)              | Halaman promo, role owner/admin/staff/company, tombol Discord             |
 | [14 — Supabase & imgdb.io](14-supabase-imgdb.md)                    | Data di Supabase Postgres, gambar di imgdb.io, akun owner                 |
 | [15 — Penghapusan & profil](15-deletion-dan-profile.md)             | Cascade delete, halaman profil foto/banner/bio, catatan hosting           |
+| [16 — Konsistensi analytics](16-consistensi-analytics.md)           | Penyatuan daily journal/trades dengan jurnal CFD/Futures/Crypto/Stock     |

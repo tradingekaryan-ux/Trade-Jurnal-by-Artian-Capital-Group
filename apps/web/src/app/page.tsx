@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useState } from "react";
+import { Suspense } from "react";
 import type {
   CalendarMonth,
   DayStats,
@@ -40,7 +40,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HelpHint, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { postJson, useApi } from "@/lib/use-api";
+import { useApi } from "@/lib/use-api";
 import type { CalendarPnlPoint } from "@/lib/calendar-insights";
 import { cn, fmtDuration, fmtMoney, fmtNumber, fmtPercent } from "@/lib/utils";
 
@@ -799,16 +799,6 @@ function Empty({ label }: { label: string }) {
 }
 
 function EmptyState() {
-  const [loadingDemo, setLoadingDemo] = useState(false);
-  const loadDemo = async () => {
-    setLoadingDemo(true);
-    try {
-      await postJson("/api/demo", {});
-      window.location.reload();
-    } catch {
-      setLoadingDemo(false);
-    }
-  };
   return (
     <div>
       <div className="flex flex-col items-center justify-center gap-3 px-4 py-24 text-center">
@@ -824,17 +814,7 @@ function EmptyState() {
           >
             Import your first trades
           </Link>
-          <button
-            onClick={loadDemo}
-            disabled={loadingDemo}
-            className="rounded-md border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
-          >
-            {loadingDemo ? "Loading…" : "Load demo data"}
-          </button>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Demo data lands in its own account; delete it anytime under Accounts.
-        </p>
       </div>
     </div>
   );

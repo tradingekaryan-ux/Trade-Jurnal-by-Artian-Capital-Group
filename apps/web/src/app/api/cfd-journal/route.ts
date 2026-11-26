@@ -2,6 +2,7 @@ import { bad, handler, ok, requireValue } from "@/server/api";
 import { newId, nowIso } from "@/server/ids";
 import { sql } from "@/server/pg";
 import { currentUser } from "@/server/auth";
+import { syncJournalsToLegacy } from "@/server/legacy-sync";
 import {
   calculateJournal,
   instrumentFor,
@@ -104,6 +105,7 @@ export const POST = handler(async (request: Request) => {
       ${openedAt},
       ${calc.status === "closed" ? (body.closedAt ? validateDate(body.closedAt, "Closed at") : timestamp) : null},
       ${typeof body.notes === "string" ? body.notes.slice(0, 100_000) : null}, '[]', ${timestamp}, ${timestamp})`;
+  await syncJournalsToLegacy(user!.id);
   return ok({ id, ...calc }, { status: 201 });
 });
 
@@ -134,6 +136,7 @@ export const PATCH = handler(async (request: Request) => {
     notes = ${typeof body.notes === "string" ? body.notes.slice(0, 100_000) : current.notes},
     updated_at = ${nowIso()}
     where id = ${body.id} and owner_id = ${user!.id}`;
+  await syncJournalsToLegacy(user!.id);
   return ok({ id: body.id, ...calc });
 });
 
@@ -146,6 +149,7 @@ export const DELETE = handler(async (request: Request) => {
   requireValue(Boolean(id) !== Boolean(mode), "Berikan id trade atau mode jurnal.");
   if (id) {
     await sql`delete from cfd_trades where id = ${id} and owner_id = ${user!.id}`;
+    await syncJournalsToLegacy(user!.id);
     return ok({ deleted: true, scope: "trade" });
   }
   requireValue(isEnabledJournalMode(mode), "Mode jurnal tidak valid.");
@@ -154,5 +158,6 @@ export const DELETE = handler(async (request: Request) => {
   for (const row of ids)
     await sql`delete from image_attachments where owner_type = 'cfd-trade' and owner_ref = ${row.id} and owner_id = ${user!.id}`;
   await sql`delete from cfd_trades where owner_id = ${user!.id} and mode = ${mode}`;
+  await syncJournalsToLegacy(user!.id);
   return ok({ deleted: true, scope: "journal", count: ids.length });
 });

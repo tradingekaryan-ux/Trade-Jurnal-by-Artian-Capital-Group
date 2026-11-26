@@ -52,7 +52,7 @@ flowchart LR
   RT --> J["Jurnal harian + voice note"]
   RT --> R["Reports + Edge Score"]
   RT --> AIR["Refleksi AI (OpenRouter)"]
-  MD["Market data provider / CSV"] --> TR["Trade replay + estimasi MAE/MFE"]
+  MD["Hyperliquid HIP-3 (indeks/komoditas/forex) / CSV"] --> TR["Trade replay + estimasi MAE/MFE"]
   RT --> TR
   PC["Prop firm ledger"] --> PF["Prop firms tracker"]
 ```

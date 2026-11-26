@@ -2,7 +2,8 @@ import { createMarketTransport, marketTransport } from "../src/server/market-dat
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { estimateExcursions } from "../src/lib/excursions";
 import { replayFrame } from "../src/lib/trade-replay";
-import { londonStrategicEdge, parseLseBars } from "../src/server/market-data/london-strategic-edge";
+import { hyperliquid } from "../src/server/market-data/hyperliquid";
+import { MAX_PAGES } from "../src/server/market-data/http";
 import type { MarketHistory } from "../src/lib/market-data";
 
 const start = Date.parse("2026-01-02T10:00:00Z");
@@ -155,142 +156,94 @@ describe("gross position excursion estimates", () => {
   });
 });
 
-describe("LSE REST contract", () => {
-  const raw = (minute: number) => ({
-    ts: at(minute).replace("T", " ").replace("Z", ""),
-    open: "100",
-    high: "104",
-    low: "98",
-    close: "102",
+describe("Hyperliquid REST contract", () => {
+  const hlCandle = (minute: number, close = "102") => ({
+    t: start + minute * 60_000,
+    T: start + minute * 60_000 + 59_999,
+    s: "xyz:SP500",
+    i: "1m",
+    o: "100",
+    h: "104",
+    l: "98",
+    c: close,
+    v: "1",
+    n: 5,
   });
-  it("normalizes UTC times, numeric prices, ordering and duplicate bars", () => {
-    const rows = parseLseBars([raw(1), raw(0), raw(0)]);
-    expect(rows.map((bar) => bar.time)).toEqual([start, start + 60_000]);
-    expect(rows[0]!.volume).toBe(0);
+  const fetchCandles = (rows: unknown[]) =>
+    vi.fn(async (_url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body)) as {
+        type: string;
+        req: { coin: string; interval: string; startTime: number; endTime: number };
+      };
+      expect(body.type).toBe("candleSnapshot");
+      expect(body.req.coin).toBe("xyz:SP500");
+      return Response.json(rows);
+    });
+  const historyRequest = (from: number, to: number) => ({
+    symbol: "xyz:SP500",
+    resolution: "1m" as const,
+    from,
+    to,
   });
-  it("rejects malformed data and conflicting duplicates", () => {
-    for (const rows of [
-      { data: [] },
-      [{ ...raw(0), open: null }],
-      [{ ...raw(0), high: 90 }],
-      [{ ...raw(0), ts: "bad" }],
-      [raw(0), { ...raw(0), close: 103 }],
-    ])
-      expect(() => parseLseBars(rows)).toThrow();
-  });
-  it("uses date-only windows, checks both ends of plan caps, and filters to the trade", async () => {
-    const fetcher = vi
-      .fn()
-      .mockResolvedValueOnce(Response.json([raw(-1), raw(0), raw(1)]))
-      .mockResolvedValueOnce(Response.json([raw(3), raw(2), raw(1)]));
-    vi.stubGlobal("fetch", fetcher);
-    const result = await londonStrategicEdge.history(
-      { symbol: "EUR/USD", resolution: "1m", from: start + 10_000, to: start + 180_000 },
-      "test-secret",
-    );
-    expect(result.bars.map((bar) => bar.time)).toEqual([start, start + 60_000, start + 120_000]);
+
+  it("normalizes string prices, ordering and duplicate bars, filtering to the trade", async () => {
+    vi.stubGlobal("fetch", fetchCandles([hlCandle(1), hlCandle(0), hlCandle(0), hlCandle(3)]));
+    const result = await hyperliquid.history(historyRequest(start + 10_000, start + 180_000), "");
+    expect(result.bars.map((bar) => bar.time)).toEqual([start, start + 60_000]);
+    expect(result.bars[0]).toMatchObject({ open: 100, high: 104, low: 98, close: 102, volume: 1 });
     expect(result.truncated).toBe(false);
-    expect(fetcher).toHaveBeenCalledTimes(2);
-    const [url, options] = fetcher.mock.calls[1]!;
-    expect(new URL(url).searchParams.get("start")).toBe("2026-01-02");
-    expect(new URL(url).searchParams.get("end")).toBe("2026-01-03");
-    expect(new URL(url).searchParams.get("order")).toBe("desc");
-    expect(new URL(url).pathname).toBe("/vault/candles");
-    expect(url).not.toContain("test-secret");
-    expect(options.headers["x-api-key"]).toBe("test-secret");
-    expect(options.redirect).toBe("error");
-    expect(JSON.stringify(result)).not.toContain("test-secret");
   });
-  it("reuses both validated daily pages across overlapping trades", async () => {
-    const fetcher = vi.fn(async () => Response.json([raw(0), raw(1), raw(2)]));
+
+  it("rejects malformed and conflicting candles", async () => {
+    vi.stubGlobal("fetch", fetchCandles([{ ...hlCandle(0), o: null }]));
+    await expect(hyperliquid.history(historyRequest(start, start + 60_000), "")).rejects.toThrow();
+    marketTransport.clear();
+    vi.stubGlobal("fetch", fetchCandles([hlCandle(0), { ...hlCandle(0), c: "103" }]));
+    await expect(hyperliquid.history(historyRequest(start, start + 60_000), "")).rejects.toThrow(
+      "Conflicting candles",
+    );
+  });
+
+  it("reuses one validated page across overlapping trades", async () => {
+    const fetcher = fetchCandles([hlCandle(0), hlCandle(1), hlCandle(2)]);
     vi.stubGlobal("fetch", fetcher);
     const histories = await Promise.all(
-      Array.from({ length: 20 }, (_, index) =>
-        londonStrategicEdge.history(
-          { symbol: "TEST", resolution: "1m", from: start + index * 1000, to: start + 180_000 },
-          "test-secret",
-        ),
+      Array.from({ length: 12 }, () =>
+        hyperliquid.history(historyRequest(start, start + 180_000), ""),
       ),
     );
-    expect(fetcher).toHaveBeenCalledTimes(2);
-    expect(histories.every((history) => history.bars.length === 3 && !history.truncated)).toBe(
-      true,
-    );
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(histories.every((item) => item.bars.length === 3 && !item.truncated)).toBe(true);
   });
-  it("marks non-overlapping capped pages and bounded date ranges as truncated", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi
-        .fn()
-        .mockResolvedValueOnce(Response.json([raw(0)]))
-        .mockResolvedValueOnce(Response.json([raw(2)])),
-    );
-    expect(
-      (
-        await londonStrategicEdge.history(
-          { symbol: "TEST", resolution: "1m", from: start, to: start + 180_000 },
-          "test-secret",
-        )
-      ).truncated,
-    ).toBe(true);
-    marketTransport.clear();
-    const fetcher = vi.fn(async (_url: string) => Response.json([]));
-    vi.stubGlobal("fetch", fetcher);
-    const result = await londonStrategicEdge.history(
-      { symbol: "TEST", resolution: "1m", from: start, to: start + 8 * 86_400_000 },
-      "test-secret",
+
+  it("marks capped history as truncated", async () => {
+    vi.stubGlobal("fetch", fetchCandles([]));
+    const result = await hyperliquid.history(
+      historyRequest(start, start + 60_000 * 5000 * (MAX_PAGES + 1)),
+      "",
     );
     expect(result.truncated).toBe(true);
-    expect(fetcher).toHaveBeenCalledTimes(12);
-    const url = String(fetcher.mock.calls.at(-1)?.[0]);
-    expect(new URL(url).searchParams.get("start")).toBe("2026-01-07");
   });
-  it("rejects out-of-window data and inconsistent overlapping pages", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => Response.json([raw(-1440)])),
-    );
-    await expect(
-      londonStrategicEdge.history(
-        { symbol: "TEST", resolution: "1m", from: start, to: start + 180_000 },
-        "test-secret",
-      ),
-    ).rejects.toThrow("outside the requested date window");
-    marketTransport.clear();
-    vi.stubGlobal(
-      "fetch",
-      vi
-        .fn()
-        .mockResolvedValueOnce(Response.json([raw(0)]))
-        .mockResolvedValueOnce(Response.json([{ ...raw(0), high: 105 }])),
-    );
-    await expect(
-      londonStrategicEdge.history(
-        { symbol: "TEST", resolution: "1m", from: start, to: start + 180_000 },
-        "test-secret",
-      ),
-    ).rejects.toThrow("Conflicting candles");
-  });
-  it("sanitizes denied access, quota failures, and transport errors", async () => {
+
+  it("sanitizes denied access and transport errors", async () => {
     for (const status of [401, 403, 429, 500]) {
       marketTransport.clear();
       vi.stubGlobal(
         "fetch",
-        vi.fn(async () => new Response("test-secret upstream detail", { status })),
+        vi.fn(async () => new Response("upstream-secret", { status })),
       );
-      await expect(londonStrategicEdge.test("test-secret")).rejects.not.toThrow("test-secret");
+      await expect(hyperliquid.test("")).rejects.not.toThrow("upstream-secret");
     }
     marketTransport.clear();
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => {
-        throw new Error("test-secret");
+        throw new Error("upstream-secret");
       }),
     );
-    await expect(londonStrategicEdge.test("test-secret")).rejects.toThrow("failed or timed out");
+    await expect(hyperliquid.test("")).rejects.toThrow("failed or timed out");
   });
 });
-
 describe("replay without future chart data", () => {
   it("reveals only completed candles and executions through the cursor, and rewinds", () => {
     const fills = [fill(0.5, "buy", 10, 100), fill(2.5, "sell", 10, 102)];

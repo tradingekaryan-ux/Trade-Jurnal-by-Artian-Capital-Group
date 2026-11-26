@@ -21,7 +21,7 @@ const session = vi.hoisted(() => ({ token: undefined as string | undefined }));
 vi.mock("next/headers", () => ({
   cookies: async () => ({ get: () => (session.token ? { value: session.token } : undefined) }),
 }));
-const id = "london-strategic-edge";
+const id = "hyperliquid";
 const request = (body: unknown) =>
   new Request("http://localhost/api/market-data/connections", {
     method: "POST",
@@ -34,22 +34,13 @@ beforeEach(() => {
   db.delete(trades).run();
   db.delete(executions).run();
   db.delete(accounts).run();
-  for (const name of [
-    "LSE_API_KEY",
-    "ALPACA_API_KEY",
-    "ALPACA_SECRET_KEY",
-    "OANDA_API_TOKEN",
-    "OANDA_ACCOUNT_ID",
-    "OANDA_ENVIRONMENT",
-  ])
-    vi.stubEnv(name, "");
   vi.stubEnv("JOURNAL_PASSWORD", "");
 });
 
 describe("trade history endpoint", () => {
   const body = {
-    provider: "london-strategic-edge",
-    symbol: "TEST",
+    provider: "hyperliquid",
+    symbol: "xyz:SP500",
     resolution: "1m",
     basisConfirmed: true,
   };
@@ -85,18 +76,23 @@ describe("trade history endpoint", () => {
   }
   it("loads candles and estimates without changing journal facts or exposing credentials", async () => {
     const key = seed();
-    saveConnection(id, "fixture-key-only");
+    saveConnection(id, "enabled");
     const before = db.select().from(trades).all();
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
         Response.json(
           [0, 1, 2].map((minute) => ({
-            ts: `2026-01-02 10:0${minute}:00`,
-            open: 100,
-            low: 98,
-            high: 104,
-            close: 102,
+            t: Date.parse(`2026-01-02T10:0${minute}:00Z`),
+            T: Date.parse(`2026-01-02T10:0${minute}:00Z`) + 59_999,
+            s: "xyz:SP500",
+            i: "1m",
+            o: "100",
+            h: "104",
+            l: "98",
+            c: "102",
+            v: "1",
+            n: 5,
           })),
         ),
       ),
@@ -170,15 +166,24 @@ describe("trade history endpoint", () => {
     expect(imported.datasets).toMatchObject([{ symbol: "TEST", count: 3 }]);
     expect(connections().find((item) => item.id === "market-csv")?.configured).toBe(true);
     const history = await (
-      await loadHistory(request({ ...body, provider: "market-csv", dataset: imported.id }), {
-        params: Promise.resolve({ key }),
-      })
+      await loadHistory(
+        request({ ...body, provider: "market-csv", symbol: "TEST", dataset: imported.id }),
+        {
+          params: Promise.resolve({ key }),
+        },
+      )
     ).json();
     expect(history.bars).toHaveLength(3);
     expect(history.estimate).toMatchObject({ mae: 20, mfe: 40 });
     const compact = await (
       await loadHistory(
-        request({ ...body, provider: "market-csv", dataset: imported.id, estimateOnly: true }),
+        request({
+          ...body,
+          provider: "market-csv",
+          symbol: "TEST",
+          dataset: imported.id,
+          estimateOnly: true,
+        }),
         {
           params: Promise.resolve({ key }),
         },
@@ -214,9 +219,12 @@ describe("trade history endpoint", () => {
       )
     ).json();
     const history = await (
-      await loadHistory(request({ ...body, provider: "market-csv", dataset: imported.id }), {
-        params: Promise.resolve({ key }),
-      })
+      await loadHistory(
+        request({ ...body, provider: "market-csv", symbol: "TEST", dataset: imported.id }),
+        {
+          params: Promise.resolve({ key }),
+        },
+      )
     ).json();
     expect(history.bars).toHaveLength(2);
     expect(history.estimate.mae).toBeNull();
@@ -350,142 +358,57 @@ afterAll(() => {
   rmSync(scratch, { recursive: true, force: true });
 });
 
-describe("market data credential lifecycle", () => {
-  it("starts with every source disabled and makes no provider requests", async () => {
+describe("market data connection lifecycle", () => {
+  it("starts with Hyperliquid disabled and no CSV datasets, without any request", async () => {
     const fetcher = vi.fn();
     vi.stubGlobal("fetch", fetcher);
     const state = connections();
-    expect(state).toHaveLength(6);
+    expect(state).toHaveLength(2);
+    expect(state.map((item) => item.id).sort()).toEqual(["hyperliquid", "market-csv"]);
     expect(state.every((item) => !item.configured && item.source === null)).toBe(true);
-    expect(state.map((item) => item.name)).toEqual(
-      state.map((item) => item.name).sort((a, b) => a.localeCompare(b)),
-    );
-    const response = await GET();
-    expect(response.status).toBe(200);
-    for (const id of ["london-strategic-edge", "alpaca", "binance", "coinbase", "oanda"])
-      expect(() => connectionKey(id)).toThrow();
+    expect((await GET()).status).toBe(200);
+    expect(() => connectionKey("hyperliquid")).toThrow("Enable");
     expect(fetcher).not.toHaveBeenCalled();
   });
 
-  it("encrypts saved keys and never returns them from status or save responses", async () => {
-    const response = await POST(
-      request({ provider: id, action: "save", apiKey: "fixture-key-only" }),
-    );
-    expect(response.status).toBe(200);
-    expect(await response.text()).not.toContain("fixture-key-only");
-    expect(JSON.stringify(db.select().from(settings).all())).not.toContain("fixture-key-only");
-    expect(connectionKey(id)).toBe("fixture-key-only");
-    expect(await (await GET()).json()).toEqual({
-      connections: expect.arrayContaining([
-        { id, name: "London Strategic Edge", configured: true, source: "saved" },
-      ]),
-    });
-    expect((await POST(request({ provider: id, action: "remove" }))).status).toBe(200);
-    expect(connections()[0]?.configured).toBe(false);
-    expect(() => connectionKey(id)).toThrow("Add a market data API key");
-  });
-  it("encrypts multi-field credentials, validates complete sets and leaves partial environment configs unavailable", async () => {
+  it("enables the public Hyperliquid feed explicitly without keys or secrets", async () => {
     expect(
-      (
-        await POST(
-          request({ provider: "alpaca", action: "save", credentials: { apiKey: "fixture-id" } }),
-        )
-      ).status,
+      (await POST(request({ provider: "hyperliquid", action: "save", apiKey: "unused" }))).status,
     ).toBe(400);
-    const response = await POST(
-      request({
-        provider: "alpaca",
-        action: "save",
-        credentials: { apiKey: "fixture-id", secretKey: "fixture-secret" },
-      }),
-    );
-    expect(response.status).toBe(200);
-    expect(await response.text()).not.toContain("fixture-secret");
-    expect(JSON.stringify(db.select().from(settings).all())).not.toContain("fixture-secret");
-    expect(JSON.parse(connectionKey("alpaca"))).toEqual({
-      apiKey: "fixture-id",
-      secretKey: "fixture-secret",
-    });
-    vi.stubEnv("ALPACA_API_KEY", "environment-fixture");
-    expect(connections().find((item) => item.id === "alpaca")).toMatchObject({
-      configured: false,
-      source: "environment",
-    });
-    expect(() => connectionKey("alpaca")).toThrow("Complete all");
-    expect((await POST(request({ provider: "alpaca", action: "remove" }))).status).toBe(400);
-    expect(
-      (
-        await POST(
-          request({
-            provider: "oanda",
-            action: "save",
-            credentials: { apiKey: "fixture-token", accountId: "001-123", environment: "other" },
-          }),
-        )
-      ).status,
-    ).toBe(400);
-    expect(
-      (
-        await POST(
-          request({
-            provider: "oanda",
-            action: "save",
-            credentials: { apiKey: "fixture-token", accountId: "001-123", environment: "practice" },
-          }),
-        )
-      ).status,
-    ).toBe(200);
-  });
-  it("enables and disables public sources explicitly without accepting unnecessary secrets", async () => {
-    expect(() => connectionKey("binance")).toThrow("Enable");
-    expect(
-      (await POST(request({ provider: "binance", action: "save", apiKey: "unused-secret" })))
-        .status,
-    ).toBe(400);
-    expect((await POST(request({ provider: "binance", action: "enable" }))).status).toBe(200);
-    expect(connectionKey("binance")).toBe("");
-    expect(connections().find((item) => item.id === "binance")).toMatchObject({
+    expect((await POST(request({ provider: "hyperliquid", action: "enable" }))).status).toBe(200);
+    expect(connectionKey("hyperliquid")).toBe("");
+    expect(connections().find((item) => item.id === "hyperliquid")).toMatchObject({
       configured: true,
       source: "public",
     });
-    expect((await POST(request({ provider: "binance", action: "remove" }))).status).toBe(200);
-    expect(() => connectionKey("binance")).toThrow("Enable");
+    expect((await POST(request({ provider: "hyperliquid", action: "remove" }))).status).toBe(200);
+    expect(() => connectionKey("hyperliquid")).toThrow("Enable");
   });
-  it("honors environment precedence and refuses misleading saves or removals", async () => {
-    saveConnection(id, "saved-fixture");
-    vi.stubEnv("LSE_API_KEY", "environment-fixture");
-    expect(connectionKey(id)).toBe("environment-fixture");
-    expect(connections().find((item) => item.id === id)?.source).toBe("environment");
-    expect((await POST(request({ provider: id, action: "remove" }))).status).toBe(400);
-    expect(
-      (await POST(request({ provider: id, action: "save", apiKey: "replacement" }))).status,
-    ).toBe(400);
-  });
-  it("validates input before changing credentials", async () => {
-    for (const apiKey of [null, "", " ", 42, "a\nb", "a".repeat(4097)])
-      expect((await POST(request({ provider: id, action: "save", apiKey }))).status).toBe(400);
+
+  it("rejects unknown providers and invalid actions", async () => {
     expect((await POST(request({ provider: "unknown", action: "remove" }))).status).toBe(400);
-    expect(connections()[0]?.configured).toBe(false);
+    expect((await POST(request({ provider: "hyperliquid", action: "restart" }))).status).toBe(400);
+    expect(connections().every((item) => !item.configured)).toBe(true);
   });
-  it("tests access only on request and does not relay upstream details", async () => {
-    const fetcher = vi.fn(async () => new Response("fixture-key-only", { status: 403 }));
+
+  it("tests access only on request and never relays upstream details", async () => {
+    const fetcher = vi.fn(async () => new Response("fixture-upstream-secret", { status: 403 }));
     vi.stubGlobal("fetch", fetcher);
-    saveConnection(id, "fixture-key-only");
+    saveConnection("hyperliquid", "enabled");
     expect(fetcher).not.toHaveBeenCalled();
-    const response = await POST(request({ provider: id, action: "test" }));
+    const response = await POST(request({ provider: "hyperliquid", action: "test" }));
     expect(response.status).toBe(400);
-    expect(await response.text()).not.toContain("fixture-key-only");
+    expect(await response.text()).not.toContain("fixture-upstream-secret");
     expect(fetcher.mock.calls).toHaveLength(1);
   });
+
   it("uses the app's authentication gate for reads and writes", async () => {
     vi.stubEnv("JOURNAL_PASSWORD", "fixture-password");
     expect((await GET()).status).toBe(401);
     expect((await listCsv()).status).toBe(401);
     expect((await csvRequest(request({ action: "remove", id: "anything" }))).status).toBe(401);
-    expect(
-      (await POST(request({ provider: id, action: "save", apiKey: "fixture-key" }))).status,
-    ).toBe(401);
-    expect(connections()[0]?.configured).toBe(false);
+    expect((await POST(request({ provider: "hyperliquid", action: "enable" }))).status).toBe(401);
+    expect(connections().every((item) => !item.configured)).toBe(true);
   });
 });
 

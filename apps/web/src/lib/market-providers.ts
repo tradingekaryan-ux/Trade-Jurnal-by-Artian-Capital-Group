@@ -7,6 +7,15 @@ export interface CredentialField {
   options?: { value: string; label: string }[];
   defaultValue?: string;
 }
+
+export type TradFiGroup = "Indeks" | "Komoditas" | "Forex";
+
+export interface ProviderSymbol {
+  value: string;
+  label: string;
+  group: TradFiGroup;
+}
+
 export interface ProviderInfo {
   id: string;
   name: string;
@@ -16,86 +25,59 @@ export interface ProviderInfo {
   fields: CredentialField[];
   datasets?: { value: string; label: string }[];
   resolutions?: Resolution[];
+  symbols?: ProviderSymbol[];
 }
+
+/**
+ * Hyperliquid HIP-3 tradfi markets only: indices, commodities and forex.
+ * The full `dex:ticker` name is required by the API and is case-sensitive.
+ * Other HIP-3 categories (stocks, ETFs, pre-IPO, rates, crypto) are excluded.
+ */
+export const HYPERLIQUID_TRADFI_SYMBOLS: ProviderSymbol[] = [
+  { value: "xyz:SP500", label: "S&P 500", group: "Indeks" },
+  { value: "xyz:XYZ100", label: "US 100", group: "Indeks" },
+  { value: "xyz:JP225", label: "Nikkei 225", group: "Indeks" },
+  { value: "xyz:KR200", label: "KOSPI 200", group: "Indeks" },
+  { value: "xyz:NIFTY", label: "NIFTY 50", group: "Indeks" },
+  { value: "xyz:GOLD", label: "Gold", group: "Komoditas" },
+  { value: "xyz:SILVER", label: "Silver", group: "Komoditas" },
+  { value: "xyz:COPPER", label: "Copper", group: "Komoditas" },
+  { value: "xyz:PLATINUM", label: "Platinum", group: "Komoditas" },
+  { value: "xyz:PALLADIUM", label: "Palladium", group: "Komoditas" },
+  { value: "xyz:CL", label: "WTI Crude Oil", group: "Komoditas" },
+  { value: "xyz:BRENTOIL", label: "Brent Crude Oil", group: "Komoditas" },
+  { value: "xyz:NATGAS", label: "Natural Gas", group: "Komoditas" },
+  { value: "xyz:HO", label: "Heating Oil", group: "Komoditas" },
+  { value: "xyz:EUR", label: "EUR / USD", group: "Forex" },
+  { value: "xyz:JPY", label: "USD / JPY", group: "Forex" },
+  { value: "xyz:GBP", label: "GBP / USD", group: "Forex" },
+];
+
+export const isTradFiSymbol = (value: unknown): value is string =>
+  typeof value === "string" && HYPERLIQUID_TRADFI_SYMBOLS.some((item) => item.value === value);
+
 export const MARKET_PROVIDERS: ProviderInfo[] = [
   {
-    id: "london-strategic-edge",
-    name: "London Strategic Edge",
-    mode: "credentials",
-    description:
-      "Historical candles. Stock and ETF prices are split adjusted; coverage depends on your plan.",
-    symbolHint: "Use the exact provider symbol, including the futures contract or currency pair.",
-    fields: [{ key: "apiKey", label: "API key", environmentKey: "LSE_API_KEY" }],
-  },
-  {
-    id: "alpaca",
-    name: "Alpaca",
-    mode: "credentials",
-    description:
-      "US stocks and crypto. Choose a stock or crypto feed; SIP requires appropriate data access. Stock prices are unadjusted.",
-    symbolHint: "Stocks: AAPL. Crypto: BTC/USD; choose the Crypto dataset.",
-    fields: [
-      { key: "apiKey", label: "Key ID", environmentKey: "ALPACA_API_KEY" },
-      { key: "secretKey", label: "Secret key", environmentKey: "ALPACA_SECRET_KEY" },
-    ],
-    datasets: [
-      { value: "", label: "Choose a data feed" },
-      { value: "iex", label: "IEX stocks" },
-      { value: "sip", label: "SIP stocks" },
-      { value: "crypto", label: "Crypto (US)" },
-    ],
-  },
-  {
-    id: "binance",
-    name: "Binance",
+    id: "hyperliquid",
+    name: "Hyperliquid TradFi",
     mode: "public",
     description:
-      "Public Binance spot candles. No API key required. Availability depends on your region and the listed pair.",
+      "Candle HIP-3 (perpetual) dari Hyperliquid untuk indeks, komoditas, dan forex. Tanpa API key.",
     symbolHint:
-      "Spot pairs use BTCUSDT or ETHUSDT. USDT is not USD; account and quote currencies must match for estimates.",
+      "Pilih simbol HIP-3 lengkap, misalnya xyz:SP500, xyz:GOLD, atau xyz:EUR. Simbol lain tidak didukung.",
     fields: [],
-  },
-  {
-    id: "coinbase",
-    name: "Coinbase",
-    mode: "public",
-    description:
-      "Public Coinbase Exchange spot candles. No API key required; intervals without trades may have no candle.",
-    symbolHint: "Use a Coinbase Exchange product such as BTC-USD or ETH-USD.",
-    fields: [],
-  },
-  {
-    id: "oanda",
-    name: "OANDA",
-    mode: "credentials",
-    description:
-      "Forex and CFD candles from your v20 account. Midpoint prices, UTC-aligned bars and tick-count volume; no spread or FX conversion is included.",
-    symbolHint:
-      "Use an OANDA instrument such as EUR_USD. Set the contract multiplier in Settings to match the units in your fills.",
-    fields: [
-      { key: "apiKey", label: "Access token", environmentKey: "OANDA_API_TOKEN" },
-      { key: "accountId", label: "v20 account ID", environmentKey: "OANDA_ACCOUNT_ID" },
-      {
-        key: "environment",
-        label: "Environment",
-        environmentKey: "OANDA_ENVIRONMENT",
-        defaultValue: "practice",
-        options: [
-          { value: "practice", label: "Practice" },
-          { value: "live", label: "Live" },
-        ],
-      },
-    ],
+    symbols: HYPERLIQUID_TRADFI_SYMBOLS,
   },
   {
     id: "market-csv",
     name: "Market data CSV",
     mode: "csv",
     description:
-      "Local OHLCV candle files. Upload market prices separately from your trade executions.",
+      "File OHLCV lokal. Bukan data feed; dipakai hanya bila candle Hyperliquid tidak mencakup periode trade.",
     symbolHint:
-      "Use the exact symbol and resolution recorded for the uploaded file. Select a dataset when files overlap.",
+      "Gunakan simbol dan resolusi persis seperti pada file yang diunggah. Pilih dataset bila ada beberapa file.",
     fields: [],
   },
 ];
+
 export const providerInfo = (id: string) => MARKET_PROVIDERS.find((item) => item.id === id);

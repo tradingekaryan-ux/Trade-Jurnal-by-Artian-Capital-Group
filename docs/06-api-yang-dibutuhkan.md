@@ -1,14 +1,15 @@
 # 06 — API yang dibutuhkan
 
-> **Tidak ada fitur opsional tambahan yang dipasang.** Aplikasi hanya berisi fitur inti dari library upstream, autentikasi username/password, dan integrasi OpenRouter. Tidak ada CAPTCHA, monitoring pihak ketiga, email, atau pembayaran.
+> **Tidak ada fitur opsional tambahan yang dipasang.** Aplikasi hanya berisi fitur inti dari library upstream, autentikasi username/password, integrasi OpenRouter, dan data feed Hyperliquid untuk indeks/komoditas/forex. Tidak ada CAPTCHA, monitoring pihak ketiga, email, atau pembayaran.
 
 ## 1. Wajib
 
-| #   | Kredensial / Infrastruktur                        | Fungsi                                                                                      | Catatan                                                                                                  |
-| --- | ------------------------------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| 1   | **OpenRouter API key** — satu atau beberapa kunci | Seluruh fitur AI: ringkasan sesi, kritik trade, "ask your journal", dan AI statement import | Dibaca hanya oleh server. Kunci **tidak pernah** dikirim ke browser atau disimpan di source code/GitHub. |
-| 2   | **Server Node.js 22+ dengan disk persisten**      | Menjalankan aplikasi & menyimpan SQLite                                                     | `pnpm` 11.0.8. Platform tanpa disk persisten tidak cocok. HTTPS disarankan untuk cookie `Secure`.        |
-| 3   | `AUTH_SECRET`                                     | Menandatangani cookie session                                                               | Wajib di produksi. Nilai berbeda untuk tiap deployment.                                                  |
+| #   | Kredensial / Infrastruktur                        | Fungsi                                                                                      | Catatan                                                                                                                                                         |
+| --- | ------------------------------------------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **OpenRouter API key** — satu atau beberapa kunci | Seluruh fitur AI: ringkasan sesi, kritik trade, "ask your journal", dan AI statement import | Dibaca hanya oleh server. Kunci **tidak pernah** dikirim ke browser atau disimpan di source code/GitHub.                                                        |
+| 2   | **Server Node.js 22+ dengan disk persisten**      | Menjalankan aplikasi & menyimpan SQLite                                                     | `pnpm` 11.0.8. Platform tanpa disk persisten tidak cocok. HTTPS disarankan untuk cookie `Secure`.                                                               |
+| 3   | `AUTH_SECRET`                                     | Menandatangani cookie session                                                               | Wajib di produksi. Nilai berbeda untuk tiap deployment.                                                                                                         |
+| 4   | **Hyperliquid public API**                        | Data harga & chart candle untuk indeks, komoditas, dan forex                                | `https://api.hyperliquid.xyz/info`, endpoint `candleSnapshot` (HIP-3). **Tanpa API key**. Simbol lain tidak didukung; lihat [`market-data.md`](market-data.md). |
 
 Variabel pendukung: `SITE_URL` (dikirim sebagai `HTTP-Referer` ke OpenRouter), `OPENROUTER_BASE_URL` (default `https://openrouter.ai/api/v1`), `JOURNAL_SECRET` (enkripsi kredensial), `ADMIN_USERNAME` (opsional).
 

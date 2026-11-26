@@ -10,7 +10,7 @@ import {
   type Resolution,
   type TradeMarketResult,
 } from "@/lib/market-data";
-import { providerInfo } from "@/lib/market-providers";
+import { HYPERLIQUID_TRADFI_SYMBOLS, providerInfo } from "@/lib/market-providers";
 import type { MarketCsvDataset } from "@/lib/market-csv";
 import { replayFrame } from "@/lib/trade-replay";
 import { useApi } from "@/lib/use-api";
@@ -39,7 +39,7 @@ export function TradeMarketData({
   );
   const available = connections?.connections.filter((connection) => connection.configured) ?? [];
   const [provider, setProvider] = useState("");
-  const [symbol, setSymbol] = useState(trade.symbol);
+  const [symbol, setSymbol] = useState(HYPERLIQUID_TRADFI_SYMBOLS[0]?.value ?? trade.symbol);
   const [dataset, setDataset] = useState("");
   const [resolution, setResolution] = useState<Resolution>("1m");
   const info = providerInfo(provider);
@@ -145,16 +145,37 @@ export function TradeMarketData({
                     </OptionSelect>
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="market-symbol">Provider symbol</Label>
-                    <Input
-                      id="market-symbol"
-                      value={symbol}
-                      onChange={(event) => {
-                        invalidate();
-                        setSymbol(event.target.value);
-                        setConfirmed(false);
-                      }}
-                    />
+                    <Label htmlFor="market-symbol">
+                      {info?.symbols ? "Simbol Hyperliquid TradFi" : "Provider symbol"}
+                    </Label>
+                    {info?.symbols ? (
+                      <OptionSelect
+                        id="market-symbol"
+                        value={symbol}
+                        disabled={busy}
+                        onValueChange={(value) => {
+                          invalidate();
+                          setSymbol(value);
+                          setConfirmed(false);
+                        }}
+                      >
+                        {info.symbols.map((item) => (
+                          <option key={item.value} value={item.value}>
+                            [{item.group}] {item.label} · {item.value}
+                          </option>
+                        ))}
+                      </OptionSelect>
+                    ) : (
+                      <Input
+                        id="market-symbol"
+                        value={symbol}
+                        onChange={(event) => {
+                          invalidate();
+                          setSymbol(event.target.value);
+                          setConfirmed(false);
+                        }}
+                      />
+                    )}
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor="market-resolution">Candle resolution</Label>
@@ -173,9 +194,7 @@ export function TradeMarketData({
                       ))}
                     </OptionSelect>
                   </div>
-                  {(info?.datasets ||
-                    info?.mode === "csv" ||
-                    info?.id === "london-strategic-edge") && (
+                  {(info?.datasets || info?.mode === "csv") && (
                     <div className="space-y-1">
                       <Label htmlFor="market-dataset">Data feed / dataset</Label>
                       {info?.datasets || info?.mode === "csv" ? (

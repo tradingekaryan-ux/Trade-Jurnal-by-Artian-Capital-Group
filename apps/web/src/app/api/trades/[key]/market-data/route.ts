@@ -60,21 +60,10 @@ export const POST = handler(
     );
     try {
       const provider = providerFor(body.provider);
-      if (["binance", "coinbase"].includes(provider.id))
+      if (provider.id === "hyperliquid")
         requireValue(
-          row.assetClass == null || row.assetClass === "crypto",
-          "This provider supplies spot crypto candles only. Choose a crypto trade.",
-        );
-      if (provider.id === "alpaca")
-        requireValue(
-          row.assetClass == null ||
-            (body.dataset === "crypto" ? row.assetClass === "crypto" : row.assetClass === "equity"),
-          "Choose the Alpaca dataset that matches this trade's asset class.",
-        );
-      if (provider.id === "oanda")
-        requireValue(
-          row.assetClass == null || ["forex", "cfd"].includes(row.assetClass),
-          "OANDA supports forex and CFD instruments.",
+          row.assetClass !== "crypto",
+          "Hyperliquid TradFi hanya mencakup indeks, komoditas, dan forex. Pilih simbol HIP-3 yang sesuai.",
         );
       const trade = rowToTrade(row);
       const fingerprint = estimateFingerprint(trade);

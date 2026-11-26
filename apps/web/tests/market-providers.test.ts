@@ -1,166 +1,111 @@
-import { createMarketTransport, marketTransport } from "../src/server/market-data/transport";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { alpaca } from "../src/server/market-data/alpaca";
-import { binance, coinbase } from "../src/server/market-data/public-crypto";
-import { oanda } from "../src/server/market-data/oanda";
+import { marketTransport } from "../src/server/market-data/transport";
+import { hyperliquid } from "../src/server/market-data/hyperliquid";
 import { parseMarketCsv } from "../src/lib/market-csv";
-import { MAX_PAGES, readJson } from "../src/server/market-data/http";
-const from = Date.parse("2025-03-03T14:30:00Z");
-const request = { from, to: from + 120000, symbol: "BTC-USD", resolution: "1m" as const };
-const candle = { t: new Date(from).toISOString(), o: 100, h: 105, l: 95, c: 102, v: 1000 };
-afterEach(() => vi.unstubAllGlobals());
+import { MAX_PAGES, readPostJson } from "../src/server/market-data/http";
 
-describe("market data adapters", () => {
-  it("requires an explicit Alpaca feed before requesting prices", async () => {
+const from = Date.parse("2025-03-03T14:30:00Z");
+const request = {
+  from,
+  to: from + 120_000,
+  symbol: "xyz:SP500",
+  resolution: "1m" as const,
+};
+const hlCandle = (time: number) => ({
+  t: time,
+  T: time + 59_999,
+  s: "xyz:SP500",
+  i: "1m",
+  o: "100",
+  h: "105",
+  l: "95",
+  c: "102",
+  v: "4",
+  n: 10,
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  marketTransport.clear();
+});
+beforeEach(() => marketTransport.clear());
+
+describe("Hyperliquid TradFi adapter", () => {
+  it("rejects symbols outside indices, commodities and forex without a request", async () => {
     const fetcher = vi.fn();
     vi.stubGlobal("fetch", fetcher);
-    await expect(alpaca.history({ ...request, symbol: "AAPL" }, "{}")).rejects.toThrow(
-      "Choose IEX, SIP or Crypto",
-    );
+    for (const symbol of ["BTC", "xyz:NVDA", "xyz:10Y", "xyz:SP500 "]) {
+      await expect(hyperliquid.history({ ...request, symbol }, "")).rejects.toThrow(
+        "Only Hyperliquid HIP-3 indices, commodities and forex",
+      );
+    }
     expect(fetcher).not.toHaveBeenCalled();
   });
 
-  it("paginates Alpaca even when a page is short and keeps secrets in headers", async () => {
-    const fetcher = vi
-      .fn(async () => Response.json({ symbol: "AAPL", bars: [candle], next_page_token: "next" }))
-      .mockImplementationOnce(async () =>
-        Response.json({ symbol: "AAPL", bars: [candle], next_page_token: "next" }),
-      )
-      .mockImplementationOnce(async () =>
-        Response.json({
-          symbol: "AAPL",
-          bars: [{ ...candle, t: new Date(from + 60000).toISOString() }],
-          next_page_token: null,
-        }),
-      );
+  it("requests the full HIP-3 coin and normalizes string candles", async () => {
+    const fetcher = vi.fn(async (_url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body)) as {
+        type: string;
+        req: { coin: string; interval: string; startTime: number; endTime: number };
+      };
+      expect(body.type).toBe("candleSnapshot");
+      expect(body.req).toMatchObject({ coin: "xyz:SP500", interval: "1m" });
+      return Response.json([hlCandle(from), hlCandle(from + 60_000)]);
+    });
     vi.stubGlobal("fetch", fetcher);
-    const data = await alpaca.history(
-      { ...request, symbol: "AAPL", dataset: "iex" },
-      JSON.stringify({ apiKey: "fixture-id", secretKey: "fixture-secret" }),
-    );
+    const data = await hyperliquid.history({ ...request, symbol: "xyz:SP500" }, "");
+    expect(data.provider).toBe("Hyperliquid TradFi");
+    expect(data.quoteCurrency).toBe("USD");
     expect(data.bars).toHaveLength(2);
-    expect(data.truncated).toBe(false);
-    expect(data.quoteCurrency).toBe("USD");
-    const calls = fetcher.mock.calls as unknown as [string, RequestInit][];
-    expect(calls[1]![0]).toContain("page_token=next");
-    expect(calls[0]![0]).toContain("adjustment=raw");
-    expect(calls[0]![1]).toMatchObject({
-      redirect: "error",
-      headers: { "APCA-API-SECRET-KEY": "fixture-secret" },
+    expect(data.bars[0]).toMatchObject({
+      time: from,
+      open: 100,
+      high: 105,
+      low: 95,
+      close: 102,
+      volume: 4,
     });
-    expect(calls.map((call) => call[0]).join()).not.toContain("fixture");
+    expect(fetcher.mock.calls[0]![0]).toBe("https://api.hyperliquid.xyz/info");
+    expect(fetcher.mock.calls[0]![1]).toMatchObject({ method: "POST" });
   });
-  it("selects Alpaca crypto bars by exact symbol", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
-        Response.json({
-          bars: { "BTC/USD": [candle], "ETH/USD": [{ ...candle, o: 2 }] },
-          next_page_token: null,
-        }),
-      ),
-    );
-    const data = await alpaca.history(
-      { ...request, symbol: "BTC/USD", dataset: "crypto" },
-      JSON.stringify({ apiKey: "fixture", secretKey: "secret" }),
-    );
-    expect(data.bars[0]!.open).toBe(100);
-    expect(data.quoteCurrency).toBe("USD");
-  });
-  it("rejects repeating Alpaca page tokens", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => Response.json({ bars: [], next_page_token: "same" })),
-    );
-    await expect(
-      alpaca.history({ ...request, symbol: "AAPL", dataset: "iex" }, "{}"),
-    ).rejects.toThrow("pagination");
-  });
-  it("normalizes Coinbase reverse order and paginates under 300 candles", async () => {
-    const fetcher = vi.fn(async (url: string) => {
-      const start = Date.parse(new URL(url).searchParams.get("start")!);
-      return Response.json([
-        [start / 1000 + 60, 99, 105, 100, 104, 5],
-        [start / 1000, 98, 102, 100, 101, 2],
-      ]);
-    });
-    vi.stubGlobal("fetch", fetcher);
-    const data = await coinbase.history({ ...request, to: from + 301 * 60000 }, "");
-    expect(fetcher).toHaveBeenCalledTimes(2);
-    expect(data.bars).toHaveLength(4);
-    expect(data.bars[0]).toMatchObject({ time: from, open: 100, high: 102, low: 98 });
-    expect(data.quoteCurrency).toBe("USD");
-    expect(data.truncated).toBe(false);
-  });
-  it("caps long history and marks it truncated instead of estimating from an unfinished request", async () => {
+
+  it("paginates at the 5000-candle API cap and marks uncovered history truncated", async () => {
     const fetcher = vi.fn(async () => Response.json([]));
     vi.stubGlobal("fetch", fetcher);
-    const data = await coinbase.history(
-      { ...request, to: from + 60_000 * 299 * (MAX_PAGES + 1) },
+    const data = await hyperliquid.history(
+      { ...request, to: from + 60_000 * 5000 * (MAX_PAGES + 1) },
       "",
     );
     expect(fetcher).toHaveBeenCalledTimes(MAX_PAGES);
     expect(data.truncated).toBe(true);
   });
-  it("uses Binance's public data host and preserves the quote asset", async () => {
-    const fetcher = vi.fn(async (url: string) =>
-      Response.json(
-        url.includes("exchangeInfo")
-          ? { symbols: [{ symbol: "BTCUSDT", quoteAsset: "USDT" }] }
-          : [[from, "100", "105", "95", "102", "4"]],
-      ),
-    );
+
+  it("refuses a dataset override", async () => {
+    const fetcher = vi.fn();
     vi.stubGlobal("fetch", fetcher);
-    const data = await binance.history({ ...request, symbol: "BTCUSDT" }, "");
-    expect(data.quoteCurrency).toBe("USDT");
-    expect(data.bars[0]!.time).toBe(from);
-    expect(
-      fetcher.mock.calls.every(([url]) => url.startsWith("https://data-api.binance.vision/")),
-    ).toBe(true);
+    await expect(hyperliquid.history({ ...request, dataset: "x" }, "")).rejects.toThrow(
+      "leave the dataset blank",
+    );
+    expect(fetcher).not.toHaveBeenCalled();
   });
-  it("uses OANDA practice/live candle endpoints, midpoint prices and completed candles only", async () => {
-    const fetcher = vi.fn(async () =>
-      Response.json({
-        instrument: "EUR_USD",
-        granularity: "M1",
-        candles: [
-          {
-            complete: true,
-            time: candle.t,
-            mid: { o: "1.1", h: "1.2", l: "1.0", c: "1.15" },
-            volume: 30,
-          },
-          { complete: false, time: new Date(from + 60000).toISOString() },
-        ],
-      }),
-    );
-    vi.stubGlobal("fetch", fetcher);
-    const data = await oanda.history(
-      { ...request, symbol: "EUR_USD" },
-      JSON.stringify({ apiKey: "fixture-token", accountId: "001-123", environment: "practice" }),
-    );
-    expect(data.bars).toHaveLength(1);
-    expect(data.quoteCurrency).toBe("USD");
-    const calls = fetcher.mock.calls as unknown as [string, RequestInit][];
-    expect(calls[0]![0]).toContain(
-      "api-fxpractice.oanda.com/v3/accounts/001-123/instruments/EUR_USD/candles",
-    );
-    expect(calls[0]![0]).toContain("alignmentTimezone=UTC");
-    expect(calls[0]![1].headers).toMatchObject({ Authorization: "Bearer fixture-token" });
-  });
-  it("does not relay upstream error bodies or credentials", async () => {
+
+  it("sanitizes upstream errors without relaying the body", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => new Response("fixture-secret-token", { status: 403 })),
+      vi.fn(async () => new Response("fixture-secret", { status: 403 })),
     );
-    await expect(readJson("https://data.alpaca.markets/test")).rejects.toThrow("access denied");
+    await expect(
+      readPostJson("https://api.hyperliquid.xyz/info", { type: "perpDexs" }),
+    ).rejects.toThrow("access denied");
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => {
-        throw new Error("fixture-secret-token");
+        throw new Error("fixture-secret");
       }),
     );
-    await expect(readJson("https://data.alpaca.markets/test")).rejects.toThrow("timed out");
+    await expect(
+      readPostJson("https://api.hyperliquid.xyz/info", { type: "perpDexs" }),
+    ).rejects.toThrow("timed out");
   });
 });
 
@@ -174,7 +119,7 @@ describe("market CSV parser", () => {
     );
     expect(bars).toHaveLength(2);
     expect(bars[0]!.time).toBe(from);
-    expect(bars[1]!.time).toBe(from + 60000);
+    expect(bars[1]!.time).toBe(from + 60_000);
   });
   it("accepts missing volume and quoted numeric fields", () => {
     expect(
@@ -204,7 +149,3 @@ describe("market CSV parser", () => {
     ).toThrow("open");
   });
 });
-
-afterEach(() => marketTransport.clear());
-
-beforeEach(() => Object.assign(marketTransport, createMarketTransport({ minIntervalMs: 0 })));

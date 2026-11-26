@@ -2,20 +2,12 @@ import { decryptJson, encryptJson } from "@/server/crypto";
 import { deleteSetting, getSetting, setSetting } from "@/server/settings";
 import type { MarketConnection } from "@/lib/market-data";
 import { providerInfo } from "@/lib/market-providers";
-import { londonStrategicEdge } from "./london-strategic-edge";
-import { alpaca } from "./alpaca";
-import { binance, coinbase } from "./public-crypto";
-import { oanda } from "./oanda";
+import { hyperliquid } from "./hyperliquid";
 import { csvDatasets, marketCsv } from "./csv";
 import { MarketDataError, type MarketDataProvider } from "./provider";
-const providers: MarketDataProvider[] = [
-  londonStrategicEdge,
-  alpaca,
-  binance,
-  coinbase,
-  oanda,
-  marketCsv,
-].sort((a, b) => a.name.localeCompare(b.name));
+const providers: MarketDataProvider[] = [hyperliquid, marketCsv].sort((a, b) =>
+  a.name.localeCompare(b.name),
+);
 export const providerFor = (id: string) => {
   const provider = providers.find((entry) => entry.id === id);
   if (!provider) throw new MarketDataError("Choose an available market data provider.");
@@ -80,7 +72,7 @@ export function connectionKey(id: string): string {
   if (env.managed) {
     if (!env.complete)
       throw new MarketDataError("Complete all market data credentials in the server environment.");
-    return id === "london-strategic-edge" ? env.values.apiKey! : JSON.stringify(env.values);
+    return JSON.stringify(env.values);
   }
   const saved = getSetting(settingKey(id));
   if (!saved) throw new MarketDataError("Add a market data API key in Settings first.");
@@ -121,7 +113,5 @@ export function validateCredentials(id: string, input: unknown): string {
       throw new MarketDataError(`Enter a valid ${field.label.toLowerCase()}.`);
     values[field.key] = value.trim();
   }
-  if (id === "oanda" && !/^[0-9-]{3,80}$/.test(values.accountId!))
-    throw new MarketDataError("Enter your OANDA v20 account ID.");
-  return id === "london-strategic-edge" ? values.apiKey! : JSON.stringify(values);
+  return JSON.stringify(values);
 }

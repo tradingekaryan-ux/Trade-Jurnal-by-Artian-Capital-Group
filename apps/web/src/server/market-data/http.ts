@@ -41,6 +41,21 @@ export async function readJson(
     throw new MarketDataError("Market data request failed or timed out. Try again.");
   }
 }
+export async function readPostJson(
+  url: string,
+  body: unknown,
+  headers: Record<string, string> = {},
+  signal?: AbortSignal,
+  options: { cache?: boolean; timeoutMs?: number } = {},
+): Promise<unknown> {
+  try {
+    return await marketTransport.post(url, body, headers, signal, options);
+  } catch (error) {
+    if (error instanceof MarketDataError) throw error;
+    throw new MarketDataError("Market data request failed or timed out. Try again.");
+  }
+}
+
 export function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw new MarketDataError("Unexpected market data response.");

@@ -72,10 +72,14 @@ export function createMarketTransport({ minIntervalMs = 350 } = {}) {
     headers: Record<string, string> = {},
     signal?: AbortSignal,
     options: { cache?: boolean; timeoutMs?: number } = {},
+    body?: unknown,
   ): Promise<unknown> => {
     signal?.throwIfAborted();
     const host = new URL(url).host;
-    const identity = JSON.stringify(Object.entries(headers).sort(([a], [b]) => a.localeCompare(b)));
+    const identity = JSON.stringify({
+      headers: Object.entries(headers).sort(([a], [b]) => a.localeCompare(b)),
+      body,
+    });
     const scope = createHash("sha256")
       .update(host + identity)
       .digest("hex");
@@ -104,7 +108,10 @@ export function createMarketTransport({ minIntervalMs = 350 } = {}) {
         if ((cooldowns.get(scope) ?? 0) > Date.now())
           throw new MarketDataError("Market data rate limit reached. Try again later.");
         const response = await fetch(url, {
-          headers,
+          method: body === undefined ? "GET" : "POST",
+          headers:
+            body === undefined ? headers : { "Content-Type": "application/json", ...headers },
+          body: body === undefined ? undefined : JSON.stringify(body),
           redirect: "error",
           cache: "no-store",
           signal: bounded,
@@ -138,7 +145,12 @@ export function createMarketTransport({ minIntervalMs = 350 } = {}) {
           const size = Buffer.byteLength(JSON.stringify(value), "utf8");
           // Recent responses expire quickly; old completed windows can be shared longer.
           const query = new URL(url).searchParams;
-          const end = query.get("end") ?? query.get("to") ?? query.get("endTime");
+          const bodyEnd = (body as { req?: { endTime?: number } } | undefined)?.req?.endTime;
+          const end =
+            query.get("end") ??
+            query.get("to") ??
+            query.get("endTime") ??
+            (typeof bodyEnd === "number" ? String(bodyEnd) : null);
           const endTime = end && /^\d+$/.test(end) ? Number(end) : Date.parse(end ?? "");
           const ttl = endTime < Date.now() - 300_000 ? 300_000 : 15_000;
           if (size <= 4 * 1024 * 1024) {
@@ -188,8 +200,17 @@ export function createMarketTransport({ minIntervalMs = 350 } = {}) {
       if (signal?.aborted) abort();
     });
   };
+  const post = (
+    url: string,
+    body: unknown,
+    headers: Record<string, string> = {},
+    signal?: AbortSignal,
+    options: { cache?: boolean; timeoutMs?: number } = {},
+  ) => read(url, headers, signal, options, body);
+
   return {
     read,
+    post,
     clear: () => {
       cache.clear();
       bytes = 0;

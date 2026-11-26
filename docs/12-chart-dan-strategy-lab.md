@@ -1,15 +1,15 @@
-# 12 — Chart Vela & Strategy Lab (prop-firm simulator)
+# 12 — Chart TradingView & Strategy Lab (prop-firm simulator)
 
-## Chart Vela — `/charts`
+## Chart TradingView — `/charts`
 
-Halaman chart penuh memakai **`@luxalgo/vela/workspace`** dengan provider data khusus yang menerjemahkan simbol tradfi Hyperliquid (`xyz:GOLD` → `GOLD`) ke API internal aplikasi.
+Halaman chart memakai **TradingView Lightweight Charts** (`lightweight-charts`) yang diberi data candle **Hyperliquid**, bukan Vela workspace.
 
-- Data candle: `GET /api/market-data/chart?symbol=<TICKER>&timeframe=<1|5|15|60|1D>&from=&to=`
-- Provider server: `server/market-data/hyperliquid.ts` (endpoint publik `candleSnapshot`, tanpa API key).
-- Instrument: **FOREX, COMMODITY, INDICE, US Stock (HIP-3), crypto perpetual, dan crypto spot** dari katalog Hyperliquid (lihat [`market-data.md`](market-data.md)).
-- Panel **Input trade ke jurnal**: pilih jurnal tujuan (CFD / Crypto / US Stock / Manual; Futures coming soon), harga terakhir bisa diambil langsung dari chart, lalu simpan.
-- Fitur workspace Vela: timeframe, 70+ indikator bawaan, drawing tools, layout, object tree, status line, timezone, dan state tersimpan di `localStorage` (`trade-jurnal-vela`).
-- Atribusi **Vela™** wajib tetap tampil sesuai Apache-2.0 / NOTICE — jangan disembunyikan tanpa pengganti yang setara.
+- Data awal: `GET /api/market-data/chart?symbol=<coin>&timeframe=<1m|5m|15m|1h|1d>&from=&to=`
+- **Realtime**: WebSocket `wss://api.hyperliquid.xyz/ws` dengan subscription `{ type: "candle", coin, interval }`. Jika socket gagal, aplikasi fallback polling REST setiap 15 detik. Status live/polling ditampilkan di toolbar.
+- Filter kategori pair (Semua / Forex / Komoditas / Indeks / US Stock / Crypto Perp / Crypto Spot) memakai katalog `HYPERLIQUID_TRADFI_SYMBOLS`, sehingga setiap kategori berisi simbol.
+- Instrument dan timeframe **hanya dipilih di toolbar chart** — tidak ada input terpisah di panel trade.
+- Panel **Input trade ke jurnal** memakai simbol & waktu dari chart, tombol **Pakai harga chart**, lalu menyimpan ke jurnal CFD / Crypto / US Stock / Manual (Futures coming soon).
+- Vela tetap dipakai untuk chart trade detail bawaan upstream; atribusi Vela™ di halaman tersebut tetap tampil.
 
 Batas: Hyperliquid hanya menyediakan ~5.000 candle terbaru per interval; riwayat sangat tua tidak tersedia. Chart bersifat live/recent-history, bukan backfill dalam.
 

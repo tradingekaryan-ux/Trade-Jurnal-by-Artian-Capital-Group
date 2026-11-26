@@ -1,6 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  CandlestickSeries,
+  ColorType,
+  HistogramSeries,
+  createChart,
+  type IChartApi,
+  type ISeriesApi,
+  type UTCTimestamp,
+} from "lightweight-charts";
 import { AccountPicker } from "@/components/account-picker";
 import { FilterBar } from "@/components/filter-bar";
 import { Button } from "@/components/ui/button";
@@ -9,67 +18,36 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { OptionSelect } from "@/components/ui/option-select";
 import { INSTRUMENTS, modeForCategory, type JournalMode, type ResultMode } from "@/lib/cfd";
-import { HYPERLIQUID_TRADFI_SYMBOLS } from "@/lib/market-providers";
+import { HYPERLIQUID_TRADFI_SYMBOLS, type TradFiGroup } from "@/lib/market-providers";
 import { postJson } from "@/lib/use-api";
-import type { OHLCV } from "@luxalgo/vela";
 
-const TIMEFRAMES = ["1", "5", "15", "60", "1D"];
-const toVelaTicker = (value: string) => value.replace(":", "-");
-const toFeedSymbol = (ticker: string) =>
-  HYPERLIQUID_TRADFI_SYMBOLS.find((item) => item.value === ticker)?.value ??
-  HYPERLIQUID_TRADFI_SYMBOLS.find((item) => item.value === ticker.replace(/-/g, ":"))?.value ??
-  ticker;
+const TIMEFRAMES = ["1m", "5m", "15m", "1h", "1d"] as const;
+type Timeframe = (typeof TIMEFRAMES)[number];
+const GROUPS = ["Forex", "Komoditas", "Indeks", "US Stock", "Crypto Perp", "Crypto Spot"] as const;
 
-/** Vela data provider backed by the journal's Hyperliquid feed adapter. */
-class TradFiProvider {
-  info() {
-    return {
-      name: "hyperliquid",
-      displayName: "Hyperliquid",
-      capabilities: { enumerate: true, stream: false, symbolInfo: true },
-      supportedTimeframes: TIMEFRAMES,
-    };
-  }
-
-  async listSymbols() {
-    return HYPERLIQUID_TRADFI_SYMBOLS.map((item) => ({
-      ticker: toVelaTicker(item.value),
-      description: `${item.label} (${item.group})`,
-      type: item.group,
-    }));
-  }
-
-  async getSymbolInfo(ticker: string) {
-    return { ticker };
-  }
-
-  async getBars(
-    ticker: string,
-    timeframe: string,
-    range: { from?: number; to?: number; limit?: number },
-  ) {
-    const to = range.to ?? Date.now();
-    const step = timeframe === "1D" ? 86_400_000 : (Number(timeframe) || 60) * 60_000;
-    const from = range.from ?? to - (range.limit ?? 500) * step;
-    const query = new URLSearchParams({
-      symbol: toFeedSymbol(ticker),
-      timeframe,
-      from: String(from),
-      to: String(to),
-    });
-    const response = await fetch(`/api/market-data/chart?${query}`);
-    if (!response.ok) throw new Error("Gagal memuat candle Hyperliquid.");
-    return ((await response.json()) as { bars: OHLCV[] }).bars;
-  }
+interface Candle {
+  t: number;
+  o: string;
+  h: string;
+  l: string;
+  c: string;
+  v: string;
 }
 
 export default function ChartsPage() {
-  const host = useRef<HTMLDivElement | null>(null);
-  const [feedSymbol, setFeedSymbol] = useState("xyz:GOLD");
-  const [timeframe, setTimeframe] = useState("60");
+  const container = useRef<HTMLDivElement | null>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const candleRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const volumeRef = useRef<ISeriesApi<"Histogram"> | null>(null);
+  const [group, setGroup] = useState<(typeof GROUPS)[number] | "all">("all");
+  const [symbol, setSymbol] = useState("xyz:GOLD");
+  const [timeframe, setTimeframe] = useState<Timeframe>("1h");
+  const [lastPrice, setLastPrice] = useState<number | null>(null);
+  const [realtime, setRealtime] = useState(false);
+
   const [target, setTarget] = useState<"cfd" | "crypto" | "stock" | "manual">("cfd");
   const [side, setSide] = useState<"buy" | "sell">("buy");
-  const [lot, setLot] = useState("1");
+  const [size, setSize] = useState("1");
   const [entry, setEntry] = useState("");
   const [stopLoss, setStopLoss] = useState("");
   const [takeProfit, setTakeProfit] = useState("");
@@ -82,7 +60,7 @@ export default function ChartsPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const spec = useMemo(() => INSTRUMENTS.find((item) => item.symbol === feedSymbol), [feedSymbol]);
+  const spec = useMemo(() => INSTRUMENTS.find((item) => item.symbol === symbol), [symbol]);
   const mode: JournalMode = spec ? modeForCategory(spec.category) : "cfd";
   const journalTarget: "cfd" | "crypto" | "stock" =
     spec?.category === "crypto-spot" || spec?.category === "crypto-perp"
@@ -90,59 +68,180 @@ export default function ChartsPage() {
       : spec?.category === "stock"
         ? "stock"
         : "cfd";
+  const instruments = useMemo(
+    () =>
+      HYPERLIQUID_TRADFI_SYMBOLS.filter(
+        (item) => group === "all" || item.group === (group as TradFiGroup),
+      ),
+    [group],
+  );
 
   useEffect(() => {
     if (target !== "manual" && target !== journalTarget) setTarget(journalTarget);
   }, [journalTarget, target]);
 
+  // Create the chart once.
   useEffect(() => {
-    let workspace: { destroy?: () => void } | null = null;
+    if (!container.current || chartRef.current) return;
+    const chart = createChart(container.current, {
+      layout: { background: { type: ColorType.Solid, color: "#0b0e11" }, textColor: "#d1d5db" },
+      grid: { vertLines: { color: "#1f2937" }, horzLines: { color: "#1f2937" } },
+      rightPriceScale: { borderColor: "#374151" },
+      timeScale: { borderColor: "#374151", timeVisible: true, secondsVisible: false },
+      crosshair: { mode: 0 },
+      autoSize: true,
+    });
+    const candles = chart.addSeries(CandlestickSeries, {
+      upColor: "#16a34a",
+      downColor: "#dc2626",
+      borderUpColor: "#16a34a",
+      borderDownColor: "#dc2626",
+      wickUpColor: "#16a34a",
+      wickDownColor: "#dc2626",
+    });
+    const volume = chart.addSeries(HistogramSeries, {
+      priceFormat: { type: "volume" },
+      priceScaleId: "",
+    });
+    volume.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
+    chartRef.current = chart;
+    candleRef.current = candles;
+    volumeRef.current = volume;
+    return () => {
+      chart.remove();
+      chartRef.current = null;
+      candleRef.current = null;
+      volumeRef.current = null;
+    };
+  }, []);
+
+  // Load history and stream live candles from Hyperliquid.
+  useEffect(() => {
     let cancelled = false;
-    void (async () => {
-      if (!host.current || cancelled) return;
-      const { VelaWorkspace } = await import("@luxalgo/vela/workspace");
-      if (cancelled || !host.current) return;
-      workspace = new VelaWorkspace(host.current, {
-        layout: false,
-        symbol: toVelaTicker(feedSymbol),
-        timeframe,
-        theme: "dark",
-        live: false,
-        persist: "trade-jurnal-vela",
-        timeframes: TIMEFRAMES,
-        timezone: "Etc/UTC",
-        providers: { hyperliquid: () => new TradFiProvider() },
-        drawingToolbar: true,
+    let socket: WebSocket | null = null;
+    let poll: ReturnType<typeof setInterval> | null = null;
+
+    const applyCandle = (candle: Candle) => {
+      if (cancelled || !candleRef.current || !volumeRef.current) return;
+      const time = Math.floor(candle.t / 1000) as UTCTimestamp;
+      candleRef.current.update({
+        time,
+        open: Number(candle.o),
+        high: Number(candle.h),
+        low: Number(candle.l),
+        close: Number(candle.c),
       });
-    })();
+      volumeRef.current.update({
+        time,
+        value: Number(candle.v),
+        color: Number(candle.c) >= Number(candle.o) ? "rgba(22,163,74,0.5)" : "rgba(220,38,38,0.5)",
+      });
+      setLastPrice(Number(candle.c));
+    };
+
+    const load = async () => {
+      if (!candleRef.current) return;
+      const to = Date.now();
+      const from = to - 90 * 86_400_000;
+      const query = new URLSearchParams({ symbol, timeframe, from: String(from), to: String(to) });
+      try {
+        const response = await fetch(`/api/market-data/chart?${query}`);
+        const body = await response.json();
+        if (!response.ok || cancelled) throw new Error(body.error ?? "Gagal memuat candle.");
+        const bars = body.bars as {
+          time: number;
+          open: number;
+          high: number;
+          low: number;
+          close: number;
+          volume: number;
+        }[];
+        candleRef.current.setData(
+          bars.map((bar) => ({
+            time: Math.floor(bar.time / 1000) as UTCTimestamp,
+            open: bar.open,
+            high: bar.high,
+            low: bar.low,
+            close: bar.close,
+          })),
+        );
+        volumeRef.current?.setData(
+          bars.map((bar) => ({
+            time: Math.floor(bar.time / 1000) as UTCTimestamp,
+            value: bar.volume,
+            color: bar.close >= bar.open ? "rgba(22,163,74,0.5)" : "rgba(220,38,38,0.5)",
+          })),
+        );
+        chartRef.current?.timeScale().fitContent();
+        const last = bars.at(-1);
+        if (last) setLastPrice(last.close);
+        setError("");
+      } catch (cause) {
+        if (!cancelled) setError(cause instanceof Error ? cause.message : "Gagal memuat chart.");
+      }
+    };
+
+    const startPolling = () => {
+      if (poll) return;
+      setRealtime(false);
+      poll = setInterval(() => {
+        void fetch(
+          `/api/market-data/chart?${new URLSearchParams({ symbol, timeframe, from: String(Date.now() - 3 * 86_400_000), to: String(Date.now()) })}`,
+        )
+          .then((response) => response.json())
+          .then((body: { bars?: Candle[] }) => body.bars?.at(-1) && applyCandle(body.bars.at(-1)!))
+          .catch(() => {});
+      }, 15_000);
+    };
+
+    void load().then(() => {
+      if (cancelled) return;
+      try {
+        socket = new WebSocket("wss://api.hyperliquid.xyz/ws");
+        socket.onopen = () => {
+          socket?.send(
+            JSON.stringify({
+              method: "subscribe",
+              subscription: { type: "candle", coin: symbol, interval: timeframe },
+            }),
+          );
+        };
+        socket.onmessage = (event) => {
+          const msg = JSON.parse(String(event.data)) as { channel?: string; data?: Candle[] };
+          if (msg.channel === "candle" && msg.data?.length) {
+            setRealtime(true);
+            applyCandle(msg.data[0]!);
+          }
+        };
+        socket.onerror = startPolling;
+        socket.onclose = startPolling;
+      } catch {
+        startPolling();
+      }
+    });
+
     return () => {
       cancelled = true;
-      workspace?.destroy?.();
+      if (socket?.readyState === WebSocket.OPEN)
+        socket.send(
+          JSON.stringify({
+            method: "unsubscribe",
+            subscription: { type: "candle", coin: symbol, interval: timeframe },
+          }),
+        );
+      socket?.close();
+      if (poll) clearInterval(poll);
     };
-  }, [feedSymbol, timeframe]);
+  }, [symbol, timeframe]);
 
-  const useLastPrice = async () => {
-    setError("");
-    const to = Date.now();
-    const from = to - 3 * 86_400_000;
-    const query = new URLSearchParams({
-      symbol: feedSymbol,
-      timeframe,
-      from: String(from),
-      to: String(to),
-    });
-    try {
-      const response = await fetch(`/api/market-data/chart?${query}`);
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error ?? "Gagal mengambil harga.");
-      const bars = body.bars as OHLCV[];
-      const last = bars.at(-1);
-      if (!last) throw new Error("Tidak ada candle terbaru untuk instrumen ini.");
-      setEntry(String(last.close));
-      setMessage(`Harga terakhir ${feedSymbol}: ${last.close}`);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Gagal mengambil harga.");
+  const useChartPrice = () => {
+    if (lastPrice === null) {
+      setError("Harga chart belum tersedia.");
+      return;
     }
+    setEntry(String(lastPrice));
+    setMessage(`Entry diisi dari harga chart: ${lastPrice}`);
+    setError("");
   };
 
   const saveTrade = async () => {
@@ -152,12 +251,26 @@ export default function ChartsPage() {
     try {
       const numeric = (value: string) => (value.trim() === "" ? undefined : Number(value));
       const now = new Date().toISOString();
-      if (target === "cfd") {
+      if (target === "manual") {
+        const fills = [
+          { symbol, side, quantity: Number(size), price: Number(entry), fee: 0, executedAt: now },
+        ];
+        if (exit && Number(exit) > 0)
+          fills.push({
+            symbol,
+            side: side === "buy" ? "sell" : "buy",
+            quantity: Number(size),
+            price: Number(exit),
+            fee: 0,
+            executedAt: now,
+          });
+        await postJson("/api/executions", { accountId, executions: fills });
+      } else {
         await postJson("/api/cfd-journal", {
           mode,
-          symbol: feedSymbol,
+          symbol,
           side,
-          lot: numeric(lot),
+          size: numeric(size),
           entry: numeric(entry),
           takeProfit: numeric(takeProfit),
           stopLoss: numeric(stopLoss),
@@ -167,27 +280,6 @@ export default function ChartsPage() {
           leverage: mode === "crypto-perp" ? numeric(leverage) : undefined,
           openedAt: now,
         });
-      } else {
-        const fills = [
-          {
-            symbol: feedSymbol,
-            side,
-            quantity: Number(lot),
-            price: Number(entry),
-            fee: 0,
-            executedAt: now,
-          },
-        ];
-        if (exit && Number(exit) > 0)
-          fills.push({
-            symbol: feedSymbol,
-            side: side === "buy" ? "sell" : "buy",
-            quantity: Number(lot),
-            price: Number(exit),
-            fee: 0,
-            executedAt: now,
-          });
-        await postJson("/api/executions", { accountId, executions: fills });
       }
       setMessage("Trade berhasil masuk ke jurnal.");
       setExit("");
@@ -203,33 +295,57 @@ export default function ChartsPage() {
     <div>
       <FilterBar title="Chart" />
       <div className="mx-auto max-w-[1500px] space-y-3 p-4">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="space-y-1">
-            <Label htmlFor="chart-symbol">Instrument (Hyperliquid)</Label>
-            <OptionSelect id="chart-symbol" value={feedSymbol} onValueChange={setFeedSymbol}>
-              {HYPERLIQUID_TRADFI_SYMBOLS.map((item) => (
-                <option key={item.value} value={item.value}>
-                  [{item.group}] {item.label} · {item.value}
-                </option>
-              ))}
-            </OptionSelect>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="chart-timeframe">Timeframe</Label>
-            <OptionSelect id="chart-timeframe" value={timeframe} onValueChange={setTimeframe}>
-              {TIMEFRAMES.map((value) => (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              ))}
-            </OptionSelect>
-          </div>
-        </div>
+        <Card>
+          <CardContent className="flex flex-wrap items-end gap-3 pt-4">
+            <div className="space-y-1">
+              <Label htmlFor="chart-group">Kategori pair</Label>
+              <OptionSelect
+                id="chart-group"
+                value={group}
+                onValueChange={(value) => setGroup(value as typeof group)}
+              >
+                <option value="all">Semua</option>
+                {GROUPS.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </OptionSelect>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="chart-symbol">Pair (Hyperliquid)</Label>
+              <OptionSelect id="chart-symbol" value={symbol} onValueChange={setSymbol}>
+                {instruments.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label} · {item.value}
+                  </option>
+                ))}
+              </OptionSelect>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="chart-timeframe">Timeframe</Label>
+              <OptionSelect
+                id="chart-timeframe"
+                value={timeframe}
+                onValueChange={(value) => setTimeframe(value as Timeframe)}
+              >
+                {TIMEFRAMES.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </OptionSelect>
+            </div>
+            <div className="ml-auto text-xs text-muted-foreground">
+              {realtime ? "● Live WebSocket Hyperliquid" : "○ Mode polling 15s"}
+              {lastPrice !== null && ` · ${symbol}: ${lastPrice}`}
+            </div>
+          </CardContent>
+        </Card>
 
         <div
-          ref={host}
-          className="h-[620px] w-full overflow-hidden rounded-lg border bg-card"
-          aria-label="Hyperliquid Trading Chart"
+          className="h-[600px] w-full overflow-hidden rounded-lg border bg-[#0b0e11]"
+          ref={container}
         />
 
         <Card>
@@ -238,7 +354,8 @@ export default function ChartsPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-xs text-muted-foreground">
-              Simbol dan harga bisa diambil dari chart di atas. Pilih jurnal tujuan lalu simpan.
+              Instrument dan timeframe mengikuti chart di atas ({symbol} · {timeframe}). Pilih
+              jurnal tujuan, lalu isi parameter trade.
             </p>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-1">
@@ -246,9 +363,7 @@ export default function ChartsPage() {
                 <OptionSelect
                   id="journal-target"
                   value={target}
-                  onValueChange={(value) =>
-                    setTarget(value as "cfd" | "crypto" | "stock" | "manual")
-                  }
+                  onValueChange={(value) => setTarget(value as typeof target)}
                 >
                   <option value="cfd" disabled={journalTarget !== "cfd"}>
                     CFD journal
@@ -260,7 +375,7 @@ export default function ChartsPage() {
                     US Stock journal
                   </option>
                   <option value="futures" disabled>
-                    Futures journal (coming soon)
+                    Futures (coming soon)
                   </option>
                   <option value="manual">Manual (akun execution)</option>
                 </OptionSelect>
@@ -283,7 +398,7 @@ export default function ChartsPage() {
                 </OptionSelect>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="journal-lot">
+                <Label htmlFor="journal-size">
                   {mode === "cfd"
                     ? "Lot"
                     : mode === "stock"
@@ -291,10 +406,10 @@ export default function ChartsPage() {
                       : "Size (unit koin)"}
                 </Label>
                 <Input
-                  id="journal-lot"
+                  id="journal-size"
                   inputMode="decimal"
-                  value={lot}
-                  onChange={(e) => setLot(e.target.value)}
+                  value={size}
+                  onChange={(e) => setSize(e.target.value)}
                 />
               </div>
               <div className="space-y-1">
@@ -325,7 +440,7 @@ export default function ChartsPage() {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="journal-exit">Exit / hasil (kosong = running)</Label>
+                <Label htmlFor="journal-exit">Exit (kosong = running)</Label>
                 <Input
                   id="journal-exit"
                   inputMode="decimal"
@@ -333,7 +448,7 @@ export default function ChartsPage() {
                   onChange={(e) => setExit(e.target.value)}
                 />
               </div>
-              {target === "cfd" && (
+              {target !== "manual" && (
                 <>
                   <div className="space-y-1">
                     <Label htmlFor="journal-result">Sumber hasil</Label>
@@ -378,12 +493,12 @@ export default function ChartsPage() {
               </p>
             )}
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={useLastPrice}>
-                Ambil harga terakhir
+              <Button variant="outline" onClick={useChartPrice}>
+                Pakai harga chart
               </Button>
               <Button
                 onClick={saveTrade}
-                disabled={busy || !entry || !lot || (target === "manual" && !accountId)}
+                disabled={busy || !entry || !size || (target === "manual" && !accountId)}
               >
                 {busy ? "Menyimpan…" : "Simpan ke jurnal"}
               </Button>

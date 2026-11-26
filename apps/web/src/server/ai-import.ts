@@ -13,7 +13,8 @@ import {
   type AiImportOptions,
 } from "@/lib/ai-import";
 import { requireValue } from "./api";
-import { consumeQuota, getAiKey, getAiModel, getOpenRouterBaseUrl } from "./settings";
+import { consumeQuota, getAiKeys, getAiModel, getOpenRouterBaseUrl } from "./settings";
+import { withKeyFallback } from "./openrouter";
 import { encryptJson, decryptJson } from "./crypto";
 import { executionHash } from "./ids";
 import { executionProblem } from "./executions";
@@ -183,8 +184,8 @@ export async function parseStatementWithAi(
       (typeof options.apiKey === "string" && options.apiKey.length <= 1000),
     "Invalid API key.",
   );
-  const apiKey = options.apiKey?.trim() || getAiKey();
-  requireValue(apiKey, "Tambahkan kunci OpenRouter di Settings untuk parsing AI.");
+  const keys = options.apiKey?.trim() ? [options.apiKey.trim()] : getAiKeys();
+  requireValue(keys.length > 0, "Tambahkan kunci OpenRouter di Settings untuk parsing AI.");
   consumeQuota();
   let input: UserContent;
   if (statement.encoding === "pdf") {
@@ -209,41 +210,43 @@ export async function parseStatementWithAi(
   }
   let output: unknown;
   try {
-    const result = await generateText({
-      model: createOpenAICompatible({
-        name: "openrouter",
-        baseURL: getOpenRouterBaseUrl(),
-        apiKey,
-        headers: {
-          "HTTP-Referer": process.env.SITE_URL ?? "http://localhost:3000",
-          "X-Title": "Trade Jurnal by Artian Capital Group",
-        },
-      })(options.model.trim() || getAiModel()),
-      system: SYSTEM,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: "Extract this statement for review. Local timestamps will be interpreted by the journal; do not convert them.",
-            },
-            ...input,
-          ],
-        },
-      ],
-      output: Output.object({ schema }),
-      maxOutputTokens: 16000,
-      maxRetries: 0,
-      abortSignal: signal
-        ? AbortSignal.any([signal, AbortSignal.timeout(120_000)])
-        : AbortSignal.timeout(120_000),
-    });
-    requireValue(
-      result.finishReason === "stop",
-      "AI response was incomplete. Split the statement into smaller files.",
-    );
-    output = result.output;
+    output = await withKeyFallback(async (key) => {
+      const result = await generateText({
+        model: createOpenAICompatible({
+          name: "openrouter",
+          baseURL: getOpenRouterBaseUrl(),
+          apiKey: key,
+          headers: {
+            "HTTP-Referer": process.env.SITE_URL ?? "http://localhost:3000",
+            "X-Title": "Trade Jurnal by Artian Capital Group",
+          },
+        })(options.model.trim() || getAiModel()),
+        system: SYSTEM,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: "Extract this statement for review. Local timestamps will be interpreted by the journal; do not convert them.",
+              },
+              ...input,
+            ],
+          },
+        ],
+        output: Output.object({ schema }),
+        maxOutputTokens: 16000,
+        maxRetries: 0,
+        abortSignal: signal
+          ? AbortSignal.any([signal, AbortSignal.timeout(120_000)])
+          : AbortSignal.timeout(120_000),
+      });
+      requireValue(
+        result.finishReason === "stop",
+        "AI response was incomplete. Split the statement into smaller files.",
+      );
+      return result.output;
+    }, keys);
   } catch {
     throw new Error(
       "AI parsing gagal atau respons tidak lengkap. Periksa kunci OpenRouter, model, saldo, dan ukuran file. Unggah PDF memerlukan model yang mendukung PDF.",

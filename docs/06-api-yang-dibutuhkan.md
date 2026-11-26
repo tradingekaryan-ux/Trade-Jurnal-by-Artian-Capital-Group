@@ -1,65 +1,75 @@
 # 06 — API yang dibutuhkan
 
-Berikut daftar lengkap kunci/API yang perlu Anda siapkan. **Hanya satu yang wajib** untuk menjalankan aplikasi sesuai permintaan.
+> **Tidak ada fitur opsional tambahan yang dipasang.** Aplikasi hanya berisi fitur inti dari library upstream, autentikasi username/password, dan integrasi OpenRouter. Tidak ada CAPTCHA, monitoring pihak ketiga, email, atau pembayaran.
 
 ## 1. Wajib
 
-| #   | API / Kredensial                               | Fungsi                                                                                      | Cara mendapatkan                                                                     | Catatan penting                                                                                                                                                                              |
-| --- | ---------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | **OpenRouter API key** (`OPENROUTER_API_KEY`)  | Seluruh fitur AI: ringkasan sesi, kritik trade, "ask your journal", dan AI statement import | Daftar di [openrouter.ai](https://openrouter.ai), buat API key, **isi saldo/kredit** | Diletakkan di environment server (atau `.env.local` / Docker env). Jangan pernah ditaruh di kode frontend. Jika memilih opsi BYOK, kunci per pengguna menggantikan/ melengkapi kunci global. |
-| 2   | **Lingkungan hosting** (bukan API, tapi wajib) | Menjalankan aplikasi                                                                        | Node.js **22+**, pnpm **11.0.8**, disk persisten untuk SQLite                        | Bisa VPS, Docker, Railway/Fly.io dengan volume. Platform serverless **tanpa disk tidak didukung** oleh desain SQLite ini. Domain + HTTPS disarankan untuk cookie `Secure`.                   |
+| #   | Kredensial / Infrastruktur                        | Fungsi                                                                                      | Catatan                                                                                                  |
+| --- | ------------------------------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| 1   | **OpenRouter API key** — satu atau beberapa kunci | Seluruh fitur AI: ringkasan sesi, kritik trade, "ask your journal", dan AI statement import | Dibaca hanya oleh server. Kunci **tidak pernah** dikirim ke browser atau disimpan di source code/GitHub. |
+| 2   | **Server Node.js 22+ dengan disk persisten**      | Menjalankan aplikasi & menyimpan SQLite                                                     | `pnpm` 11.0.8. Platform tanpa disk persisten tidak cocok. HTTPS disarankan untuk cookie `Secure`.        |
+| 3   | `AUTH_SECRET`                                     | Menandatangani cookie session                                                               | Wajib di produksi. Nilai berbeda untuk tiap deployment.                                                  |
 
-### Tentang biaya OpenRouter
+Variabel pendukung: `SITE_URL` (dikirim sebagai `HTTP-Referer` ke OpenRouter), `OPENROUTER_BASE_URL` (default `https://openrouter.ai/api/v1`), `JOURNAL_SECRET` (enkripsi kredensial), `ADMIN_USERNAME` (opsional).
 
-- Kunci ini **dipakai server**, bukan oleh pengunjung (kecuali opsi BYOK dipilih).
-- Anda menanggung biaya token untuk pengguna yang memakai kunci global. Karena itu implementasi menyertakan: kuota **10 permintaan/hari per pengguna** (dapat diubah admin), model default, daftar model yang diizinkan, dan `maxOutputTokens`.
-- Kunci OpenRouter juga bisa diisi sendiri oleh pengguna (BYOK); kunci tersimpan terenkripsi dan hanya dikirim ke OpenRouter.
-- Perkiraan pemakaian: recap ±150–250 token_output, critique ±150, ask ±200, AI import hingga 16.000 token_output per dokumen.
-- Variabel pendukung: `AUTH_SECRET` (wajib di produksi, untuk cookie), `SITE_URL`, `OPENROUTER_BASE_URL`, `JOURNAL_SECRET`, `ADMIN_USERNAME`.
+## 2. Fallback beberapa kunci OpenRouter
 
-## 2. Opsional — kredensial milik pengguna (BYO, dienkripsi di server)
+Kunci disimpan di **environment server**, bukan di kode. Gunakan `.env.local` untuk lokal (sudah ada di `.gitignore`) dan environment variable / secret manager di hosting.
 
-Fitur ini tetap aktif tanpa kunci global; pengguna memasukkan kredensial mereka sendiri lewat UI Settings. Aplikasi **tidak** membutuhkan kunci Anda untuk ini.
+```bash
+# .env.local — contoh, jangan commit nilai aslinya
+OPENROUTER_API_KEYS=kunci_1,kunci_2,kunci_3,...,kunci_9
+OPENROUTER_API_KEY=kunci_cadangan_tunggal
+AUTH_SECRET=rahasia-session
+SITE_URL=https://domain-anda
+```
 
-| Fitur                    | Penyedia / kredensial yang didukung                                                                                                                                                                                             | Keterangan                                                                                                                                                       |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Broker sync**          | Alpaca, Binance, Bybit, Coinbase, Kraken, OKX, Tradier, IBKR Flex, Hyperliquid, Questrade, Topstep, Trading212, Webull, Crypto.com, E*TRADE, Public, Charles Schwab, TradeStation, tastytrade, Robinhood Crypto, Gemini, KuCoin | Read-only via `@luxalgo/broker-sdk`. Kredensial dienkripsi AES-256-GCM di database.                                                                              |
-| **Market data / replay** | London Strategic Edge, Alpaca, OANDA, Binance, Coinbase, atau unggah candle CSV                                                                                                                                                 | Untuk estimasi MAE/MFE & replay. Tanpa koneksi, chart tetap menampilkan fill yang tercatat. Bisa memakai CSV gratis, jadi **tidak wajib** berlangganan provider. |
+Perilaku:
 
-## 3. Opsional — fitur bawaan tanpa kunci
+- Urutan pemakaian: **kunci milik pengguna (BYOK, jika ada)** → semua kunci di `OPENROUTER_API_KEYS` berurutan → `OPENROUTER_API_KEY`.
+- Jika suatu kunci gagal karena `401/403` (auth), `402` (saldo habis), `429/529` (rate limit), atau tidak ada respons jaringan, server **otomatis mencoba kunci berikutnya** dalam satu permintaan yang sama.
+- Kegagalan karena model tidak tersedia (`404`) atau kesalahan format tidak memicu pergantian kunci.
+- Kuota pengguna (**10 permintaan/hari**, diatur admin) dihitung **satu kali per permintaan**, bukan per kunci yang dicoba.
+- Kunci yang gagal tidak dicatat ke log; pesan error yang ditampilkan ke pengguna tidak memuat potongan kunci.
 
-| Fitur                                    | Keterangan                                                                                                                         |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| **Voice dictation** (jurnal harian)      | Memakai `SpeechRecognition` bawaan browser (Chrome/Edge). **Tanpa API key**, tetapi dukungan & kualitas tergantung browser/vendor. |
-| **Konversi mata uang**                   | Kurs statis yang diisi pengguna; **offline**, tanpa layanan kurs.                                                                  |
-| **Import pernyataan standar**            | 16+ format CSV/HTML/XML/XLSX diparse lokal; **tanpa API**.                                                                         |
-| **Chart, replay, analytics, Edge Score** | Semua berjalan lokal di server Anda.                                                                                               |
+Semua kunci yang Anda berikan sudah ditempatkan di `.env.local` lokal dan **tidak ikut ter-commit** ke repository.
 
-## 4. API yang TIDAK dibutuhkan
+### Biaya
 
-| Layanan                                  | Alasan                                                                |
-| ---------------------------------------- | --------------------------------------------------------------------- |
-| Email / SMTP (Mailgun, Resend, SMTP)     | Registrasi & login **tanpa verifikasi**, jadi tidak ada email keluar. |
-| Payment gateway (Stripe, Midtrans, dll.) | Aplikasi **gratis**, tidak ada pembayaran.                            |
-| SMS / OTP                                | Tidak ada verifikasi apa pun.                                         |
-| Analytics pihak ketiga                   | Sesuai prinsip upstream: tanpa layanan analitik/tracking.             |
-| Layanan kurs mata uang                   | Konversi memakai kurs buatan pengguna, offline.                       |
-| Google Maps / geolocation                | Tidak dipakai.                                                        |
+Kuota 10 permintaan/hari per pengguna, batas `maxOutputTokens`, model default, dan daftar model yang diizinkan menjaga pemakaian tetap terkendali. Model Paid hanya dipakai bila diizinkan admin atau pengguna memakai kunci sendiri. Perkiraan token output: recap ±150–250, critique ±150, ask ±200, AI import hingga 16.000.
 
-## 5. Opsional — hanya bila dibutuhkan kemudian
+## 3. Rekomendasi hosting server gratis
 
-| Layanan                          | Kapan diperlukan                                                                                           |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Turnstile / hCaptcha / reCAPTCHA | Bila registrasi gratis diserang bot/spam. Menambah satu kunci API; tidak direkomendasikan pada tahap awal. |
-| Sentry / monitoring              | Bila ingin alert error produksi. Tidak termasuk dalam fitur inti.                                          |
+Aplikasi ini membutuhkan **disk persisten** (SQLite per pengguna). Karena itu, host platform gratis dengan filesystem sementara tidak cocok.
 
-## Ringkasan untuk Anda
+| Pilihan                                           | Cocok?                                                            | Keterangan                                                                                                                                                                                                                               |
+| ------------------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Oracle Cloud Always Free — VM ARM (Ampere A1)** | **Rekomendasi utama**                                             | Gratis selamanya: 2 OCPU / 12 GB RAM, hingga 200 GB storage, 10 TB traffic/bulan. Server menyala terus. Perlu verifikasi kartu kredit (tanpa biaya bila dalam kuota). VM idle <20% selama 7 hari bisa di-reclaim. Build image ARM/arm64. |
+| **Railway Free**                                  | Alternatif untuk demo                                             | $1 kredit/bulan, 1 volume 0,5 GB, domain `.up.railway.app`. Service tidur saat idle dan kredit kecil, jadi kurang cocok untuk pemakaian publik 24/7. Volume dihapus 30 hari setelah kredit habis.                                        |
+| Render Free                                       | **Tidak disarankan**                                              | Filesystem sementara: SQLite hilang saat restart/redeploy, tidak ada persistent disk pada plan gratis, service tidur setelah 15 menit.                                                                                                   |
+| Fly.io                                            | **Tidak ada plan gratis** untuk akun baru (trial $1/7 hari saja). | —                                                                                                                                                                                                                                        |
+| Koyeb Free                                        | **Tidak cocok**                                                   | Tidak ada volume persisten.                                                                                                                                                                                                              |
 
-> **Yang harus Anda siapkan sekarang: satu (1) OpenRouter API key dengan saldo, plus server Node 22 dengan disk persisten.**
-> Kredensial broker dan market data bersifat opsional dan diisi sendiri oleh pengguna. Tidak perlu email, pembayaran, atau API verifikasi.
+### Langkah singkat di Oracle Cloud Always Free (ARM)
 
-Sebelum implementasi, konfirmasikan juga tiga hal terkait kunci OpenRouter (lihat [`README.md`](README.md#keputusan-yang-perlu-anda-konfirmasi-sebelum-implementasi)):
+1. Buat akun Oracle Cloud, pilih region "home region", buat VM **Ampere A1** (Ubuntu arm64, 2 OCPU/12 GB).
+2. Buka port 3000 di security list / firewall, dan siapkan domain + reverse proxy (Caddy/Nginx) untuk HTTPS.
+3. Install Node 22 (mis. lewat `nvm`) dan pnpm 11.0.8.
+4. `git clone https://github.com/tradingekaryan-ux/Trade-Jurnal-by-Artian-Capital-Group.git`
+5. Isi environment (termasuk `OPENROUTER_API_KEYS` dan `AUTH_SECRET`) lalu `docker compose up -d` — Dockerfile akan build sesuai arsitektur ARM.
+6. Backup: salin seluruh direktori `data/` (database global + per pengguna + lampiran) dan simpan `JOURNAL_SECRET`/`AUTH_SECRET` terpisah.
 
-1. Kunci global / BYOK / hybrid.
-2. Model default & daftar model yang diizinkan.
-3. Kuota harian per pengguna.
+## 4. API yang tidak dibutuhkan
+
+| Layanan                       | Alasan                                             |
+| ----------------------------- | -------------------------------------------------- |
+| Email / SMTP                  | Registrasi & login tanpa verifikasi.               |
+| Payment gateway               | Aplikasi gratis.                                   |
+| SMS / OTP                     | Tidak ada verifikasi.                              |
+| Analytics pihak ketiga        | Sesuai prinsip upstream: tanpa tracking.           |
+| Layanan kurs mata uang        | Konversi offline memakai kurs yang diisi pengguna. |
+| CAPTCHA / Sentry / monitoring | Fitur opsional — **sengaja tidak ditambahkan**.    |
+
+## Ringkasan
+
+> Siapkan: **kunci OpenRouter (boleh banyak sebagai fallback)** + **VM dengan disk persisten** + `AUTH_SECRET`. Untuk hosting gratis, pilih **Oracle Cloud Always Free (ARM)**. Tidak perlu email, pembayaran, verifikasi, atau API opsional lainnya.

@@ -6,12 +6,13 @@ import { models } from "@/db/system-schema";
 import {
   aiConfigured,
   consumeQuota,
-  getAiKey,
+  getAiKeys,
   getAiModel,
   getOpenRouterBaseUrl,
   getSetting,
   isPaidAllowed,
 } from "./settings";
+import { withKeyFallback } from "./openrouter";
 
 /**
  * Reflection layer. Every request goes from this server to OpenRouter using
@@ -40,9 +41,8 @@ const openrouter = (apiKey: string) =>
   });
 
 export const runAi = async (prompt: string, maxOutputTokens = 1200): Promise<string> => {
-  const key = getAiKey();
-  if (!key) throw new Error("AI is not configured — add an OpenRouter key in Settings.");
-
+  if (getAiKeys().length === 0)
+    throw new Error("AI is not configured — add an OpenRouter key in Settings.");
   const modelId = getAiModel();
   const modelRow = systemDb.select().from(models).where(eq(models.id, modelId)).get();
   const hasOwnKey = Boolean(getSetting("openrouterKeyEnc"));
@@ -54,14 +54,17 @@ export const runAi = async (prompt: string, maxOutputTokens = 1200): Promise<str
 
   consumeQuota();
   try {
-    const result = await generateText({
-      model: openrouter(key)(modelId),
-      system: SYSTEM,
-      prompt,
-      maxOutputTokens,
+    return await withKeyFallback(async (key) => {
+      const result = await generateText({
+        model: openrouter(key)(modelId),
+        system: SYSTEM,
+        prompt,
+        maxOutputTokens,
+      });
+      if (!result.text.trim())
+        throw new Error("AI returned no text. Check the model or try again.");
+      return result.text;
     });
-    if (!result.text.trim()) throw new Error("AI returned no text. Check the model or try again.");
-    return result.text;
   } catch (error) {
     if (RetryError.isInstance(error)) error = error.lastError;
     if (APICallError.isInstance(error)) {

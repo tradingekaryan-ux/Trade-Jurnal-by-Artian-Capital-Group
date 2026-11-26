@@ -62,18 +62,32 @@ export const getMultipliers = (): Record<string, number> => {
 export const openRouterEnvironmentKey = (): string | null =>
   process.env.OPENROUTER_API_KEY?.trim() || null;
 
-export const getAiKey = (): string | null => {
+const savedUserKey = (): string | null => {
   const saved = getSetting("openrouterKeyEnc");
-  if (saved) {
-    try {
-      const value = decryptJson<unknown>(saved);
-      if (typeof value === "string" && value.trim()) return value.trim();
-    } catch {
-      // fall through to the environment key
-    }
+  if (!saved) return null;
+  try {
+    const value = decryptJson<unknown>(saved);
+    return typeof value === "string" && value.trim() ? value.trim() : null;
+  } catch {
+    return null;
   }
-  return openRouterEnvironmentKey();
 };
+
+/**
+ * All usable keys, in priority order: the user's own key first, then every
+ * global key from OPENROUTER_API_KEYS, then OPENROUTER_API_KEY. When one key
+ * hits an auth/quota/rate-limit error the next key is tried automatically.
+ */
+export const getAiKeys = (): string[] => {
+  const keys = [
+    savedUserKey(),
+    ...(process.env.OPENROUTER_API_KEYS?.split(",") ?? []),
+    openRouterEnvironmentKey(),
+  ];
+  return [...new Set(keys.map((key) => key?.trim()).filter((key): key is string => Boolean(key)))];
+};
+
+export const getAiKey = (): string | null => getAiKeys()[0] ?? null;
 
 export const setAiKey = (key: string | null): void => {
   if (key === null) deleteSetting("openrouterKeyEnc");

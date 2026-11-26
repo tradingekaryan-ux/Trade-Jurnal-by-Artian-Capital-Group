@@ -4,7 +4,7 @@ import { models } from "@/db/system-schema";
 import { bad, handler, ok, requireValue } from "@/server/api";
 import { currentUser } from "@/server/auth";
 import {
-  getAiKey,
+  getAiKeys,
   getAiQuotaLimit,
   getDefaultModel,
   getGlobalSetting,
@@ -56,12 +56,21 @@ export const POST = handler(async (request: Request) => {
   requireValue(body && typeof body === "object", "Invalid request.");
 
   if (body.action === "sync") {
-    const key = getAiKey();
-    requireValue(key, "Kunci OpenRouter belum tersedia di server.");
-    const response = await fetch(`${getOpenRouterBaseUrl()}/models`, {
-      headers: { Authorization: `Bearer ${key}` },
-    });
-    requireValue(response.ok, `Gagal mengambil daftar model OpenRouter (${response.status}).`);
+    const keys = getAiKeys();
+    requireValue(keys.length > 0, "Kunci OpenRouter belum tersedia di server.");
+    let response: Response | null = null;
+    for (const key of keys) {
+      const candidate = await fetch(`${getOpenRouterBaseUrl()}/models`, {
+        headers: { Authorization: `Bearer ${key}` },
+      });
+      if (candidate.ok) {
+        response = candidate;
+        break;
+      }
+      if (![401, 402, 403, 429].includes(candidate.status))
+        return bad(`Gagal mengambil daftar model OpenRouter (${candidate.status}).`, 502);
+    }
+    requireValue(response, "Semua kunci OpenRouter gagal saat mengambil daftar model.");
     const payload = (await response.json()) as { data?: OpenRouterModel[] };
     const incoming = payload.data ?? [];
     requireValue(incoming.length > 0, "OpenRouter tidak mengembalikan model apa pun.");

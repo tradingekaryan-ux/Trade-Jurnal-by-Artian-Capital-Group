@@ -55,32 +55,33 @@
 
 .dark {
   color-scheme: dark;
-  --background: #08080a;
+  /* Match the supplied Artian logo background (#000) exactly. */
+  --background: #000000;
   --foreground: #f4f4f4;
-  --card: #101013;
+  --card: #050505;
   --card-foreground: #f4f4f4;
-  --popover: #131317;
+  --popover: #080808;
   --popover-foreground: #f4f4f4;
   --primary: #ececec;
   --primary-foreground: #131316;
-  --secondary: #1b1b20;
+  --secondary: #0e0e0e;
   --secondary-foreground: #f4f4f4;
-  --muted: #17171b;
+  --muted: #0a0a0a;
   --muted-foreground: #9c9ca6;
-  --accent: #1b1b20;
+  --accent: #111111;
   --accent-foreground: #f4f4f4;
   --destructive: #d03b3b;
   --destructive-foreground: #fafafa;
-  --border: #222228;
-  --input: #26262c;
+  --border: #1a1a1a;
+  --input: #1f1f1f;
   --ring: #1197e2;
 
   --brand: #1197e2;
 
-  --viz-surface: #101013;
+  --viz-surface: #050505;
   --ink-muted: #8b8b95;
-  --gridline: #1e1e24;
-  --baseline: #30303a;
+  --gridline: #161616;
+  --baseline: #2a2a2a;
   --profit: #0ca30c;
   --profit-fill: #0ca30c;
   --loss: #d03b3b;

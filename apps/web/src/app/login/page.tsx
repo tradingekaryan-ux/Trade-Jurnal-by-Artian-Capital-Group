@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArtianMark } from "@/components/artian-mark";
+import { ArtianLogo } from "@/components/artian-mark";
 import { PoweredByLuxAlgo } from "@/components/powered-by-luxalgo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -37,9 +37,8 @@ export default function LoginPage() {
         <CardContent className="pt-6">
           <form onSubmit={submit} className="space-y-3">
             <div className="text-center">
-              <ArtianMark className="mx-auto mb-2 h-7 w-7" />
+              <ArtianLogo className="mx-auto mb-3 h-16 w-auto" />
               <h1 className="text-sm font-semibold">Trade Jurnal</h1>
-              <p className="text-xs text-muted-foreground">by Artian Capital Group</p>
             </div>
             <Input
               value={username}

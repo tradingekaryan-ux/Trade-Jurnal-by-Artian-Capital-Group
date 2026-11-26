@@ -134,3 +134,15 @@ CREATE TABLE IF NOT EXISTS image_attachments (
 );
 CREATE INDEX IF NOT EXISTS image_attachments_owner_idx
   ON image_attachments (owner_id, owner_type, owner_ref);
+
+-- User profile: bio + images hosted on imgdb.io.
+CREATE TABLE IF NOT EXISTS profiles (
+  user_id text PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  display_name text NOT NULL DEFAULT '',
+  bio text NOT NULL DEFAULT '',
+  avatar_url text,
+  avatar_id text,
+  banner_url text,
+  banner_id text,
+  updated_at text NOT NULL
+);

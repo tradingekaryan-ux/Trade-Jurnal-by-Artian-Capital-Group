@@ -134,6 +134,8 @@ export const DELETE = handler(async (request: Request) => {
     canEditPromo(role, rows[0]!.user_id, user!.id),
     "Anda hanya bisa menghapus promo sendiri.",
   );
+  // Hapus voting lebih dulu, lalu postingan (FK cascade juga berlaku).
+  await sql`delete from promo_votes where promo_id = ${id!}`;
   await sql`delete from promos where id = ${id!}`;
-  return ok({ deleted: true });
+  return ok({ deleted: true, votesDeleted: true });
 });

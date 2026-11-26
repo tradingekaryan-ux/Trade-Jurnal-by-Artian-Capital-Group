@@ -140,8 +140,19 @@ export const PATCH = handler(async (request: Request) => {
 export const DELETE = handler(async (request: Request) => {
   const user = await currentUser();
   requireValue(Boolean(user), "Unauthorized.");
-  const id = new URL(request.url).searchParams.get("id");
-  requireValue(Boolean(id), "Trade id is required.");
-  await sql`delete from cfd_trades where id = ${id} and owner_id = ${user!.id}`;
-  return ok({ deleted: true });
+  const params = new URL(request.url).searchParams;
+  const id = params.get("id");
+  const mode = params.get("mode");
+  requireValue(Boolean(id) !== Boolean(mode), "Berikan id trade atau mode jurnal.");
+  if (id) {
+    await sql`delete from cfd_trades where id = ${id} and owner_id = ${user!.id}`;
+    return ok({ deleted: true, scope: "trade" });
+  }
+  requireValue(isEnabledJournalMode(mode), "Mode jurnal tidak valid.");
+  // Deleting a journal removes every trade inside it, including their image references.
+  const ids = await sql`select id from cfd_trades where owner_id = ${user!.id} and mode = ${mode}`;
+  for (const row of ids)
+    await sql`delete from image_attachments where owner_type = 'cfd-trade' and owner_ref = ${row.id} and owner_id = ${user!.id}`;
+  await sql`delete from cfd_trades where owner_id = ${user!.id} and mode = ${mode}`;
+  return ok({ deleted: true, scope: "journal", count: ids.length });
 });

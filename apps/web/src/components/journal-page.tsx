@@ -511,8 +511,22 @@ export function JournalPage({
             </Card>
 
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between gap-2">
                 <CardTitle>Riwayat trade</CardTitle>
+                {trades.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      if (!window.confirm(`Hapus seluruh ${trades.length} trade di jurnal ini?`))
+                        return;
+                      await fetch(`/api/cfd-journal?mode=${modes[0]}`, { method: "DELETE" });
+                      load();
+                    }}
+                  >
+                    Hapus jurnal ini
+                  </Button>
+                )}
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">

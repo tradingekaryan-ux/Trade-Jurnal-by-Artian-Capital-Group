@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { VoteBar } from "@/components/vote-bar";
 import { VerifiedBadge } from "@/components/verified-badge";
+import { postJson } from "@/lib/use-api";
 import { canEditPromo, isUserRole, type UserRole } from "@/lib/roles";
 import type { Post } from "@/lib/posts";
 
@@ -105,9 +106,23 @@ export default function IdeasPage() {
   };
 
   const remove = async (idea: Post) => {
-    if (!window.confirm(`Hapus idea "${idea.title}"?`)) return;
-    await fetch(`/api/promos?id=${encodeURIComponent(idea.id)}`, { method: "DELETE" });
-    load();
+    if (
+      !window.confirm(
+        `Hapus idea "${idea.title}"? Semua voting Stop Loss / Take Profit pada postingan ini juga akan dihapus permanen.`,
+      )
+    )
+      return;
+    try {
+      const result = await postJson<{ votesDeleted: number }>(
+        `/api/promos?id=${encodeURIComponent(idea.id)}`,
+        undefined,
+        "DELETE",
+      );
+      setMessage(`Trade idea dihapus beserta ${result.votesDeleted} vote.`);
+      load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Gagal menghapus idea.");
+    }
   };
 
   return (

@@ -2,6 +2,7 @@ import { bad, handler, ok, requireValue } from "@/server/api";
 import { currentUser, hashPassword } from "@/server/auth";
 import { newId, nowIso } from "@/server/ids";
 import { sql } from "@/server/pg";
+import { deleteUserCascade } from "@/server/cascade";
 import {
   canDeleteAccounts,
   canManageUsers,
@@ -61,8 +62,8 @@ export const PATCH = handler(async (request: Request) => {
 });
 
 /** Owner and admin may delete accounts. Owner and the current account are protected.
- *  Every Supabase user-data table references users with ON DELETE CASCADE, so
- *  sessions, votes, posts, journals, images, profiles and snapshots go with it. */
+ *  Everything attached to the account is removed from Supabase and the local
+ *  per-user SQLite cache by deleteUserCascade. */
 export const DELETE = handler(async (request: Request) => {
   const user = await privilege();
   requireValue(Boolean(user && canDeleteAccounts(user.role)), "Forbidden.");
@@ -72,6 +73,6 @@ export const DELETE = handler(async (request: Request) => {
   requireValue(rows.length > 0, "User tidak ditemukan.");
   requireValue(rows[0]!.role !== "owner", "Akun owner tidak bisa dihapus.");
   requireValue(rows[0]!.id !== user!.id, "Akun sendiri tidak bisa dihapus.");
-  await sql`delete from users where id = ${body.id!}`;
-  return ok({ deleted: true });
+  const removed = await deleteUserCascade(body.id!);
+  return ok({ deleted: true, removed });
 });

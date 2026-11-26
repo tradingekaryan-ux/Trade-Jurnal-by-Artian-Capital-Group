@@ -5,6 +5,7 @@ import { newId, nowIso } from "@/server/ids";
 import { sql } from "@/server/pg";
 import { uploadImage, MAX_IMAGE_BYTES } from "@/lib/imgdb";
 import { canEditPromo, isUserRole } from "@/lib/roles";
+import { deletePostCascade } from "@/server/cascade";
 
 const validUrl = (value: string) => {
   try {
@@ -137,8 +138,7 @@ export const DELETE = handler(async (request: Request) => {
     canEditPromo(role, rows[0]!.user_id, user!.id),
     "Anda hanya bisa menghapus promo sendiri.",
   );
-  // Hapus voting lebih dulu, lalu postingan (FK cascade juga berlaku).
-  await sql`delete from promo_votes where promo_id = ${id!}`;
-  await sql`delete from promos where id = ${id!}`;
-  return ok({ deleted: true, votesDeleted: true });
+  // Hapus semua voting pada postingan ini lebih dulu, lalu postingannya.
+  const removed = await deletePostCascade(id!);
+  return ok({ deleted: true, votesDeleted: removed.votes, postsDeleted: removed.posts });
 });

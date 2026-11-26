@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { canEditPromo, canModeratePromos, isUserRole, type UserRole } from "@/lib/roles";
 import { VerifiedBadge } from "@/components/verified-badge";
+import { postJson } from "@/lib/use-api";
 import { VoteBar } from "@/components/vote-bar";
 
 interface Promo {
@@ -135,9 +136,23 @@ export default function PromoPage() {
   };
 
   const remove = async (promo: Promo) => {
-    if (!window.confirm(`Hapus promo "${promo.title}"?`)) return;
-    await fetch(`/api/promos?id=${encodeURIComponent(promo.id)}`, { method: "DELETE" });
-    load();
+    if (
+      !window.confirm(
+        `Hapus promo "${promo.title}"? Semua voting pada postingan ini juga akan dihapus permanen.`,
+      )
+    )
+      return;
+    try {
+      const result = await postJson<{ votesDeleted: number }>(
+        `/api/promos?id=${encodeURIComponent(promo.id)}`,
+        undefined,
+        "DELETE",
+      );
+      setMessage(`Promo dihapus beserta ${result.votesDeleted} vote.`);
+      load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Gagal menghapus promo.");
+    }
   };
 
   const vote = async (promo: Promo, value: VoteSummary["mine"]) => {

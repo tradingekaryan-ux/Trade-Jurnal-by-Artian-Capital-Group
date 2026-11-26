@@ -518,10 +518,26 @@ export function JournalPage({
                     size="sm"
                     variant="outline"
                     onClick={async () => {
-                      if (!window.confirm(`Hapus seluruh ${trades.length} trade di jurnal ini?`))
+                      if (
+                        !window.confirm(
+                          `Hapus jurnal ini? Seluruh ${trades.length} trade dan semua gambar lampirannya akan dihapus permanen.`,
+                        )
+                      )
                         return;
-                      await fetch(`/api/cfd-journal?mode=${modes[0]}`, { method: "DELETE" });
-                      load();
+                      try {
+                        const result = await postJson<{
+                          trades: number;
+                          images: number;
+                        }>(`/api/cfd-journal?mode=${modes[0]}`, undefined, "DELETE");
+                        setMessage(
+                          `Jurnal dihapus: ${result.trades} trade dan ${result.images} lampiran gambar.`,
+                        );
+                        load();
+                      } catch (cause) {
+                        setError(
+                          cause instanceof Error ? cause.message : "Gagal menghapus jurnal.",
+                        );
+                      }
                     }}
                   >
                     Hapus jurnal ini

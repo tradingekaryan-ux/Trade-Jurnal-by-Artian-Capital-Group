@@ -3,6 +3,7 @@ import { newId, nowIso } from "@/server/ids";
 import { sql } from "@/server/pg";
 import { currentUser } from "@/server/auth";
 import { syncJournalsToLegacy } from "@/server/legacy-sync";
+import { deleteJournalCascade, deleteTradeCascade } from "@/server/cascade";
 import {
   calculateJournal,
   instrumentFor,
@@ -148,16 +149,13 @@ export const DELETE = handler(async (request: Request) => {
   const mode = params.get("mode");
   requireValue(Boolean(id) !== Boolean(mode), "Berikan id trade atau mode jurnal.");
   if (id) {
-    await sql`delete from cfd_trades where id = ${id} and owner_id = ${user!.id}`;
+    const removed = await deleteTradeCascade(user!.id, id!);
     await syncJournalsToLegacy(user!.id);
-    return ok({ deleted: true, scope: "trade" });
+    return ok({ deleted: true, scope: "trade", ...removed });
   }
   requireValue(isEnabledJournalMode(mode), "Mode jurnal tidak valid.");
-  // Deleting a journal removes every trade inside it, including their image references.
-  const ids = await sql`select id from cfd_trades where owner_id = ${user!.id} and mode = ${mode}`;
-  for (const row of ids)
-    await sql`delete from image_attachments where owner_type = 'cfd-trade' and owner_ref = ${row.id} and owner_id = ${user!.id}`;
-  await sql`delete from cfd_trades where owner_id = ${user!.id} and mode = ${mode}`;
+  // Deleting a journal removes every trade and every image reference inside it.
+  const removed = await deleteJournalCascade(user!.id, mode!);
   await syncJournalsToLegacy(user!.id);
-  return ok({ deleted: true, scope: "journal", count: ids.length });
+  return ok({ deleted: true, scope: "journal", ...removed });
 });

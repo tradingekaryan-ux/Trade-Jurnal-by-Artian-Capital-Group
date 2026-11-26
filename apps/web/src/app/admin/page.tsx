@@ -158,10 +158,30 @@ export default function AdminPage() {
   };
 
   const removeUser = async (user: AdminUser) => {
-    if (!window.confirm(`Hapus akun "${user.username}" beserta seluruh datanya?`)) return;
+    const member = members.find((item) => item.id === user.id);
+    const summary = [
+      `${member?.trades ?? 0} trade`,
+      `${member?.wins ?? 0} profit`,
+      `${member?.losses ?? 0} loss`,
+    ].join(", ");
+    if (
+      !window.confirm(
+        `Hapus akun "${user.username}"? Seluruh data akun akan dihapus permanen: ${summary}, postingan & voting, notebook, playbook, jurnal, profil, sesi, dan cache lokal.`,
+      )
+    )
+      return;
     try {
-      await postJson("/api/admin/users", { id: user.id }, "DELETE");
-      setMessage(`Akun ${user.username} beserta datanya dihapus.`);
+      const result = await postJson<{ removed: Record<string, number> }>(
+        "/api/admin/users",
+        { id: user.id },
+        "DELETE",
+      );
+      const removed = result.removed ?? {};
+      setMessage(
+        `Akun ${user.username} dihapus: ${removed.trades ?? 0} trade, ${removed.posts ?? 0} postingan, ` +
+          `${(removed.receivedVotes ?? 0) + (removed.castVotes ?? 0)} vote, ${removed.images ?? 0} gambar, ` +
+          `${removed.snapshots ?? 0} snapshot, ${removed.sessions ?? 0} sesi.`,
+      );
       if (detail?.data.user.id === user.id) setDetail(null);
       loadUsers();
       loadMembers();

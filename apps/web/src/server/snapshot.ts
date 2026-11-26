@@ -54,6 +54,11 @@ export async function snapshotUser(userId: string): Promise<void> {
 
 const restored = new Set<string>();
 
+/** Forget a user after their account (and snapshot) is deleted. */
+export const forgetRestored = (userId: string): void => {
+  restored.delete(userId);
+};
+
 /** Restore the local cache from Supabase once per process/user. */
 export async function ensureRestored(userId: string): Promise<void> {
   if (restored.has(userId)) return;

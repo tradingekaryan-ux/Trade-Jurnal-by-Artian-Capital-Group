@@ -2,14 +2,16 @@
 
 ## Aturan penghapusan
 
-| Aksi                                         | Efek                                                                                                     |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Hapus **satu trade** (jurnal)                | Trade itu terhapus dari `cfd_trades`                                                                     |
-| Hapus **jurnal** (tombol "Hapus jurnal ini") | **Semua trade** dengan mode jurnal itu ikut terhapus, berikut referensi gambarnya di `image_attachments` |
-| Hapus **promo / trade idea**                 | **Semua voting** (`promo_votes`) untuk postingan itu ikut terhapus, lalu postingannya                    |
-| Hapus akun (SQL/Supabase)                    | Session, profil, jurnal, promo, dan voting ikut terhapus lewat foreign key `ON DELETE CASCADE`           |
+| Aksi                                         | Efek                                                                                                                                                                                                                    |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Hapus **satu trade** (jurnal)                | Trade itu terhapus dari `cfd_trades` beserta `image_attachments`-nya                                                                                                                                                    |
+| Hapus **jurnal** (tombol "Hapus jurnal ini") | **Semua trade** dengan mode jurnal itu ikut terhapus, berikut referensi gambarnya di `image_attachments`                                                                                                                |
+| Hapus **promo / trade idea**                 | **Semua voting** (`promo_votes`) untuk postingan itu ikut terhapus, lalu postingannya                                                                                                                                   |
+| Hapus **akun** (Admin → User & Role)         | Semua data akun: trade, gambar, postingan, voting yang diterima **dan** yang diberikan, notebook/playbook (snapshot), profil, sesi, kuota AI, riwayat login yang gagal, snapshot Supabase, **dan file SQLite lokalnya** |
 
-Penghapusan voting dan jurnal dilakukan **eksplisit** di server, bukan hanya mengandalkan cascade — jadi urutannya jelas dan bisa diverifikasi.
+Semua penghapusan berantai ada di satu modul, [`server/cascade.ts`](../apps/web/src/server/cascade.ts), dan dijalankan **eksplisit** di server dalam satu transaksi — tidak hanya bergantung pada `ON DELETE CASCADE`. Setiap endpoint mengembalikan jumlah baris yang terhapus, lalu UI menampilkannya di pesan konfirmasi.
+
+Verifikasi otomatis: jalankan `node scripts/verify-cascade.mjs` saat preview aktif. Skrip membuat akun uji beserta trade, gambar, postingan, vote, profil, catatan, dan file SQLite lokal — lalu memastikan semuanya hilang setelah jurnal, postingan, dan akun dihapus. Akun uji selalu dibersihkan di blok `finally`.
 
 ## Profil user — `/profile`
 

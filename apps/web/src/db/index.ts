@@ -54,6 +54,18 @@ export function tenantDb(userId: string = currentUserId()): TenantDb {
   return created;
 }
 
+/** Release a user's local SQLite file so it can be removed on account deletion. */
+export function closeTenantDb(userId: string): void {
+  const opened = tenantCache.get(userId);
+  if (!opened) return;
+  try {
+    (opened.$client as { close?: () => void }).close?.();
+  } catch {
+    // Already closed — nothing to release.
+  }
+  tenantCache.delete(userId);
+}
+
 /** Global database shared by every request: users, sessions, quota, model catalog. */
 export const systemDb: SystemDb = (globalForDb.__systemDb ??= createSystemDb());
 

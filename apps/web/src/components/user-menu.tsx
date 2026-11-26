@@ -15,6 +15,40 @@ interface SessionInfo {
   role?: string;
 }
 
+/** Standalone logout control, usable anywhere (including page headers). */
+export function LogoutButton({
+  className = "",
+  iconOnly = false,
+}: {
+  className?: string;
+  iconOnly?: boolean;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+
+  const logout = async () => {
+    setBusy(true);
+    await postJson("/api/auth", {}, "DELETE");
+    router.push("/login");
+    router.refresh();
+  };
+
+  return (
+    <Button
+      variant={iconOnly ? "ghost" : "outline"}
+      size="sm"
+      className={className}
+      disabled={busy}
+      onClick={logout}
+      aria-label="Keluar"
+      title="Keluar"
+    >
+      <LogOut className={iconOnly ? "h-4 w-4" : "mr-1.5 h-3 w-3"} />
+      {!iconOnly && (busy ? "Keluar…" : "Keluar")}
+    </Button>
+  );
+}
+
 export function UserMenu() {
   const router = useRouter();
   const [session, setSession] = useState<SessionInfo | null>(null);

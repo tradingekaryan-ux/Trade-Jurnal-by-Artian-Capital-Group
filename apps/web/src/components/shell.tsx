@@ -27,7 +27,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ArtianMark } from "@/components/artian-mark";
 import { PrivacyToggle } from "./privacy";
-import { UserMenu } from "./user-menu";
+import { LogoutButton, UserMenu } from "./user-menu";
 import { PoweredByLuxAlgo } from "./powered-by-luxalgo";
 import { ThemeToggle } from "./theme";
 import { PageTransition } from "./page-transition";
@@ -258,6 +258,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </Link>
         <PrivacyToggle compact />
         <ThemeToggle iconOnly />
+        <LogoutButton iconOnly />
       </header>
       <aside
         className="journal-desktop-sidebar sticky top-0 hidden h-dvh shrink-0 flex-col border-r bg-card/50 lg:flex"
@@ -271,6 +272,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
               Trade Jurnal
             </span>
           </Link>
+          <LogoutButton iconOnly className="journal-sidebar-logout" />
           <Button
             type="button"
             variant="outline"

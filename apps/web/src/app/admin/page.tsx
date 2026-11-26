@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { OptionSelect } from "@/components/ui/option-select";
 import { PoweredByLuxAlgo } from "@/components/powered-by-luxalgo";
+import { LogoutButton } from "@/components/user-menu";
 import { postJson } from "@/lib/use-api";
 import { ROLE_LABELS, USER_ROLES, canAccessAdmin, isUserRole, type UserRole } from "@/lib/roles";
 
@@ -187,6 +188,7 @@ export default function AdminPage() {
           <Button disabled={busy} onClick={save}>
             Simpan perubahan
           </Button>
+          <LogoutButton />
         </div>
       </div>
       {(error || message) && (

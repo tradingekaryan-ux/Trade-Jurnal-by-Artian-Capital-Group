@@ -28,8 +28,9 @@ export const GET = handler(async () => {
     order by p.created_at desc
   `;
   return ok({
-    promos: rows.map((row) => ({
+    promos: rows.map(({ user_id, ...row }) => ({
       ...row,
+      userId: user_id,
       author: row.author ?? "",
       hasImage: Boolean(row.image_url),
       codeEnabled: Boolean(row.code_enabled),

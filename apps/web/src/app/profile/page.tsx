@@ -7,6 +7,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+interface OwnPost {
+  id: string;
+  userId: string;
+  title: string;
+  kind: "promo" | "idea";
+  hasImage: boolean;
+  createdAt: string;
+}
+
 interface Profile {
   username: string;
   role: string;
@@ -23,6 +32,7 @@ export default function ProfilePage() {
   const [bio, setBio] = useState("");
   const [avatar, setAvatar] = useState<File | null>(null);
   const [banner, setBanner] = useState<File | null>(null);
+  const [myPosts, setMyPosts] = useState<OwnPost[]>([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -37,7 +47,17 @@ export default function ProfilePage() {
       })
       .catch(() => setError("Gagal memuat profil."));
   };
-  useEffect(load, []);
+  useEffect(() => {
+    load();
+    Promise.all([
+      fetch("/api/auth").then((r) => (r.ok ? r.json() : Promise.reject())),
+      fetch("/api/promos").then((r) => (r.ok ? r.json() : Promise.reject())),
+    ])
+      .then(([session, body]: [{ id: string | null }, { promos: OwnPost[] }]) => {
+        setMyPosts(body.promos.filter((post) => post.userId === session.id));
+      })
+      .catch(() => setMyPosts([]));
+  }, []);
 
   const save = async () => {
     setBusy(true);
@@ -160,6 +180,35 @@ export default function ProfilePage() {
             <Button onClick={save} disabled={busy}>
               {busy ? "Menyimpan…" : "Simpan profil"}
             </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Postingan saya</CardTitle></CardHeader>
+          <CardContent>
+            {myPosts.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Belum ada postingan.</p>
+            ) : (
+              <ul className="divide-y">
+                {myPosts.map((post) => (
+                  <li key={post.id} className="flex items-center justify-between gap-3 py-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{post.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(post.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-1 text-xs ${
+                        post.kind === "idea" ? "bg-loss/15 text-loss" : "bg-profit/15 text-profit"
+                      }`}
+                    >
+                      {post.kind === "idea" ? "Trades Idea" : "Promo & Discount"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -11,8 +11,9 @@ export const GET = handler(async () => {
     order by p.created_at desc
   `;
   return ok({
-    posts: rows.map((row) => ({
+    posts: rows.map(({ user_id, ...row }) => ({
       ...row,
+      userId: user_id,
       kind: row.kind === "idea" ? "idea" : "promo",
       hasImage: Boolean(row.image_url),
     })),

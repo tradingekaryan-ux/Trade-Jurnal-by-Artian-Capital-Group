@@ -5,7 +5,7 @@ import { newId, nowIso } from "@/server/ids";
 import {
   calculateJournal,
   instrumentFor,
-  isJournalMode,
+  isEnabledJournalMode,
   isResultMode,
   type JournalInput,
   type JournalMode,
@@ -23,7 +23,10 @@ const numberField = (value: unknown, name: string, required = false): number | u
 };
 
 const parseInput = (body: Record<string, unknown>): JournalInput => {
-  requireValue(isJournalMode(body.mode), "Choose a journal mode.");
+  requireValue(
+    isEnabledJournalMode(body.mode),
+    "Mode Futures (Tick) coming soon. Pilih CFD, crypto spot, crypto perpetual, atau US stock.",
+  );
   requireValue(body.side === "buy" || body.side === "sell", "Side must be buy or sell.");
   requireValue(typeof body.symbol === "string", "Choose an instrument.");
   const spec = instrumentFor(body.symbol);
@@ -64,9 +67,16 @@ const validateDate = (value: unknown, name: string): string => {
   return new Date(value as string).toISOString();
 };
 
-export const GET = handler(() => {
+export const GET = handler((request: Request) => {
+  const modes = new URL(request.url).searchParams
+    .get("mode")
+    ?.split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
   const rows = db.select().from(cfdTrades).orderBy(desc(cfdTrades.openedAt)).all();
-  return ok({ trades: rows });
+  return ok({
+    trades: modes?.length ? rows.filter((row) => modes.includes(row.mode)) : rows,
+  });
 });
 
 export const POST = handler(async (request: Request) => {

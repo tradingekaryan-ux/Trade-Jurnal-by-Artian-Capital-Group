@@ -1,7 +1,8 @@
 import { HYPERLIQUID_TRADFI_SYMBOLS } from "./market-providers";
 
 export type JournalMode = "cfd" | "futures" | "crypto-spot" | "crypto-perp" | "stock";
-export type TradFiCategory = "forex" | "commodity" | "indice";
+export type TradFiCategory =
+  "forex" | "commodity" | "indice" | "stock" | "crypto-perp" | "crypto-spot";
 export type ResultMode = "auto" | "manual" | "breakeven";
 
 export interface InstrumentSpec {
@@ -111,6 +112,76 @@ export const INSTRUMENTS: InstrumentSpec[] = [
     usdPerPipPerLot: 5,
   },
   { symbol: "xyz:NIFTY", label: "NIFTY 50", category: "indice", pipSize: 1, usdPerPipPerLot: 5 },
+  { symbol: "xyz:NVDA", label: "NVIDIA", category: "stock", pipSize: 0.01, usdPerPipPerLot: 1 },
+  { symbol: "xyz:MSFT", label: "Microsoft", category: "stock", pipSize: 0.01, usdPerPipPerLot: 1 },
+  { symbol: "xyz:MU", label: "Micron", category: "stock", pipSize: 0.01, usdPerPipPerLot: 1 },
+  { symbol: "xyz:INTC", label: "Intel", category: "stock", pipSize: 0.01, usdPerPipPerLot: 1 },
+  { symbol: "xyz:TSLA", label: "Tesla", category: "stock", pipSize: 0.01, usdPerPipPerLot: 1 },
+  { symbol: "xyz:SPCX", label: "SpaceX", category: "stock", pipSize: 0.01, usdPerPipPerLot: 1 },
+  { symbol: "xyz:SKHX", label: "SK Hynix", category: "stock", pipSize: 0.01, usdPerPipPerLot: 1 },
+  {
+    symbol: "xyz:SOXL",
+    label: "Semiconductor Bull 3X ETF",
+    category: "stock",
+    pipSize: 0.01,
+    usdPerPipPerLot: 1,
+  },
+  {
+    symbol: "xyz:SMH",
+    label: "Semiconductor ETF",
+    category: "stock",
+    pipSize: 0.01,
+    usdPerPipPerLot: 1,
+  },
+  {
+    symbol: "BTC",
+    label: "Bitcoin Perpetual",
+    category: "crypto-perp",
+    pipSize: 0.01,
+    usdPerPipPerLot: 1,
+  },
+  {
+    symbol: "ETH",
+    label: "Ethereum Perpetual",
+    category: "crypto-perp",
+    pipSize: 0.01,
+    usdPerPipPerLot: 1,
+  },
+  {
+    symbol: "SOL",
+    label: "Solana Perpetual",
+    category: "crypto-perp",
+    pipSize: 0.01,
+    usdPerPipPerLot: 1,
+  },
+  {
+    symbol: "HYPE",
+    label: "Hyperliquid Perpetual",
+    category: "crypto-perp",
+    pipSize: 0.01,
+    usdPerPipPerLot: 1,
+  },
+  {
+    symbol: "XRP",
+    label: "XRP Perpetual",
+    category: "crypto-perp",
+    pipSize: 0.0001,
+    usdPerPipPerLot: 1,
+  },
+  {
+    symbol: "DOGE",
+    label: "Dogecoin Perpetual",
+    category: "crypto-perp",
+    pipSize: 0.00001,
+    usdPerPipPerLot: 1,
+  },
+  {
+    symbol: "PURR/USDC",
+    label: "Purr / USDC Spot",
+    category: "crypto-spot",
+    pipSize: 0.000001,
+    usdPerPipPerLot: 1,
+  },
 ];
 
 /** Keep the catalog in sync with the market-data feed symbol list. */
@@ -125,7 +196,7 @@ export const instrumentFor = (symbol: string): InstrumentSpec | undefined =>
 
 export const MODE_LABELS: Record<JournalMode, string> = {
   cfd: "CFD (Pips)",
-  futures: "Futures (Tick)",
+  futures: "Futures (Tick) — Coming soon",
   "crypto-spot": "Crypto Spot (%)",
   "crypto-perp": "Crypto Perpetual (% × Leverage)",
   stock: "US Stock Spot (%)",
@@ -133,6 +204,18 @@ export const MODE_LABELS: Record<JournalMode, string> = {
 
 export const isJournalMode = (value: unknown): value is JournalMode =>
   typeof value === "string" && Object.hasOwn(MODE_LABELS, value);
+
+export const ENABLED_JOURNAL_MODES: JournalMode[] = ["cfd", "crypto-spot", "crypto-perp", "stock"];
+export const isEnabledJournalMode = (value: unknown): value is JournalMode =>
+  isJournalMode(value) && ENABLED_JOURNAL_MODES.includes(value);
+
+/** Suggest a journal mode from the feed instrument category. */
+export const modeForCategory = (category: TradFiCategory): JournalMode => {
+  if (category === "crypto-spot") return "crypto-spot";
+  if (category === "crypto-perp") return "crypto-perp";
+  if (category === "stock") return "stock";
+  return "cfd";
+};
 export const isResultMode = (value: unknown): value is ResultMode =>
   value === "auto" || value === "manual" || value === "breakeven";
 

@@ -23,6 +23,19 @@ Pengguna memilih mode saat membuat trade:
 | **Crypto Perpetual (% × Leverage)** | `P&L = lot(USD) × persentase × leverage`                                     |
 | **US Stock Spot (%)**               | `P&L = lot(USD) × persentase`                                                |
 
+**Futures (Tick)** ditandai _coming soon_ — pilihannya dinonaktifkan di UI dan ditolak oleh API.
+
+## Empat jurnal terpisah
+
+| Halaman            | Mode                                              | Instrument                                                          | Parameter utama                        |
+| ------------------ | ------------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------- |
+| `/journal/cfd`     | CFD (Pips)                                        | FOREX, COMMODITY, INDICE                                            | Lot, pip size, USD per pip per lot     |
+| `/journal/futures` | Futures (Tick)                                    | INDICE, COMMODITY                                                   | _Coming soon_ (tick size & nilai tick) |
+| `/journal/crypto`  | Crypto Spot (%) + Crypto Perpetual (% × Leverage) | BTC, ETH, SOL, HYPE, XRP, DOGE, PURR/USDC                           | Lot(USD), leverage (perp)              |
+| `/journal/stock`   | US Stock Spot (%)                                 | Saham/ETF HIP-3 (NVDA, MSFT, MU, INTC, TSLA, SPCX, SKHX, SOXL, SMH) | Lot(USD), persentase                   |
+
+URL lama `/cfd-journal` otomatis mengarah ke `/journal/cfd`. API `GET /api/cfd-journal?mode=...` menyaring daftar sesuai jurnal.
+
 `USD per pip per lot` berisi default per instrumen (mis. EUR/USD = $10 untuk 1 lot standar) dan **bisa di-override** oleh pengguna di form. Nilai default adalah referensi risk sizing, bukan data broker — pengguna wajib mencocokkan dengan spesifikasi kontrak firm/broker mereka.
 
 ## Input & status

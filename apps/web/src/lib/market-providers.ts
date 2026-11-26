@@ -8,7 +8,8 @@ export interface CredentialField {
   defaultValue?: string;
 }
 
-export type TradFiGroup = "Indeks" | "Komoditas" | "Forex";
+export type TradFiGroup =
+  "Indeks" | "Komoditas" | "Forex" | "US Stock" | "Crypto Perp" | "Crypto Spot";
 
 export interface ProviderSymbol {
   value: string;
@@ -29,9 +30,9 @@ export interface ProviderInfo {
 }
 
 /**
- * Hyperliquid HIP-3 tradfi markets only: indices, commodities and forex.
- * The full `dex:ticker` name is required by the API and is case-sensitive.
- * Other HIP-3 categories (stocks, ETFs, pre-IPO, rates, crypto) are excluded.
+ * Hyperliquid feed catalog: HIP-3 tradfi markets (indices, commodities, forex,
+ * US stock perpetuals) plus core crypto perpetuals and one spot pair.
+ * HIP-3 coins are dex-prefixed and case-sensitive; core perps are bare names.
  */
 export const HYPERLIQUID_TRADFI_SYMBOLS: ProviderSymbol[] = [
   { value: "xyz:SP500", label: "S&P 500", group: "Indeks" },
@@ -51,10 +52,28 @@ export const HYPERLIQUID_TRADFI_SYMBOLS: ProviderSymbol[] = [
   { value: "xyz:EUR", label: "EUR / USD", group: "Forex" },
   { value: "xyz:JPY", label: "USD / JPY", group: "Forex" },
   { value: "xyz:GBP", label: "GBP / USD", group: "Forex" },
+  { value: "xyz:NVDA", label: "NVIDIA", group: "US Stock" },
+  { value: "xyz:MSFT", label: "Microsoft", group: "US Stock" },
+  { value: "xyz:MU", label: "Micron", group: "US Stock" },
+  { value: "xyz:INTC", label: "Intel", group: "US Stock" },
+  { value: "xyz:TSLA", label: "Tesla", group: "US Stock" },
+  { value: "xyz:SPCX", label: "SpaceX", group: "US Stock" },
+  { value: "xyz:SKHX", label: "SK Hynix", group: "US Stock" },
+  { value: "xyz:SOXL", label: "Semiconductor Bull 3X ETF", group: "US Stock" },
+  { value: "xyz:SMH", label: "Semiconductor ETF", group: "US Stock" },
+  { value: "BTC", label: "Bitcoin Perpetual", group: "Crypto Perp" },
+  { value: "ETH", label: "Ethereum Perpetual", group: "Crypto Perp" },
+  { value: "SOL", label: "Solana Perpetual", group: "Crypto Perp" },
+  { value: "HYPE", label: "Hyperliquid Perpetual", group: "Crypto Perp" },
+  { value: "XRP", label: "XRP Perpetual", group: "Crypto Perp" },
+  { value: "DOGE", label: "Dogecoin Perpetual", group: "Crypto Perp" },
+  { value: "PURR/USDC", label: "Purr / USDC Spot", group: "Crypto Spot" },
 ];
 
-export const isTradFiSymbol = (value: unknown): value is string =>
+export const isFeedSymbol = (value: unknown): value is string =>
   typeof value === "string" && HYPERLIQUID_TRADFI_SYMBOLS.some((item) => item.value === value);
+/** Backwards-compatible alias used by the market data adapter. */
+export const isTradFiSymbol = isFeedSymbol;
 
 export const MARKET_PROVIDERS: ProviderInfo[] = [
   {

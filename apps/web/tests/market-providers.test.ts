@@ -34,7 +34,7 @@ describe("Hyperliquid TradFi adapter", () => {
   it("rejects symbols outside indices, commodities and forex without a request", async () => {
     const fetcher = vi.fn();
     vi.stubGlobal("fetch", fetcher);
-    for (const symbol of ["BTC", "xyz:NVDA", "xyz:10Y", "xyz:SP500 "]) {
+    for (const symbol of ["AAPL", "xyz:10Y", "xyz:UNKNOWN", "xyz:SP500 "]) {
       await expect(hyperliquid.history({ ...request, symbol }, "")).rejects.toThrow(
         "Only Hyperliquid HIP-3 indices, commodities and forex",
       );

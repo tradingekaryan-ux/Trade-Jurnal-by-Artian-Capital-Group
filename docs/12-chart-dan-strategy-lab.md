@@ -6,7 +6,8 @@ Halaman chart penuh memakai **`@luxalgo/vela/workspace`** dengan provider data k
 
 - Data candle: `GET /api/market-data/chart?symbol=<TICKER>&timeframe=<1|5|15|60|1D>&from=&to=`
 - Provider server: `server/market-data/hyperliquid.ts` (endpoint publik `candleSnapshot`, tanpa API key).
-- Instrument: hanya **FOREX, COMMODITY, INDICE** dari katalog Hyperliquid (lihat [`market-data.md`](market-data.md)).
+- Instrument: **FOREX, COMMODITY, INDICE, US Stock (HIP-3), crypto perpetual, dan crypto spot** dari katalog Hyperliquid (lihat [`market-data.md`](market-data.md)).
+- Panel **Input trade ke jurnal**: pilih jurnal tujuan (CFD / Crypto / US Stock / Manual; Futures coming soon), harga terakhir bisa diambil langsung dari chart, lalu simpan.
 - Fitur workspace Vela: timeframe, 70+ indikator bawaan, drawing tools, layout, object tree, status line, timezone, dan state tersimpan di `localStorage` (`trade-jurnal-vela`).
 - Atribusi **Vela™** wajib tetap tampil sesuai Apache-2.0 / NOTICE — jangan disembunyikan tanpa pengganti yang setara.
 

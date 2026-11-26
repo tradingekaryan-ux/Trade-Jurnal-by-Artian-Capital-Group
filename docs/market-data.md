@@ -17,13 +17,16 @@ Sebelum candle dimuat, chart menampilkan path dari execution yang tercatat.
 
 Nama HIP-3 bersifat **lengkap (`dex:ticker`) dan case-sensitive**. Daftar ini juga menjadi validasi server — simbol di luar daftar ditolak tanpa permintaan jaringan.
 
-| Kategori      | Simbol                                                                                                                    |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| **Indeks**    | `xyz:SP500`, `xyz:XYZ100`, `xyz:JP225`, `xyz:KR200`, `xyz:NIFTY`                                                          |
-| **Komoditas** | `xyz:GOLD`, `xyz:SILVER`, `xyz:COPPER`, `xyz:PLATINUM`, `xyz:PALLADIUM`, `xyz:CL`, `xyz:BRENTOIL`, `xyz:NATGAS`, `xyz:HO` |
-| **Forex**     | `xyz:EUR`, `xyz:JPY`, `xyz:GBP`                                                                                           |
+| Kategori                    | Simbol                                                                                                                    |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| **Indeks**                  | `xyz:SP500`, `xyz:XYZ100`, `xyz:JP225`, `xyz:KR200`, `xyz:NIFTY`                                                          |
+| **Komoditas**               | `xyz:GOLD`, `xyz:SILVER`, `xyz:COPPER`, `xyz:PLATINUM`, `xyz:PALLADIUM`, `xyz:CL`, `xyz:BRENTOIL`, `xyz:NATGAS`, `xyz:HO` |
+| **Forex**                   | `xyz:EUR`, `xyz:JPY`, `xyz:GBP`                                                                                           |
+| **US Stock / ETF (HIP-3)**  | `xyz:NVDA`, `xyz:MSFT`, `xyz:MU`, `xyz:INTC`, `xyz:TSLA`, `xyz:SPCX`, `xyz:SKHX`, `xyz:SOXL`, `xyz:SMH`                   |
+| **Crypto perpetual (core)** | `BTC`, `ETH`, `SOL`, `HYPE`, `XRP`, `DOGE`                                                                                |
+| **Crypto spot**             | `PURR/USDC`                                                                                                               |
 
-Saham, ETF, pre-IPO, rates, dan crypto **tidak didukung**. Harga HIP-3 adalah perpetual yang mengikuti oracle venue, bukan spot atau kontrak pengiriman fisik; riwayat hanya tersedia sejak market tersebut diluncurkan.
+Pre-IPO dan rates tidak dimasukkan. Harga HIP-3 adalah perpetual yang mengikuti oracle venue, bukan spot atau kontrak pengiriman fisik; riwayat hanya tersedia sejak market tersebut diluncurkan.
 
 ## Arti MAE / MFE
 

@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { JournalDefaultSettings } from "@/components/journal-default-settings";
 import { ContractMultiplierSettings, TimeZoneSettings } from "@/components/journal-settings";
-import { MarketDataSettings } from "@/components/market-data-settings";
 import { AiSettings } from "@/components/ai-settings";
 import { CurrencySettings } from "@/components/currency-settings";
 import { FilterBar } from "@/components/filter-bar";
@@ -42,12 +41,6 @@ const sections = [
     description: "Set a reporting currency and saved exchange rates for combined performance.",
   },
   {
-    id: "market-data",
-    label: "Market data",
-    icon: ChartCandlestick,
-    description: "Connect price history or upload candles for replay and trade analysis.",
-  },
-  {
     id: "ai-settings",
     label: "AI",
     icon: Sparkles,
@@ -64,7 +57,6 @@ type Section = (typeof sections)[number]["id"];
 
 function sectionForHash(hash: string): Section {
   const id = hash.replace(/^#/, "");
-  if (id === "market-csv") return "market-data";
   if (id === "contract-multipliers" || id === "journal-defaults") return "trading";
   return sections.find((section) => section.id === id)?.id ?? "general";
 }
@@ -174,7 +166,6 @@ function Settings() {
                   </>
                 )}
                 {id === "currency-conversion" && <CurrencySettings />}
-                {id === "market-data" && <MarketDataSettings />}
                 {id === "ai-settings" && <AiSettings />}
                 {id === "your-data" && (
                   <Card>

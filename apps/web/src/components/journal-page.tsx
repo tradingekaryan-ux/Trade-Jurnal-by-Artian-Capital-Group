@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { FilterBar } from "@/components/filter-bar";
+import { ImageUploader } from "@/components/image-uploader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -82,7 +83,7 @@ export function JournalPage({
   comingSoon,
 }: JournalPageProps) {
   const instruments = useMemo(
-    () => INSTRUMENTS.filter((item) => categories.includes(item.category)),
+    () => INSTRUMENTS.filter((item) => categories.includes(item.class)),
     [categories],
   );
   const [form, setForm] = useState<FormState>(() => ({
@@ -104,6 +105,8 @@ export function JournalPage({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const [savedId, setSavedId] = useState<string | null>(null);
 
   const load = () => {
     fetch(`/api/cfd-journal?mode=${modes.join(",")}`)
@@ -144,7 +147,7 @@ export function JournalPage({
     setError("");
     setMessage("");
     try {
-      await postJson("/api/cfd-journal", {
+      const saved = await postJson<{ id: string }>("/api/cfd-journal", {
         ...form,
         lot: num(form.lot),
         entry: num(form.entry),
@@ -156,6 +159,16 @@ export function JournalPage({
         usdPerPip: form.mode === "cfd" ? num(form.usdPerPip) : undefined,
         openedAt: form.openedAt ? new Date(form.openedAt).toISOString() : new Date().toISOString(),
       });
+      setSavedId(saved.id);
+      for (const file of files) {
+        const formImage = new FormData();
+        formImage.set("type", "cfd-trade");
+        formImage.set("id", saved.id);
+        formImage.set("file", file);
+        const response = await fetch("/api/attachments", { method: "POST", body: formImage });
+        if (!response.ok) throw new Error("Gagal mengunggah gambar.");
+      }
+      setFiles([]);
       setMessage(
         preview.status === "closed" ? "Trade closed tersimpan." : "Running trade tersimpan.",
       );
@@ -314,7 +327,7 @@ export function JournalPage({
                     >
                       {instruments.map((item) => (
                         <option key={item.symbol} value={item.symbol}>
-                          [{item.category.toUpperCase()}] {item.label} · {item.symbol}
+                          [{item.class.toUpperCase()}] {item.label} · {item.symbol}
                         </option>
                       ))}
                     </OptionSelect>
@@ -334,9 +347,11 @@ export function JournalPage({
                     <Label htmlFor="journal-lot">
                       {form.mode === "cfd"
                         ? "Lot"
-                        : form.mode === "stock"
-                          ? "Size (lembar saham)"
-                          : "Size (unit koin)"}
+                        : form.mode === "futures"
+                          ? "Kontrak"
+                          : form.mode === "stock"
+                            ? "Size (lembar saham)"
+                            : "Size (unit koin)"}
                     </Label>
                     <Input
                       id="journal-lot"
@@ -430,13 +445,31 @@ export function JournalPage({
                       <Input
                         id="journal-usdpip"
                         inputMode="decimal"
-                        placeholder={String(spec?.usdPerPipPerLot ?? "")}
+                        placeholder={String(spec?.value ?? "")}
                         value={form.usdPerPip}
                         onChange={(e) => set("usdPerPip", e.target.value)}
                       />
                     </div>
                   )}
                 </div>
+                <div className="space-y-1">
+                  <Label htmlFor="journal-images">Gambar (opsional)</Label>
+                  <Input
+                    id="journal-images"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    multiple
+                    onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
+                  />
+                  {files.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {files.length} gambar akan diunggah.
+                    </p>
+                  )}
+                </div>
+                {savedId && (
+                  <ImageUploader type="cfd-trade" id={savedId} label="Gambar tersimpan" />
+                )}
                 <div className="rounded-md border bg-muted/40 p-3 text-sm">
                   <div>
                     Status: <strong>{preview.status === "closed" ? "Closed" : "Running"}</strong>
@@ -451,6 +484,11 @@ export function JournalPage({
                         : "Poin"}
                     : {fmtNumber(preview.pips ?? 0, 4)}
                   </div>
+                  {form.mode === "futures" && spec && (
+                    <div className="text-xs text-muted-foreground">
+                      Tick {spec.step} · ${spec.value}/tick · {spec.tier ?? "standard"}
+                    </div>
+                  )}
                   <div>Estimasi P&L: ${fmtNumber(preview.pnl ?? 0, 2)}</div>
                   {preview.riskReward !== null && (
                     <div>R:R: {fmtNumber(preview.riskReward, 2)}</div>
@@ -458,7 +496,6 @@ export function JournalPage({
                   {preview.rMultiple !== null && (
                     <div>R multiple: {fmtNumber(preview.rMultiple, 2)}R</div>
                   )}
-                  {spec?.note && <p className="text-xs text-muted-foreground">{spec.note}</p>}
                 </div>
                 {(error || message) && (
                   <p className={`text-sm ${error ? "text-destructive" : "text-profit"}`}>

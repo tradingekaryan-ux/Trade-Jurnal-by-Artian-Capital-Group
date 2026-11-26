@@ -4,7 +4,7 @@ import { calculateJournal, type JournalInput } from "../src/lib/cfd";
 const base: JournalInput = {
   mode: "cfd",
   side: "buy",
-  symbol: "xyz:EUR",
+  symbol: "EURUSD",
   lot: 1,
   entry: 1.1,
   resultMode: "auto",
@@ -63,19 +63,19 @@ describe("CFD journal calculations", () => {
     const result = calculateJournal({
       ...base,
       mode: "futures",
-      symbol: "xyz:SP500",
+      symbol: "ES",
       entry: 7000,
       exit: 7001,
     });
-    expect(result.pips).toBe(10);
-    expect(result.pnl).toBe(100);
+    expect(result.pips).toBe(4);
+    expect(result.pnl).toBe(50);
   });
 
   it("calculates percentage modes with leverage for crypto perpetuals", () => {
     const spot = calculateJournal({
       ...base,
       mode: "crypto-spot",
-      symbol: "xyz:GOLD",
+      symbol: "BTCUSD",
       entry: 100,
       exit: 110,
       lot: 10,
@@ -85,7 +85,7 @@ describe("CFD journal calculations", () => {
     const perp = calculateJournal({
       ...base,
       mode: "crypto-perp",
-      symbol: "xyz:GOLD",
+      symbol: "BTCUSD",
       entry: 100,
       exit: 110,
       lot: 10,

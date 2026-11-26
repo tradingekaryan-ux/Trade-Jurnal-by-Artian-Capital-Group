@@ -4,12 +4,12 @@ Sistem jurnal baru berorientasi CFD, berjalan **berdampingan** dengan engine rou
 
 ## Perubahan konsep
 
-| Lama                            | Baru                                                              |
-| ------------------------------- | ----------------------------------------------------------------- |
-| `Quantity`                      | **Lot** / ukuran posisi                                           |
-| Simbol bebas                    | **FOREX, COMMODITY, INDICE** — simbol dari feed Hyperliquid HIP-3 |
-| Hanya P&L dari price difference | **Pips / point / tick + USD per pip per lot**, atau persentase    |
-| Entry + exit execution          | Entry, Side, Take Profit, Stop Loss, Exit/Result                  |
+| Lama                            | Baru                                                                                     |
+| ------------------------------- | ---------------------------------------------------------------------------------------- |
+| `Quantity`                      | **Lot** / ukuran posisi                                                                  |
+| Simbol bebas                    | **FOREX, COMMODITY, INDICE** dengan ticker CFD standar (mis. `XAUUSD`, `EURUSD`, `US30`) |
+| Hanya P&L dari price difference | **Pips / point / tick + USD per pip per lot**, atau persentase                           |
+| Entry + exit execution          | Entry, Side, Take Profit, Stop Loss, Exit/Result                                         |
 
 ## Mode jurnal
 
@@ -25,20 +25,24 @@ Pengguna memilih mode saat membuat trade:
 
 Untuk crypto dan US Stock **tidak ada parameter lot** — field yang dipakai adalah **size nyata** (jumlah koin atau lembar saham). Notional dihitung otomatis dari `size × entry`. API juga menerima `size` sebagai alias input.
 
-**Futures (Tick)** ditandai _coming soon_ — pilihannya dinonaktifkan di UI dan ditolak oleh API.
+**Futures (Tick)** sudah aktif dengan kontrak standar, mini, micro, dan nano.
 
 ## Empat jurnal terpisah
 
-| Halaman            | Mode                                              | Instrument                                                          | Parameter utama                        |
-| ------------------ | ------------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------- |
-| `/journal/cfd`     | CFD (Pips)                                        | FOREX, COMMODITY, INDICE                                            | Lot, pip size, USD per pip per lot     |
-| `/journal/futures` | Futures (Tick)                                    | INDICE, COMMODITY                                                   | _Coming soon_ (tick size & nilai tick) |
-| `/journal/crypto`  | Crypto Spot (%) + Crypto Perpetual (% × Leverage) | BTC, ETH, SOL, HYPE, XRP, DOGE, PURR/USDC                           | Size unit koin, leverage (perp)        |
-| `/journal/stock`   | US Stock Spot (%)                                 | Saham/ETF HIP-3 (NVDA, MSFT, MU, INTC, TSLA, SPCX, SKHX, SOXL, SMH) | Size lembar saham, persentase          |
+| Halaman            | Mode                                              | Instrument                                               | Parameter utama                    |
+| ------------------ | ------------------------------------------------- | -------------------------------------------------------- | ---------------------------------- |
+| `/journal/cfd`     | CFD (Pips)                                        | FOREX, COMMODITY, INDICE                                 | Lot, pip size, USD per pip per lot |
+| `/journal/futures` | Futures (Tick)                                    | ES, NQ, MES, MNQ, MRTY, MGC, MCL, SPXN, NQ100N, …        | Kontrak, tick size, USD/tick       |
+| `/journal/crypto`  | Crypto Spot (%) + Crypto Perpetual (% × Leverage) | BTCUSD, ETHUSD, SOLUSD, BTCUSDT, ETHUSDT, …              | Size unit koin, leverage (perp)    |
+| `/journal/stock`   | US Stock Spot (%)                                 | NVDA, MSFT, AAPL, TSLA, MU, INTC, AMD, META, GOOGL, AMZN | Size lembar saham, persentase      |
 
 URL lama `/cfd-journal` otomatis mengarah ke `/journal/cfd`. API `GET /api/cfd-journal?mode=...` menyaring daftar sesuai jurnal.
 
 `USD per pip per lot` berisi default per instrumen (mis. EUR/USD = $10 untuk 1 lot standar) dan **bisa di-override** oleh pengguna di form. Nilai default adalah referensi risk sizing, bukan data broker — pengguna wajib mencocokkan dengan spesifikasi kontrak firm/broker mereka.
+
+## Gambar opsional
+
+Setiap input jurnal dan detail trade memiliki **upload gambar opsional** (PNG/JPEG/WebP, maks. 8 MB/file). Gambar diunggah setelah entri tersimpan dan ditampilkan sebagai thumbnail. Tidak wajib diisi.
 
 ## Input & status
 
@@ -74,9 +78,9 @@ Aturan tetap: file adalah data yang tidak dipercaya, fee = commission + swap, ti
 
 ## Dibandingkan dengan fitur lama
 
-| Fitur lama                        | Status                                                           |
-| --------------------------------- | ---------------------------------------------------------------- |
-| Import file 16+ format            | Tetap ada, AI kini lebih spesifik untuk MT4/MT5/cTrader/CFD      |
-| Broker sync                       | **Tab di halaman Import dihapus** — hanya File upload dan Manual |
-| Round-trip, analytics, Edge Score | Tetap ada untuk data lama                                        |
-| Hyperliquid TradFi feed           | Tetap dipakai untuk chart/replay                                 |
+| Fitur lama                        | Status                                                                   |
+| --------------------------------- | ------------------------------------------------------------------------ |
+| Import file 16+ format            | Tetap ada, AI kini lebih spesifik untuk MT4/MT5/cTrader/CFD              |
+| Broker sync                       | **Tab di halaman Import dihapus** — hanya File upload dan Manual         |
+| Round-trip, analytics, Edge Score | Tetap ada untuk data lama                                                |
+| Chart & replay                    | **Dihapus** — penggantinya upload gambar opsional di jurnal/detail trade |

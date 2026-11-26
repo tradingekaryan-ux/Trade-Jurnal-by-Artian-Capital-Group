@@ -1,4 +1,8 @@
-# Market data & replay — Hyperliquid TradFi
+# Market data & replay — DIHAPUS
+
+> Fitur data feed harga, chart, dan replay **sudah dihapus**. Tidak ada koneksi Hyperliquid untuk price tracking, tidak ada halaman chart, dan tidak ada estimasi MAE/MFE dari candle. Penggantinya adalah upload gambar opsional pada entri jurnal/detail trade. Dokumen lama di bawah disimpan sebagai referensi arsitektur historis saja.
+
+# (Arsip) Historical market data
 
 Data feed harga dan chart memakai **satu-satunya penyedia live: Hyperliquid HIP-3**, dibatasi pada **indeks, komoditas, dan forex**. Penyedia lain (Alpaca, Binance, Coinbase, OANDA, London Strategic Edge) **tidak dipakai**. File CSV lokal tetap tersedia sebagai cadangan offline, bukan sebagai data feed.
 

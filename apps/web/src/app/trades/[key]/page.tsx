@@ -8,7 +8,7 @@ import { netReturnOnEntry } from "@luxalgo/journal-core";
 import { FilterBar } from "@/components/filter-bar";
 import { Pnl } from "@/components/pnl";
 import { MonetaryValue, MonetaryField } from "@/components/privacy";
-import { TradeMarketData } from "@/components/trade-market-data";
+import { ImageUploader } from "@/components/image-uploader";
 import { TradeNavigation } from "@/components/trade-navigation";
 import { TradeRating } from "@/components/trade-rating";
 import { EquityArea } from "@/components/charts/equity-area";
@@ -202,7 +202,14 @@ function TradeView({ tradeKey }: { tradeKey: string }) {
             </CardContent>
           </Card>
 
-          <TradeMarketData trade={trade} executions={executions} />
+          <Card>
+            <CardHeader>
+              <CardTitle>Gambar trade</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ImageUploader type="trade" id={trade.key} />
+            </CardContent>
+          </Card>
 
           {runningPnl.length > 1 && (
             <Card>

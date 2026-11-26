@@ -60,11 +60,6 @@ export const POST = handler(
     );
     try {
       const provider = providerFor(body.provider);
-      if (provider.id === "hyperliquid")
-        requireValue(
-          row.assetClass !== "crypto",
-          "Hyperliquid TradFi hanya mencakup indeks, komoditas, dan forex. Pilih simbol HIP-3 yang sesuai.",
-        );
       const trade = rowToTrade(row);
       const fingerprint = estimateFingerprint(trade);
       const history = await provider.history(

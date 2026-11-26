@@ -32,7 +32,6 @@ import {
   Trophy,
 } from "lucide-react";
 import { FilterBar, useFilters } from "@/components/filter-bar";
-import { AddTradeDialog } from "@/components/add-trade-dialog";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { MonetaryValue } from "@/components/privacy";
 import { Pnl } from "@/components/pnl";
@@ -98,7 +97,7 @@ function Dashboard() {
 
   return (
     <>
-      <FilterBar title="Dashboard" actions={<AddTradeDialog onSaved={refresh} />} />
+      <FilterBar title="Dashboard" />
       <DashboardContent
         data={data}
         loading={loading}

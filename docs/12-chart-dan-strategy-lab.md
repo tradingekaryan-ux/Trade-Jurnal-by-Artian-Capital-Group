@@ -1,17 +1,10 @@
-# 12 — Chart TradingView & Strategy Lab (prop-firm simulator)
+# 12 — Strategy Lab & fitur yang dihapus
 
-## Chart TradingView — `/charts`
+## Chart & replay — DIHAPUS
 
-Halaman chart memakai **TradingView Lightweight Charts** (`lightweight-charts`) yang diberi data candle **Hyperliquid**, bukan Vela workspace.
+Fitur chart (TradingView/Vela) dan pelacakan harga dari data feed Hyperliquid **sudah dihapus** dari aplikasi. Tidak ada halaman `/charts`, tidak ada subscription WebSocket harga, dan tidak ada replay MAE/MFE.
 
-- Data awal: `GET /api/market-data/chart?symbol=<coin>&timeframe=<1m|5m|15m|1h|1d>&from=&to=`
-- **Realtime**: WebSocket `wss://api.hyperliquid.xyz/ws` dengan subscription `{ type: "candle", coin, interval }`. Jika socket gagal, aplikasi fallback polling REST setiap 15 detik. Status live/polling ditampilkan di toolbar.
-- Filter kategori pair (Semua / Forex / Komoditas / Indeks / US Stock / Crypto Perp / Crypto Spot) memakai katalog `HYPERLIQUID_TRADFI_SYMBOLS`, sehingga setiap kategori berisi simbol.
-- Instrument dan timeframe **hanya dipilih di toolbar chart** — tidak ada input terpisah di panel trade.
-- Panel **Input trade ke jurnal** memakai simbol & waktu dari chart, tombol **Pakai harga chart**, lalu menyimpan ke jurnal CFD / Crypto / US Stock / Manual (Futures coming soon).
-- Vela tetap dipakai untuk chart trade detail bawaan upstream; atribusi Vela™ di halaman tersebut tetap tampil.
-
-Batas: Hyperliquid hanya menyediakan ~5.000 candle terbaru per interval; riwayat sangat tua tidak tersedia. Chart bersifat live/recent-history, bukan backfill dalam.
+Penggantinya: **upload gambar opsional** pada detail trade dan pada setiap input jurnal. Gambar disimpan sebagai lampiran (`attachments`) dengan owner `trade` atau `cfd-trade`, maksimal 8 MB per file (PNG/JPEG/WebP).
 
 ## Strategy Lab — `/prop-sim`
 

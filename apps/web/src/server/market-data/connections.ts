@@ -2,12 +2,9 @@ import { decryptJson, encryptJson } from "@/server/crypto";
 import { deleteSetting, getSetting, setSetting } from "@/server/settings";
 import type { MarketConnection } from "@/lib/market-data";
 import { providerInfo } from "@/lib/market-providers";
-import { hyperliquid } from "./hyperliquid";
 import { csvDatasets, marketCsv } from "./csv";
 import { MarketDataError, type MarketDataProvider } from "./provider";
-const providers: MarketDataProvider[] = [hyperliquid, marketCsv].sort((a, b) =>
-  a.name.localeCompare(b.name),
-);
+const providers: MarketDataProvider[] = [marketCsv];
 export const providerFor = (id: string) => {
   const provider = providers.find((entry) => entry.id === id);
   if (!provider) throw new MarketDataError("Choose an available market data provider.");

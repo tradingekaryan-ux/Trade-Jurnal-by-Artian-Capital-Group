@@ -25,12 +25,12 @@ const numberField = (value: unknown, name: string, required = false): number | u
 const parseInput = (body: Record<string, unknown>): JournalInput => {
   requireValue(
     isEnabledJournalMode(body.mode),
-    "Mode Futures (Tick) coming soon. Pilih CFD, crypto spot, crypto perpetual, atau US stock.",
+    "Pilih mode jurnal yang tersedia: CFD, Futures, Crypto Spot, Crypto Perpetual, atau US Stock.",
   );
   requireValue(body.side === "buy" || body.side === "sell", "Side must be buy or sell.");
   requireValue(typeof body.symbol === "string", "Choose an instrument.");
   const spec = instrumentFor(body.symbol);
-  requireValue(Boolean(spec), "Instrument is not in the Hyperliquid tradfi feed.");
+  requireValue(Boolean(spec), "Instrument tidak dikenal. Pilih dari katalog ticker standar.");
   requireValue(isResultMode(body.resultMode), "Choose a result mode.");
   const lot = numberField(body.size ?? body.lot, "Size", true)!;
   const entry = numberField(body.entry, "Entry", true)!;
@@ -92,7 +92,7 @@ export const POST = handler(async (request: Request) => {
     .values({
       id,
       accountId: typeof body.accountId === "string" ? body.accountId : null,
-      category: spec.category,
+      category: spec.class,
       symbol: input.symbol,
       mode: input.mode,
       side: input.side,

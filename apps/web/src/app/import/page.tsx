@@ -2,9 +2,8 @@
 
 import { Suspense, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileUp, PencilLine } from "lucide-react";
+import { FileUp } from "lucide-react";
 import { AccountPicker } from "@/components/account-picker";
-import { ManualTradeEntry } from "@/components/manual-trade-entry";
 import { FilterBar } from "@/components/filter-bar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +17,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { postJson, useApi } from "@/lib/use-api";
 import { decodeImportFile } from "@/lib/decode-import";
 import { formatTimestamp, isTimeZone } from "@/lib/timezone";
@@ -81,31 +79,7 @@ function ImportView() {
     <div>
       <FilterBar title="Import trades" />
       <div className="mx-auto max-w-3xl p-4">
-        <Tabs defaultValue="file">
-          <TabsList>
-            <TabsTrigger value="file" className="max-sm:px-2 max-sm:text-xs">
-              <FileUp className="mr-1.5 hidden h-4 w-4 min-[420px]:block" />
-              File upload
-            </TabsTrigger>
-            <TabsTrigger value="manual" className="max-sm:px-2 max-sm:text-xs">
-              <PencilLine className="mr-1.5 hidden h-4 w-4 min-[420px]:block" />
-              Manual
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="file">
-            <FileImport />
-          </TabsContent>
-          <TabsContent value="manual">
-            <Card>
-              <CardHeader>
-                <CardTitle>Add executions manually</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ManualTradeEntry onSaved={() => router.push("/trades")} />
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+        <FileImport />
       </div>
     </div>
   );

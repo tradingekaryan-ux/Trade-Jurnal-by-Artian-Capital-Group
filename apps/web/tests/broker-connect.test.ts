@@ -40,13 +40,13 @@ afterEach(async () => {
   container.remove();
 });
 
-it("offers only file upload and manual entry, with no broker sync option", async () => {
+it("offers only file upload, with no manual entry or broker sync", async () => {
   await act(async () =>
     root.render(createElement(TooltipProvider, null, createElement(ImportPage))),
   );
   const text = container.textContent ?? "";
-  expect(text).toContain("File upload");
-  expect(text).toContain("Manual");
+  expect(text).toContain("Upload a statement or export");
   expect(text).not.toContain("Broker sync");
   expect(text).not.toContain("Connect a broker");
+  expect(text).not.toContain("Add executions manually");
 });

@@ -19,7 +19,7 @@ export const canAccessAdmin = (role: UserRole) => role === "owner" || role === "
 /** Staff can moderate every promo; company accounts manage only their own posts. */
 export const canModeratePromos = (role: UserRole) =>
   role === "owner" || role === "admin" || role === "staff";
-export const canEditPromo = (role: UserRole, ownerId: string, userId: string) =>
-  canModeratePromos(role) || (role === "company" && ownerId === userId);
+export const canEditPromo = (_role: UserRole, ownerId: string, userId: string) =>
+  canModeratePromos(_role) || ownerId === userId;
 /** Any authenticated account may publish a promo. */
 export const canCreatePromo = (_role: UserRole) => true;

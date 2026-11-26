@@ -191,14 +191,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
     <div className="journal-sidebar-footer space-y-2 border-t p-3 text-xs text-muted-foreground">
       <UserMenu />
       <div>
-        Berbasis pada{" "}
+        Powered by{" "}
         <a
-          href="https://github.com/LuxAlgo/trade-journal"
+          href="https://www.luxalgo.com/"
           className="underline underline-offset-2 hover:text-foreground"
           target="_blank"
           rel="noreferrer"
         >
-          LuxAlgo trade-journal (MIT)
+          LuxAlgo
         </a>
       </div>
       <PoweredByLuxAlgo />

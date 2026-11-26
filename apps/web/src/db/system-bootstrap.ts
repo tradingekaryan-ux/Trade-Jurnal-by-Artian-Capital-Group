@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS global_settings (
 CREATE TABLE IF NOT EXISTS promos (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL DEFAULT 'promo',
   title TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT '',
   image_data BLOB,
@@ -77,6 +78,17 @@ CREATE TABLE IF NOT EXISTS promos (
 );
 CREATE INDEX IF NOT EXISTS promos_user ON promos (user_id);
 CREATE INDEX IF NOT EXISTS promos_created ON promos (created_at);
+
+CREATE TABLE IF NOT EXISTS promo_votes (
+  id TEXT PRIMARY KEY,
+  promo_id TEXT NOT NULL REFERENCES promos(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  value TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS promo_vote_unique ON promo_votes (promo_id, user_id);
+CREATE INDEX IF NOT EXISTS promo_votes_promo ON promo_votes (promo_id);
 `;
 
 const hasColumn = (sqlite: Database.Database, table: string, column: string) =>
@@ -132,6 +144,9 @@ export function openSystemDatabase(file: string): Database.Database {
   sqlite.pragma("journal_mode = WAL");
   sqlite.pragma("foreign_keys = ON");
   sqlite.exec(SYSTEM_BOOTSTRAP_SQL);
+  if (!hasColumn(sqlite, "promos", "kind")) {
+    sqlite.exec("ALTER TABLE promos ADD COLUMN kind TEXT NOT NULL DEFAULT 'promo'");
+  }
   if (!hasColumn(sqlite, "users", "role")) {
     sqlite.exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'member'");
     sqlite.exec("UPDATE users SET role = 'owner' WHERE is_admin = 1");

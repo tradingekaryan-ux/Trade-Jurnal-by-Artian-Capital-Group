@@ -16,12 +16,18 @@ const validUrl = (value: string) => {
   }
 };
 
+const imageFilePresent = (form: FormData) => {
+  const file = form.get("image");
+  return file instanceof File && file.size > 0;
+};
+
 export const GET = handler(async () => {
   const rows = systemDb
     .select({
       id: promos.id,
       userId: promos.userId,
       author: users.username,
+      kind: promos.kind,
       title: promos.title,
       description: promos.description,
       imageMime: promos.imageMime,
@@ -54,6 +60,7 @@ export const POST = handler(async (request: Request) => {
   const description = String(form.get("description") ?? "").trim();
   const promoCode = String(form.get("promoCode") ?? "").trim();
   const url = String(form.get("url") ?? "").trim();
+  const kind = form.get("kind") === "idea" ? "idea" : "promo";
   const codeEnabled = form.get("codeEnabled") === "true";
   const urlEnabled = form.get("urlEnabled") === "true";
   requireValue(title.length >= 2 && title.length <= 160, "Judul harus 2–160 karakter.");
@@ -62,6 +69,9 @@ export const POST = handler(async (request: Request) => {
   requireValue(!url || validUrl(url), "URL harus http:// atau https://.");
   requireValue(!codeEnabled || promoCode.length > 0, "Isi promo code sebelum mengaktifkannya.");
   requireValue(!urlEnabled || url.length > 0, "Isi URL sebelum mengaktifkannya.");
+  if (kind === "idea") {
+    requireValue(imageFilePresent(form), "Trade idea wajib menyertakan gambar.");
+  }
 
   const file = form.get("image");
   let imageData: Buffer | null = null;
@@ -83,6 +93,7 @@ export const POST = handler(async (request: Request) => {
     .values({
       id,
       userId: user!.id,
+      kind,
       title,
       description,
       imageData,

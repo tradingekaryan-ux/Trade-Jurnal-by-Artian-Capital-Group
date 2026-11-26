@@ -1,0 +1,18 @@
+export type PostKind = "promo" | "idea";
+
+/** Shared shape returned by the posts API for both promos and trade ideas. */
+export interface Post {
+  id: string;
+  userId: string;
+  author: string;
+  kind: PostKind;
+  title: string;
+  description: string;
+  imageMime: string | null;
+  hasImage: boolean;
+  promoCode?: string | null;
+  codeEnabled?: boolean;
+  url?: string | null;
+  urlEnabled?: boolean;
+  createdAt: string;
+}

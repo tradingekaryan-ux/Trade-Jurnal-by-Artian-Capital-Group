@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { canEditPromo, canModeratePromos, isUserRole, type UserRole } from "@/lib/roles";
+import { VoteBar } from "@/components/vote-bar";
 
 interface Promo {
   id: string;
@@ -30,8 +31,15 @@ interface Session {
   role: UserRole;
 }
 
+interface VoteSummary {
+  working: number;
+  notWorking: number;
+  mine: "working" | "not_working" | null;
+}
+
 export default function PromoPage() {
   const [promos, setPromos] = useState<Promo[]>([]);
+  const [votes, setVotes] = useState<Record<string, VoteSummary>>({});
   const [session, setSession] = useState<Session | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -44,10 +52,24 @@ export default function PromoPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  const loadVotes = (items: Promo[]) => {
+    if (items.length === 0) {
+      setVotes({});
+      return;
+    }
+    fetch(`/api/promos/vote?ids=${encodeURIComponent(items.map((p) => p.id).join(","))}`)
+      .then((response) => (response.ok ? response.json() : Promise.reject()))
+      .then((body: { votes: Record<string, VoteSummary> }) => setVotes(body.votes))
+      .catch(() => setVotes({}));
+  };
+
   const load = () => {
     fetch("/api/promos")
       .then((response) => (response.ok ? response.json() : Promise.reject()))
-      .then((body: { promos: Promo[] }) => setPromos(body.promos))
+      .then((body: { promos: Promo[] }) => {
+        setPromos(body.promos);
+        loadVotes(body.promos);
+      })
       .catch(() => setError("Gagal memuat promo."));
   };
   useEffect(() => {
@@ -114,6 +136,23 @@ export default function PromoPage() {
     if (!window.confirm(`Hapus promo "${promo.title}"?`)) return;
     await fetch(`/api/promos?id=${encodeURIComponent(promo.id)}`, { method: "DELETE" });
     load();
+  };
+
+  const vote = async (promo: Promo, value: VoteSummary["mine"]) => {
+    if (!value) return;
+    try {
+      const response = await fetch("/api/promos/vote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ promoId: promo.id, value }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Gagal memberi vote.");
+      setVotes((current) => ({ ...current, [promo.id]: body as VoteSummary }));
+      setMessage("Vote tersimpan. Terima kasih atas testimoni Anda.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Gagal memberi vote.");
+    }
   };
 
   const copy = async (value: string) => {
@@ -262,6 +301,36 @@ export default function PromoPage() {
                       >
                         Kunjungi situs ↗
                       </a>
+                    )}
+                  </div>
+                  <VoteBar
+                    left={votes[promo.id]?.working ?? 0}
+                    right={votes[promo.id]?.notWorking ?? 0}
+                    leftLabel="Working"
+                    rightLabel="Not Working"
+                  />
+                  <div className="flex flex-wrap items-center gap-2 border-t pt-2">
+                    <span className="text-xs text-muted-foreground">Testimoni:</span>
+                    <Button
+                      size="sm"
+                      variant={votes[promo.id]?.mine === "working" ? "default" : "outline"}
+                      disabled={!session?.authenticated}
+                      onClick={() => void vote(promo, "working")}
+                    >
+                      ✓ Working · {votes[promo.id]?.working ?? 0}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={votes[promo.id]?.mine === "not_working" ? "destructive" : "outline"}
+                      disabled={!session?.authenticated}
+                      onClick={() => void vote(promo, "not_working")}
+                    >
+                      ✕ Not Working · {votes[promo.id]?.notWorking ?? 0}
+                    </Button>
+                    {!session?.authenticated && (
+                      <span className="text-xs text-muted-foreground">
+                        Login untuk memberi vote.
+                      </span>
                     )}
                   </div>
                   {editable && (

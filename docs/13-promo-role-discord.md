@@ -15,7 +15,22 @@ Setiap akun yang login bisa memposting promo:
 
 Promo disimpan di database global agar bisa dilihat semua akun; gambar ikut tersimpan di sana dan disajikan lewat `/api/promos/[id]/image`.
 
+### Voting Working / Not Working
+
+Setiap promo menampilkan testimoni komunitas: tombol **Working** dan **Not Working** dengan jumlah vote. Satu akun hanya punya **satu vote per promo**, dan bisa mengubah atau membatalkan pilihannya dengan mengklik tombol lain. Ringkasan vote diambil lewat `GET /api/promos/vote?ids=...`; pengiriman vote lewat `POST /api/promos/vote`. Pengguna belum login tidak bisa vote (tombol dinonaktifkan).
+
 API: `GET/POST/PATCH/DELETE /api/promos`. Moderator bisa mengubah status promo siapa pun; akun company hanya promo miliknya sendiri.
+
+## Halaman Trades Idea — `/ideas`
+
+Sama seperti promo, tetapi:
+
+- postingan **wajib gambar** (judul + deskripsi + gambar);
+- **tanpa** promo code dan URL;
+- voting diubah menjadi **Stop Loss** vs **Take Profit** (`/api/ideas/vote`);
+- kedua halaman menampilkan **batang persentase live** (hijau vs merah) yang diperbarui seketika setelah vote.
+
+Feed gabungan: `GET /api/posts? ...` mengembalikan promo dan idea dengan field `kind`.
 
 ## Role & hak akses
 

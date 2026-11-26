@@ -87,6 +87,7 @@ export const promos = sqliteTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull().default("promo"),
     title: text("title").notNull(),
     description: text("description").notNull().default(""),
     imageData: blob("image_data", { mode: "buffer" }),
@@ -100,4 +101,27 @@ export const promos = sqliteTable(
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [index("promos_user").on(table.userId), index("promos_created").on(table.createdAt)],
+);
+
+/** One vote per (user, promo). 'working' = code/link still works. */
+export const promoVotes = sqliteTable(
+  "promo_votes",
+  {
+    id: text("id").primaryKey(),
+    promoId: text("promo_id")
+      .notNull()
+      .references(() => promos.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    value: text("value", {
+      enum: ["working", "not_working", "stop_loss", "take_profit"],
+    }).notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("promo_vote_unique").on(table.promoId, table.userId),
+    index("promo_votes_promo").on(table.promoId),
+  ],
 );

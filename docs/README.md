@@ -1,0 +1,36 @@
+# Trade Jurnal by Artian Capital Group — Dokumentasi Proyek
+
+> **Status: dokumentasi disetujui, implementasi berjalan.** Dokumen ini adalah spesifikasi teknis sekaligus catatan keputusan yang sudah disetujui.
+
+## Tentang proyek
+
+Website jurnal trading **gratis, multi-pengguna**, berbasis kode open-source [`LuxAlgo/trade-journal`](https://github.com/LuxAlgo/trade-journal) (MIT). Semua fitur library tersebut dipertahankan, dengan tiga perubahan utama:
+
+1. **Multi-pengguna**: registrasi & login **username + password saja, tanpa verifikasi email/OTP**. Data tiap pengguna terpisah.
+2. **AI via OpenRouter**: seluruh fitur AI memakai OpenRouter, dengan dukungan **kunci hybrid** (global + BYOK per pengguna).
+3. **Merek**: **Trade Jurnal by Artian Capital Group**.
+
+## Keputusan yang sudah disetujui
+
+| Keputusan                 | Pilihan                                                                                                                                                                                                                                               |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Strategi kunci OpenRouter | **Hybrid** — kunci global dari environment sebagai default, pengguna boleh memakai kunci OpenRouter sendiri (BYOK) yang dienkripsi di server                                                                                                          |
+| Model AI                  | **Katalog dinamis dari OpenRouter**: semua model ditampilkan, dibedakan **Free tier** vs **Paid tier**. Daftar diambil otomatis dari `GET /api/v1/models`, dapat di-refresh & **ditimpa manual oleh admin** bila OpenRouter mengubah status free/paid |
+| Kuota AI                  | **10 permintaan per pengguna per hari**                                                                                                                                                                                                               |
+| Implementasi              | **Disetujui untuk dilanjutkan**                                                                                                                                                                                                                       |
+
+Konsekuensi teknis dari keputusan model: tersedia tabel/halaman **Admin → Model AI** (hanya untuk pengguna dengan role admin) untuk menyunting daftar model Free/Paid, model default, dan tombol "Sinkron dari OpenRouter". Pengguna biasa memilih model dari katalog yang sudah difilter admin.
+
+## Daftar dokumen
+
+| Dokumen                                                             | Isi                                                                       |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| [01 — Ringkasan eksekutif](01-ringkasan-eksekutif.md)               | Tujuan, ruang lingkup, prinsip                                            |
+| [02 — Arsitektur sistem](02-arsitektur.md)                          | Stack, struktur monorepo, desain multi-tenancy, alur request              |
+| [03 — Daftar fitur](03-daftar-fitur.md)                             | Pemetaan **semua** fitur upstream + status pelaksanaannya                 |
+| [04 — Autentikasi & multi-pengguna](04-autentikasi-dan-pengguna.md) | Registrasi, login, session, isolasi data, kuota 10/hari                   |
+| [05 — Integrasi OpenRouter](05-integrasi-openrouter.md)             | Kunci hybrid, katalog model dinamis Free/Paid, panel admin, kontrol biaya |
+| [06 — API yang dibutuhkan](06-api-yang-dibutuhkan.md)               | Daftar kunci/API yang harus disiapkan                                     |
+| [07 — Model data](07-model-data.md)                                 | Database global + per pengguna: users, sessions, ai_usage, katalog model  |
+| [08 — Rencana implementasi](08-rencana-implementasi.md)             | Tahapan kerja, kriteria penerimaan, risiko                                |
+| [09 — Deployment & legalitas](09-deployment-dan-legalitas.md)       | Hosting, environment, backup, atribusi MIT & trademark                    |

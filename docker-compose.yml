@@ -1,0 +1,18 @@
+services:
+  journal:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/data
+    environment:
+      # WAJIB di produksi
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?set OPENROUTER_API_KEY in .env}
+      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in .env}
+      SITE_URL: ${SITE_URL:-http://localhost:3000}
+      JOURNAL_DATA_DIR: /data
+      # Opsional
+      # JOURNAL_SECRET: change-me-too
+      # OPENROUTER_BASE_URL: https://openrouter.ai/api/v1
+      # ADMIN_USERNAME: admin
+    restart: unless-stopped

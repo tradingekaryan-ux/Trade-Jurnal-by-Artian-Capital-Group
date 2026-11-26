@@ -1,0 +1,140 @@
+export interface AiFeedback {
+  title: string;
+  description: string;
+  tone: "info" | "error";
+  action?: { label: string; href: string };
+  retry?: boolean;
+}
+
+/** Friendly, bounded copy: never echo provider payloads or credentials into the UI. */
+export function aiFeedback(message: string): AiFeedback {
+  if (/^No (?:closed )?trades match/.test(message))
+    return {
+      title: "No matching trades",
+      description:
+        "There are no trades to analyze in this selection. Adjust the accounts, dates or other journal filters.",
+      tone: "info",
+    };
+  if (
+    /^A selected account no longer exists|^Invalid .* filter|^Invalid .* (?:date|time|number|range)|^Unknown journal filter|^filters is required|^From date must/.test(
+      message,
+    )
+  )
+    return {
+      title: "Check your journal filters",
+      description:
+        "The selected scope is no longer valid. Update the accounts and filters before trying again.",
+      tone: "info",
+    };
+  if (/^Journal timezone changed/.test(message))
+    return {
+      title: "Refresh your journal",
+      description:
+        "The journal timezone changed. Refresh this page so the displayed dates and AI analysis agree.",
+      tone: "info",
+    };
+  if (/Kuota AI harian habis/i.test(message))
+    return {
+      title: "Kuota AI habis",
+      description:
+        "Kuota 10 permintaan per hari sudah terpakai. Coba lagi besok, atau tambahkan kunci OpenRouter Anda sendiri di Settings.",
+      tone: "info",
+      action: { label: "Buka Settings", href: "/settings#ai-settings" },
+    };
+  if (/Model berbayar tidak diizinkan/i.test(message))
+    return {
+      title: "Model berbayar",
+      description: "Pilih model Free atau tambahkan kunci OpenRouter sendiri di Settings.",
+      tone: "info",
+      action: { label: "Buka Settings", href: "/settings#ai-settings" },
+    };
+  if (/AI is not configured/i.test(message))
+    return {
+      title: "Set up AI to continue",
+      description:
+        "Tambahkan kunci OpenRouter di Settings untuk bertanya, membuat ringkasan, dan meninjau trade.",
+      tone: "info",
+      action: { label: "Set up AI", href: "/settings#ai-settings" },
+    };
+  if (
+    /invalid.*(?:api.?key|x-api-key)|incorrect api key|authentication_error|invalid_api_key/i.test(
+      message,
+    )
+  )
+    return {
+      title: "Check your AI connection",
+      description:
+        "Your AI provider couldn’t verify your key or permissions. Review them in Settings, then try again.",
+      tone: "error",
+      action: { label: "Review AI settings", href: "/settings#ai-settings" },
+    };
+  if (
+    /credit balance|billing|insufficient.*(?:credit|quota)|exceeded your current quota/i.test(
+      message,
+    )
+  )
+    return {
+      title: "Your AI account needs attention",
+      description: "Periksa saldo atau kuota akun OpenRouter Anda, lalu coba lagi.",
+      tone: "info",
+    };
+  if (/model unavailable|model_not_found/i.test(message))
+    return {
+      title: "Check your AI model",
+      description:
+        "Periksa model yang dipilih di Settings. Model mungkin tidak tersedia untuk akun OpenRouter Anda.",
+      tone: "error",
+      action: { label: "Review AI settings", href: "/settings#ai-settings" },
+    };
+  if (/AI server unreachable/i.test(message))
+    return {
+      title: "Couldn’t reach your AI server",
+      description:
+        "Check the server URL in Settings and that the server is running and reachable from the journal.",
+      tone: "error",
+      action: { label: "Review AI settings", href: "/settings#ai-settings" },
+      retry: true,
+    };
+  if (/rate.limit|too many requests|overloaded/i.test(message))
+    return {
+      title: "AI is temporarily busy",
+      description: "Please wait a moment before trying again. Your journal data hasn’t changed.",
+      tone: "info",
+      retry: true,
+    };
+  if (/journal is empty/i.test(message))
+    return {
+      title: "Add trades to get started",
+      description:
+        "AI insights use your journal history. Import your trades, then ask your question again.",
+      tone: "info",
+      action: { label: "Import trades", href: "/import" },
+    };
+  if (/No closed trades on this day/i.test(message))
+    return {
+      title: "No trades to recap yet",
+      description:
+        "A recap needs at least one closed trade on this day. You can still write your own day note.",
+      tone: "info",
+    };
+  if (/Unauthorized/i.test(message))
+    return {
+      title: "Please sign in again",
+      description: "Your session may have expired. Sign in to continue using your journal.",
+      tone: "info",
+      action: { label: "Sign in", href: "/login" },
+    };
+  if (/failed to fetch|network|timeout|timed out|connection/i.test(message))
+    return {
+      title: "Couldn’t connect to AI",
+      description: "Check your connection and try again. Your journal data hasn’t changed.",
+      tone: "error",
+      retry: true,
+    };
+  return {
+    title: "Couldn’t complete the AI request",
+    description: "Please try again in a moment. If this continues, check your AI settings.",
+    tone: "error",
+    retry: true,
+  };
+}

@@ -13,9 +13,9 @@ export const metadata: Metadata = {
   description:
     "Jurnal trading gratis — sinkron broker, impor pernyataan, analitik mendalam, kalender P&L, jurnal harian, dan refleksi AI via OpenRouter.",
   icons: {
-    icon: "/brand/artian-mark.png",
-    shortcut: "/brand/artian-mark.png",
-    apple: "/brand/artian-logo.png",
+    icon: "/brand/artian-icon.png",
+    shortcut: "/brand/artian-icon.png",
+    apple: "/brand/artian-icon.png",
   },
 };
 

@@ -37,7 +37,7 @@ export default function LoginPage() {
         <CardContent className="pt-6">
           <form onSubmit={submit} className="space-y-3">
             <div className="text-center">
-              <ArtianLogo className="mx-auto mb-3 h-16 w-auto" />
+              <ArtianLogo className="mx-auto mb-3 h-20 w-20" />
               <h1 className="text-sm font-semibold">Trade Jurnal</h1>
             </div>
             <Input

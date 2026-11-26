@@ -1,10 +1,10 @@
 import Image from "next/image";
 
-/** Official Artian Capital Group mark, cropped from the supplied brand asset. */
+/** Official Artian Capital Group icon — black circle, transparent corners. */
 export function ArtianMark({ className = "" }: { className?: string }) {
   return (
     <Image
-      src="/brand/artian-mark.png"
+      src="/brand/artian-icon.png"
       alt="Artian Capital Group"
       width={64}
       height={64}
@@ -13,15 +13,7 @@ export function ArtianMark({ className = "" }: { className?: string }) {
   );
 }
 
-/** Full wordmark, used on authentication screens. */
+/** Same icon used on authentication screens. */
 export function ArtianLogo({ className = "" }: { className?: string }) {
-  return (
-    <Image
-      src="/brand/artian-logo.png"
-      alt="Artian Capital Group"
-      width={1280}
-      height={720}
-      className={className}
-    />
-  );
+  return <ArtianMark className={className} />;
 }

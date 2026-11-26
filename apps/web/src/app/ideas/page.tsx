@@ -184,10 +184,14 @@ export default function IdeasPage() {
                     {idea.description}
                   </p>
                   <VoteBar
-                    left={votes[idea.id]?.stopLoss ?? 0}
-                    right={votes[idea.id]?.takeProfit ?? 0}
-                    leftLabel="Stop Loss"
-                    rightLabel="Take Profit"
+                    sides={[
+                      { label: "Stop Loss", count: votes[idea.id]?.stopLoss ?? 0, tone: "loss" },
+                      {
+                        label: "Take Profit",
+                        count: votes[idea.id]?.takeProfit ?? 0,
+                        tone: "profit",
+                      },
+                    ]}
                   />
                   <div className="flex flex-wrap items-center gap-2 border-t pt-2">
                     <Button

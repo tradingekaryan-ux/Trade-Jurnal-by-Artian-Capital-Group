@@ -28,7 +28,7 @@ Sama seperti promo, tetapi:
 - postingan **wajib gambar** (judul + deskripsi + gambar);
 - **tanpa** promo code dan URL;
 - voting diubah menjadi **Stop Loss** vs **Take Profit** (`/api/ideas/vote`);
-- kedua halaman menampilkan **batang persentase live** (hijau vs merah) yang diperbarui seketika setelah vote.
+- kedua halaman menampilkan **batang persentase live** yang diperbarui seketika setelah vote. Warna: **Working hijau / Not Working merah**; **Take Profit hijau / Stop Loss merah**.
 
 Feed gabungan: `GET /api/posts? ...` mengembalikan promo dan idea dengan field `kind`.
 

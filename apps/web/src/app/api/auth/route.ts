@@ -1,7 +1,4 @@
-import { eq } from "drizzle-orm";
 import { cookies } from "next/headers";
-import { systemDb } from "@/db";
-import { users } from "@/db/system-schema";
 import {
   AUTH_COOKIE,
   clearLoginFailures,
@@ -14,6 +11,7 @@ import {
   verifyPassword,
 } from "@/server/auth";
 import { bad, handler, ok } from "@/server/api";
+import { sql } from "@/server/pg";
 
 interface AuthBody {
   username?: string;
@@ -47,23 +45,21 @@ export const POST = handler(
     if (!username || !password) return bad("Username and password are required.", 401);
 
     const key = `login:${clientKey(request)}:${username}`;
-    const blocked = loginBlockedFor(key);
+    const blocked = await loginBlockedFor(key);
     if (blocked > 0)
       return bad(`Too many attempts. Try again in ${Math.ceil(blocked / 60000)} minutes.`, 429);
 
-    const user = systemDb.select().from(users).where(eq(users.usernameNormalized, username)).get();
-    if (!user || !verifyPassword(password, user.passwordHash)) {
-      recordLoginFailure(key);
+    const found = await sql`select id, username, password_hash, role, is_admin
+      from users where username_normalized = ${username} limit 1`;
+    const user = found[0];
+    if (!user || !verifyPassword(password, String(user.password_hash))) {
+      await recordLoginFailure(key);
       return bad("Username atau password salah.", 401);
     }
 
-    clearLoginFailures(key);
-    systemDb
-      .update(users)
-      .set({ lastLoginAt: new Date().toISOString() })
-      .where(eq(users.id, user.id))
-      .run();
-    const token = createSession(user.id);
+    await clearLoginFailures(key);
+    await sql`update users set last_login_at = ${new Date().toISOString()} where id = ${user.id}`;
+    const token = await createSession(user.id);
     const jar = await cookies();
     jar.set(AUTH_COOKIE, token, {
       httpOnly: true,
@@ -75,7 +71,7 @@ export const POST = handler(
     return ok({
       authenticated: true,
       username: user.username,
-      isAdmin: user.isAdmin,
+      isAdmin: Boolean(user.is_admin),
       role: user.role,
     });
   },
@@ -84,7 +80,7 @@ export const POST = handler(
 
 export const DELETE = handler(async (request: Request) => {
   const jar = await cookies();
-  deleteSession(jar.get(AUTH_COOKIE)?.value);
+  await deleteSession(jar.get(AUTH_COOKIE)?.value);
   jar.set(AUTH_COOKIE, "", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 0 });
   return ok({ authenticated: false });
 });

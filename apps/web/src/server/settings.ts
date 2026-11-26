@@ -1,9 +1,9 @@
 import { and, asc, eq } from "drizzle-orm";
-import { db, currentUserId, SYSTEM_USER, systemDb } from "@/db";
+import { db, currentUserId, SYSTEM_USER } from "@/db";
 import { settings } from "@/db/schema";
-import { aiUsage, globalSettings, models } from "@/db/system-schema";
 import { decryptJson, encryptJson } from "./crypto";
 import { newId, nowIso } from "./ids";
+import { sql } from "./pg";
 import { EMPTY_DEFAULTS, type JournalDefaults } from "@/lib/journal-defaults";
 import { DEFAULT_CONVERSION, parseCurrencyConversion } from "@/lib/currencies";
 import {
@@ -94,15 +94,14 @@ export const setAiKey = (key: string | null): void => {
   else setSetting("openrouterKeyEnc", encryptJson(key.trim()));
 };
 
-export const getGlobalSetting = (key: string): string | null =>
-  systemDb.select().from(globalSettings).where(eq(globalSettings.key, key)).get()?.value ?? null;
+export const getGlobalSetting = async (key: string): Promise<string | null> => {
+  const rows = await sql`select value from global_settings where key = ${key} limit 1`;
+  return rows[0]?.value ?? null;
+};
 
-export const setGlobalSetting = (key: string, value: string): void => {
-  systemDb
-    .insert(globalSettings)
-    .values({ key, value })
-    .onConflictDoUpdate({ target: globalSettings.key, set: { value } })
-    .run();
+export const setGlobalSetting = async (key: string, value: string): Promise<void> => {
+  await sql`insert into global_settings (key, value) values (${key}, ${value})
+    on conflict (key) do update set value = ${value}`;
 };
 
 export const normalizeAiBaseUrl = (value: string): string | null => {
@@ -119,98 +118,85 @@ export const normalizeAiBaseUrl = (value: string): string | null => {
 export const getOpenRouterBaseUrl = (): string =>
   normalizeAiBaseUrl(process.env.OPENROUTER_BASE_URL ?? "") ?? OPENROUTER_BASE_URL;
 
-export const listModels = (): AiModel[] =>
-  systemDb
-    .select()
-    .from(models)
-    .where(eq(models.enabled, true))
-    .orderBy(asc(models.name))
-    .all()
-    .map((row) => ({
-      id: row.id,
-      name: row.name,
-      tier: row.tier,
-      contextLength: row.contextLength,
-      supportsPdf: row.supportsPdf,
-      enabled: row.enabled,
-      isDefault: row.isDefault,
-      source: row.source,
-    }));
+export const listModels = async (): Promise<AiModel[]> => {
+  const rows = await sql`select id, name, tier, context_length, supports_pdf, enabled,
+    is_default, source from models where enabled = true order by name`;
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    tier: row.tier,
+    contextLength: row.context_length,
+    supportsPdf: Boolean(row.supports_pdf),
+    enabled: Boolean(row.enabled),
+    isDefault: Boolean(row.is_default),
+    source: row.source,
+  }));
+};
 
-export const getDefaultModel = (): string =>
-  getGlobalSetting("defaultModel") ||
-  systemDb.select().from(models).where(eq(models.isDefault, true)).get()?.id ||
-  process.env.OPENROUTER_MODEL?.trim() ||
-  DEFAULT_MODEL;
+export const getDefaultModel = async (): Promise<string> => {
+  const saved = await getGlobalSetting("defaultModel");
+  if (saved) return saved;
+  const rows = await sql`select id from models where is_default = true limit 1`;
+  return rows[0]?.id || process.env.OPENROUTER_MODEL?.trim() || DEFAULT_MODEL;
+};
 
-export const getAiModel = (): string => getSetting("aiModel")?.trim() || getDefaultModel();
+export const getAiModel = async (): Promise<string> =>
+  getSetting("aiModel")?.trim() || (await getDefaultModel());
 
 export const setAiModel = (model: string): void => setSetting("aiModel", model);
 
-export const getAiQuotaLimit = (): number => {
-  const raw = Number(getGlobalSetting("aiQuota"));
+export const getAiQuotaLimit = async (): Promise<number> => {
+  const raw = Number(await getGlobalSetting("aiQuota"));
   return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : DEFAULT_AI_QUOTA;
 };
 
-export const isPaidAllowed = (): boolean => getGlobalSetting("paidAllowed") === "true";
+export const isPaidAllowed = async (): Promise<boolean> =>
+  (await getGlobalSetting("paidAllowed")) === "true";
 
 /** ---------- Daily quota (global DB, keyed by user + UTC date) ---------- */
 
-export const getQuota = () => {
+export const getQuota = async () => {
   const day = nowIso().slice(0, 10);
   const userId = currentUserId();
-  const used =
+  const rows =
     userId === SYSTEM_USER
-      ? 0
-      : (systemDb
-          .select()
-          .from(aiUsage)
-          .where(and(eq(aiUsage.userId, userId), eq(aiUsage.day, day)))
-          .get()?.requests ?? 0);
-  return { limit: getAiQuotaLimit(), used, day };
+      ? []
+      : await sql`select requests from ai_usage where user_id = ${userId} and day = ${day} limit 1`;
+  return { limit: await getAiQuotaLimit(), used: Number(rows[0]?.requests ?? 0), day };
 };
 
-/** Throws when the user has exhausted their daily allowance. */
-export const consumeQuota = (): void => {
+export const consumeQuota = async (): Promise<void> => {
   const userId = currentUserId();
   if (userId === SYSTEM_USER || process.env.AUTH_DISABLED === "1") return;
   const day = nowIso().slice(0, 10);
-  const limit = getAiQuotaLimit();
-  systemDb.transaction((tx) => {
-    const row = tx
-      .select()
-      .from(aiUsage)
-      .where(and(eq(aiUsage.userId, userId), eq(aiUsage.day, day)))
-      .get();
-    if (!row) {
-      tx.insert(aiUsage)
-        .values({ id: newId(), userId, day, requests: 1, updatedAt: nowIso() })
-        .run();
-      return;
-    }
-    if (row.requests >= limit)
-      throw new Error(
-        `Kuota AI harian habis (${limit} permintaan per hari). Coba lagi besok atau gunakan kunci OpenRouter Anda sendiri di Settings.`,
-      );
-    tx.update(aiUsage)
-      .set({ requests: row.requests + 1, updatedAt: nowIso() })
-      .where(eq(aiUsage.id, row.id))
-      .run();
-  });
+  const limit = await getAiQuotaLimit();
+  const rows =
+    await sql`select id, requests from ai_usage where user_id = ${userId} and day = ${day} limit 1`;
+  const row = rows[0];
+  if (!row) {
+    await sql`insert into ai_usage (id, user_id, day, requests, updated_at)
+      values (${newId()}, ${userId}, ${day}, 1, ${nowIso()})`;
+    return;
+  }
+  if (Number(row.requests) >= limit)
+    throw new Error(
+      `Kuota AI harian habis (${limit} permintaan per hari). Coba lagi besok atau gunakan kunci OpenRouter Anda sendiri di Settings.`,
+    );
+  await sql`update ai_usage set requests = ${Number(row.requests) + 1}, updated_at = ${nowIso()} where id = ${row.id}`;
 };
 
 export const aiConfigured = (): boolean => getAiKey() !== null;
 
-export const getAiSettings = (): AiSettingsPayload => {
+export const getAiSettings = async (): Promise<AiSettingsPayload> => {
   const key = getAiKey();
   return {
     configured: key !== null,
     keySource: getSetting("openrouterKeyEnc") ? "saved" : key ? "environment" : "none",
-    model: getAiModel(),
-    models: listModels(),
-    defaultModel: getDefaultModel(),
-    quota: getQuota(),
-    paidAllowed: isPaidAllowed(),
+    model: await getAiModel(),
+    models: await listModels(),
+    defaultModel: await getDefaultModel(),
+    quota: await getQuota(),
+    paidAllowed: await isPaidAllowed(),
     baseUrl: getOpenRouterBaseUrl(),
   };
 };

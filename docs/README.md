@@ -38,3 +38,4 @@ Konsekuensi teknis dari keputusan model: tersedia tabel/halaman **Admin → Mode
 | [11 — CFD journal](11-cfd-journal.md)                               | Sistem jurnal CFD: lot, pips, mode instrumen, running/closed, statistik   |
 | [12 — Strategy Lab & fitur dihapus](12-chart-dan-strategy-lab.md)   | Simulator prop firm; chart/feed dihapus, diganti upload gambar            |
 | [13 — Promo, Role & Discord](13-promo-role-discord.md)              | Halaman promo, role owner/admin/staff/company, tombol Discord             |
+| [14 — Supabase & imgdb.io](14-supabase-imgdb.md)                    | Data di Supabase Postgres, gambar di imgdb.io, akun owner                 |

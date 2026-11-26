@@ -1,40 +1,24 @@
-import { desc, eq } from "drizzle-orm";
-import { systemDb } from "@/db";
-import { promos, users } from "@/db/system-schema";
 import { handler, ok, requireValue } from "@/server/api";
-import type { Post } from "@/lib/posts";
+import { sql } from "@/server/pg";
 
-/** Public feed of promos and trade ideas (metadata only; images via their own route). */
-export const GET = handler(() => {
-  const rows = systemDb
-    .select({
-      id: promos.id,
-      userId: promos.userId,
-      author: users.username,
-      title: promos.title,
-      description: promos.description,
-      imageMime: promos.imageMime,
-      imageName: promos.imageName,
-      hasImage: promos.imageData,
-      promoCode: promos.promoCode,
-      codeEnabled: promos.codeEnabled,
-      url: promos.url,
-      urlEnabled: promos.urlEnabled,
-      kind: promos.kind,
-      createdAt: promos.createdAt,
-    })
-    .from(promos)
-    .innerJoin(users, eq(promos.userId, users.id))
-    .orderBy(desc(promos.createdAt))
-    .all();
-  const posts: Post[] = rows.map(({ hasImage, ...row }) => ({
-    ...row,
-    kind: row.kind === "idea" ? "idea" : "promo",
-    hasImage: Boolean(hasImage),
-  }));
-  return ok({ posts });
+/** Public feed of promos and trade ideas (images are external imgdb.io links). */
+export const GET = handler(async () => {
+  const rows = await sql`
+    select p.id, p.user_id, u.username as author, p.kind, p.title, p.description,
+           p.image_url, p.image_name, p.promo_code, p.code_enabled,
+           p.url, p.url_enabled, p.created_at
+    from promos p join users u on p.user_id = u.id
+    order by p.created_at desc
+  `;
+  return ok({
+    posts: rows.map((row) => ({
+      ...row,
+      kind: row.kind === "idea" ? "idea" : "promo",
+      hasImage: Boolean(row.image_url),
+    })),
+  });
 });
 
-export const POST = handler(async (request: Request) => {
-  requireValue(false, "Gunakan /api/promos atau /api/ideas untuk membuat postingan.");
+export const POST = handler(async () => {
+  requireValue(false, "Gunakan /api/promos untuk membuat postingan.");
 });

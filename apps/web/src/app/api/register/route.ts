@@ -1,10 +1,8 @@
-import { eq } from "drizzle-orm";
 import { cookies } from "next/headers";
-import { systemDb } from "@/db";
-import { loginAttempts, users } from "@/db/system-schema";
 import { AUTH_COOKIE, createSession, hashPassword, SESSION_MAX_AGE } from "@/server/auth";
 import { bad, handler, ok, requireValue } from "@/server/api";
 import { newId } from "@/server/ids";
+import { sql } from "@/server/pg";
 import type { UserRole } from "@/lib/roles";
 
 const REGISTRATION_LIMIT = 3;
@@ -28,79 +26,47 @@ export const POST = handler(
     const body = (await request.json()) as RegisterBody;
     const username = typeof body.username === "string" ? body.username.trim() : "";
     const password = typeof body.password === "string" ? body.password : "";
-    requireValue(
-      /^[a-zA-Z0-9_-]{3,32}$/.test(username),
-      "Username must be 3–32 letters, numbers, _ or -.",
-    );
-    requireValue(password.length >= 8, "Password must be at least 8 characters.");
-    requireValue(password.length <= 200, "Password is too long.");
+    requireValue(/^[a-zA-Z0-9_-]{3,32}$/.test(username), "Username tidak valid.");
+    requireValue(password.length >= 8 && password.length <= 200, "Password minimal 8 karakter.");
 
     const key = `register:${clientKey(request)}`;
-    const prior = systemDb.select().from(loginAttempts).where(eq(loginAttempts.key, key)).get();
+    const priorRows =
+      await sql`select failures, first_failure_at from login_attempts where key = ${key} limit 1`;
+    const prior = priorRows[0];
     if (
       prior &&
-      Date.parse(prior.firstFailureAt) > Date.now() - REGISTRATION_WINDOW_MS &&
-      prior.failures >= REGISTRATION_LIMIT
+      Date.parse(String(prior.first_failure_at)) > Date.now() - REGISTRATION_WINDOW_MS &&
+      Number(prior.failures) >= REGISTRATION_LIMIT
     ) {
-      return bad("Too many registrations from this network. Try again later.", 429);
+      return bad("Terlalu banyak registrasi. Coba lagi nanti.", 429);
     }
 
     const normalized = username.toLowerCase();
-    const existing = systemDb
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.usernameNormalized, normalized))
-      .get();
-    if (existing) return bad("Username is already taken.", 409);
+    const existing =
+      await sql`select id from users where username_normalized = ${normalized} limit 1`;
+    if (existing.length) return bad("Username sudah dipakai.", 409);
 
-    const count = systemDb.select({ id: users.id }).from(users).all().length;
-    const role: UserRole =
-      count === 0
-        ? "owner"
-        : normalized === (process.env.ADMIN_USERNAME ?? "").toLowerCase()
-          ? "admin"
-          : "member";
-    const isAdmin = role === "owner" || role === "admin";
+    const countRows = await sql`select count(*)::int as n from users`;
+    const role: UserRole = Number(countRows[0]?.n ?? 0) === 0 ? "owner" : "member";
     const id = newId();
-    systemDb
-      .insert(users)
-      .values({
-        id,
-        username,
-        usernameNormalized: normalized,
-        passwordHash: hashPassword(password),
-        isAdmin,
-        role,
-        createdAt: new Date().toISOString(),
-      })
-      .run();
-
     const now = new Date().toISOString();
-    systemDb
-      .insert(loginAttempts)
-      .values({
-        key,
-        failures: (prior?.failures ?? 0) + 1,
-        firstFailureAt: prior?.firstFailureAt ?? now,
-        lastFailureAt: now,
-      })
-      .onConflictDoUpdate({
-        target: loginAttempts.key,
-        set: {
-          failures:
-            prior && Date.parse(prior.firstFailureAt) > Date.now() - REGISTRATION_WINDOW_MS
-              ? prior.failures + 1
-              : 1,
-          firstFailureAt:
-            prior && Date.parse(prior.firstFailureAt) > Date.now() - REGISTRATION_WINDOW_MS
-              ? prior.firstFailureAt
-              : now,
-          lastFailureAt: now,
-        },
-      })
-      .run();
+    await sql`insert into users (id, username, username_normalized, password_hash, is_admin, role, created_at)
+      values (${id}, ${username}, ${normalized}, ${hashPassword(password)}, ${role === "owner"}, ${role}, ${now})`;
 
-    const token = createSession(id);
+    const failures =
+      prior && Date.parse(String(prior.first_failure_at)) > Date.now() - REGISTRATION_WINDOW_MS
+        ? Number(prior.failures) + 1
+        : 1;
+    const firstFailure =
+      prior && Date.parse(String(prior.first_failure_at)) > Date.now() - REGISTRATION_WINDOW_MS
+        ? String(prior.first_failure_at)
+        : now;
+    await sql`insert into login_attempts (key, failures, first_failure_at, last_failure_at)
+      values (${key}, ${failures}, ${firstFailure}, ${now})
+      on conflict (key) do update set failures = ${failures},
+        first_failure_at = ${firstFailure}, last_failure_at = ${now}`;
+
+    const token = await createSession(id);
     const jar = await cookies();
     jar.set(AUTH_COOKIE, token, {
       httpOnly: true,
@@ -109,7 +75,7 @@ export const POST = handler(
       path: "/",
       maxAge: SESSION_MAX_AGE,
     });
-    return ok({ authenticated: true, username, isAdmin, role }, { status: 201 });
+    return ok({ authenticated: true, username, isAdmin: role === "owner", role }, { status: 201 });
   },
   { public: true },
 );

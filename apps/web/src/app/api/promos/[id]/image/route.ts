@@ -1,19 +1,12 @@
-import { eq } from "drizzle-orm";
-import { systemDb } from "@/db";
-import { promos } from "@/db/system-schema";
-import { bad } from "@/server/api";
+import { sql } from "@/server/pg";
 
 type Context = { params: Promise<{ id: string }> };
 
+/** Images are stored on imgdb.io; redirect to the permanent external URL. */
 export const GET = async (_request: Request, { params }: Context) => {
   const { id } = await params;
-  const row = systemDb.select().from(promos).where(eq(promos.id, id)).get();
-  if (!row?.imageData || !row.imageMime) return bad("Image not found", 404);
-  return new Response(new Uint8Array(row.imageData), {
-    headers: {
-      "Content-Type": row.imageMime,
-      "X-Content-Type-Options": "nosniff",
-      "Cache-Control": "private, max-age=3600",
-    },
-  });
+  const rows = await sql`select image_url from promos where id = ${id} limit 1`;
+  const url = rows[0]?.image_url;
+  if (!url) return new Response("Not found", { status: 404 });
+  return Response.redirect(String(url), 302);
 };

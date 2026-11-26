@@ -1,22 +1,20 @@
-import { eq } from "drizzle-orm";
-import { db, attachments } from "@/db";
-import { handler, ok, bad } from "@/server/api";
+import { handler, ok, requireValue } from "@/server/api";
+import { currentUser } from "@/server/auth";
+import { sql } from "@/server/pg";
+
 type Context = { params: Promise<{ id: string }> };
-export const GET = handler(async (_request: Request, { params }: Context) => {
+
+export const GET = async (_request: Request, { params }: Context) => {
   const { id } = await params;
-  const a = db.select().from(attachments).where(eq(attachments.id, id)).get();
-  if (!a) return bad("Attachment not found", 404);
-  return new Response(new Uint8Array(a.data), {
-    headers: {
-      "Content-Type": a.mime,
-      "X-Content-Type-Options": "nosniff",
-      "Content-Disposition": `${a.mime.startsWith("image/") ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(a.name)}`,
-      "Cache-Control": "private, no-store",
-    },
-  });
-});
+  const rows = await sql`select url from image_attachments where id = ${id} limit 1`;
+  if (!rows[0]?.url) return new Response("Not found", { status: 404 });
+  return Response.redirect(String(rows[0].url), 302);
+};
+
 export const DELETE = handler(async (_request: Request, { params }: Context) => {
+  const user = await currentUser();
+  requireValue(Boolean(user), "Unauthorized.");
   const { id } = await params;
-  db.delete(attachments).where(eq(attachments.id, id)).run();
+  await sql`delete from image_attachments where id = ${id} and owner_id = ${user!.id}`;
   return ok({ deleted: true });
 });

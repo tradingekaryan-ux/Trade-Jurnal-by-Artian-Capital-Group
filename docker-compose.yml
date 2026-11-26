@@ -10,6 +10,10 @@ services:
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?set OPENROUTER_API_KEY in .env}
       AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in .env}
       SITE_URL: ${SITE_URL:-http://localhost:3000}
+      # Supabase (data) — wajib untuk produksi
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in .env}
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:-}
       JOURNAL_DATA_DIR: /data
       # Opsional
       # JOURNAL_SECRET: change-me-too

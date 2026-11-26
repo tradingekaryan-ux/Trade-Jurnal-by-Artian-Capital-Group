@@ -101,22 +101,30 @@ const hashPassword = (password: string) => {
 
 /** Provision a dedicated owner account. Credentials are written to the data directory. */
 function ensureOwner(sqlite: Database.Database, file: string) {
-  const username = process.env.OWNER_USERNAME?.trim() || "owner";
+  const credentialsPath = join(dirname(file), "owner-credentials.txt");
+  let fileUsername = "";
+  let filePassword = "";
+  if (existsSync(credentialsPath)) {
+    const lines = readFileSync(credentialsPath, "utf8").split("\n");
+    fileUsername =
+      lines
+        .find((line) => line.startsWith("username:"))
+        ?.replace("username:", "")
+        .trim() ?? "";
+    filePassword =
+      lines
+        .find((line) => line.startsWith("password:"))
+        ?.replace("password:", "")
+        .trim() ?? "";
+  }
+  const username = process.env.OWNER_USERNAME?.trim() || fileUsername || "owner";
   const normalized = username.toLowerCase();
   const found = sqlite
     .prepare("SELECT id FROM users WHERE username_normalized = ?")
     .get(normalized);
   if (found) return;
 
-  const credentialsPath = join(dirname(file), "owner-credentials.txt");
-  let password = process.env.OWNER_PASSWORD?.trim();
-  if (!password && existsSync(credentialsPath)) {
-    password = readFileSync(credentialsPath, "utf8")
-      .split("\n")
-      .find((line) => line.startsWith("password:"))
-      ?.replace("password:", "")
-      .trim();
-  }
+  let password = process.env.OWNER_PASSWORD?.trim() || filePassword;
   if (!password) {
     password = randomBytes(12).toString("base64url");
     writeFileSync(credentialsPath, `username: ${username}\npassword: ${password}\n`, {

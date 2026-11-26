@@ -1,9 +1,7 @@
-import { and, eq } from "drizzle-orm";
-import { systemDb } from "@/db";
-import { promoVotes, promos } from "@/db/system-schema";
 import { handler, ok, requireValue } from "@/server/api";
 import { currentUser } from "@/server/auth";
 import { newId, nowIso } from "@/server/ids";
+import { sql } from "@/server/pg";
 import { voteSummary, type VoteSummary } from "@/server/votes";
 
 export const GET = handler(async (request: Request) => {
@@ -12,7 +10,7 @@ export const GET = handler(async (request: Request) => {
     .map((id) => id.trim())
     .filter(Boolean);
   const user = await currentUser();
-  return ok({ votes: voteSummary(ids, user?.id ?? null) });
+  return ok({ votes: await voteSummary(ids, user?.id ?? null) });
 });
 
 export const POST = handler(async (request: Request) => {
@@ -21,38 +19,14 @@ export const POST = handler(async (request: Request) => {
   const body = (await request.json()) as { promoId?: string; value?: string };
   requireValue(typeof body.promoId === "string", "Promo id diperlukan.");
   requireValue(body.value === "working" || body.value === "not_working", "Vote tidak valid.");
-  const promo = systemDb
-    .select({ id: promos.id })
-    .from(promos)
-    .where(eq(promos.id, body.promoId!))
-    .get();
-  requireValue(Boolean(promo), "Promo tidak ditemukan.");
+  const promo = await sql`select id from promos where id = ${body.promoId!} limit 1`;
+  requireValue(promo.length > 0, "Promo tidak ditemukan.");
 
-  const existing = systemDb
-    .select()
-    .from(promoVotes)
-    .where(and(eq(promoVotes.promoId, body.promoId!), eq(promoVotes.userId, user!.id)))
-    .get();
-  if (existing) {
-    systemDb
-      .update(promoVotes)
-      .set({ value: body.value, updatedAt: nowIso() })
-      .where(eq(promoVotes.id, existing.id))
-      .run();
-  } else {
-    const timestamp = nowIso();
-    systemDb
-      .insert(promoVotes)
-      .values({
-        id: newId(),
-        promoId: body.promoId!,
-        userId: user!.id,
-        value: body.value,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      })
-      .run();
-  }
-  const summary = voteSummary([body.promoId!], user!.id)[body.promoId!]! as VoteSummary;
+  const id = newId();
+  const timestamp = nowIso();
+  await sql`insert into promo_votes (id, promo_id, user_id, value, created_at, updated_at)
+    values (${id}, ${body.promoId!}, ${user!.id}, ${body.value}, ${timestamp}, ${timestamp})
+    on conflict (promo_id, user_id) do update set value = ${body.value}, updated_at = ${timestamp}`;
+  const summary = (await voteSummary([body.promoId!], user!.id))[body.promoId!]! as VoteSummary;
   return ok(summary);
 });

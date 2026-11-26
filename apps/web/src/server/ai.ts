@@ -1,8 +1,5 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { APICallError, RetryError, generateText } from "ai";
-import { eq } from "drizzle-orm";
-import { systemDb } from "@/db";
-import { models } from "@/db/system-schema";
 import {
   aiConfigured,
   consumeQuota,
@@ -13,6 +10,7 @@ import {
   isPaidAllowed,
 } from "./settings";
 import { withKeyFallback } from "./openrouter";
+import { sql } from "./pg";
 
 /**
  * Reflection layer. Every request goes from this server to OpenRouter using
@@ -43,16 +41,17 @@ const openrouter = (apiKey: string) =>
 export const runAi = async (prompt: string, maxOutputTokens = 1200): Promise<string> => {
   if (getAiKeys().length === 0)
     throw new Error("AI is not configured — add an OpenRouter key in Settings.");
-  const modelId = getAiModel();
-  const modelRow = systemDb.select().from(models).where(eq(models.id, modelId)).get();
+  const modelId = await getAiModel();
+  const found = await sql`select tier from models where id = ${modelId} limit 1`;
+  const modelRow = found[0];
   const hasOwnKey = Boolean(getSetting("openrouterKeyEnc"));
-  if (modelRow?.tier === "paid" && !isPaidAllowed() && !hasOwnKey) {
+  if (modelRow?.tier === "paid" && !(await isPaidAllowed()) && !hasOwnKey) {
     throw new Error(
       "Model berbayar tidak diizinkan dengan kunci global. Pilih model Free atau tambahkan kunci OpenRouter Anda sendiri di Settings.",
     );
   }
 
-  consumeQuota();
+  await consumeQuota();
   try {
     return await withKeyFallback(async (key) => {
       const result = await generateText({

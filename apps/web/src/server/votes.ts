@@ -1,5 +1,4 @@
-import { systemDb } from "@/db";
-import { promoVotes } from "@/db/system-schema";
+import { sql } from "./pg";
 
 export interface VoteSummary {
   working: number;
@@ -13,38 +12,58 @@ export interface IdeaVoteSummary {
   mine: "stop_loss" | "take_profit" | null;
 }
 
-/** Vote tallies for a list of promos, including the caller's own vote. */
-export function voteSummary(
+const empty = (ids: string[]) => {
+  const result: Record<
+    string,
+    {
+      working: number;
+      notWorking: number;
+      stopLoss: number;
+      takeProfit: number;
+      mine: string | null;
+    }
+  > = {};
+  for (const id of ids)
+    result[id] = { working: 0, notWorking: 0, stopLoss: 0, takeProfit: 0, mine: null };
+  return result;
+};
+
+export async function voteSummary(
   promoIds: string[],
   userId: string | null,
-): Record<string, VoteSummary> {
+): Promise<Record<string, VoteSummary>> {
+  if (promoIds.length === 0) return {};
+  const rows = await sql`
+    select promo_id, user_id, value from promo_votes where promo_id = ANY(${promoIds}::text[])
+  `;
   const result: Record<string, VoteSummary> = {};
   for (const id of promoIds) result[id] = { working: 0, notWorking: 0, mine: null };
-  if (promoIds.length === 0) return result;
-  for (const row of systemDb.select().from(promoVotes).all()) {
-    const summary = result[row.promoId];
+  for (const row of rows) {
+    const summary = result[row.promo_id as string];
     if (!summary) continue;
     if (row.value === "working") summary.working += 1;
     if (row.value === "not_working") summary.notWorking += 1;
-    if (userId && row.userId === userId) summary.mine = row.value as VoteSummary["mine"];
+    if (userId && row.user_id === userId) summary.mine = row.value as VoteSummary["mine"];
   }
   return result;
 }
 
-/** Vote tallies for trade ideas (same table, different value labels). */
-export function ideaVoteSummary(
+export async function ideaVoteSummary(
   ids: string[],
   userId: string | null,
-): Record<string, IdeaVoteSummary> {
+): Promise<Record<string, IdeaVoteSummary>> {
+  if (ids.length === 0) return {};
+  const rows = await sql`
+    select promo_id, user_id, value from promo_votes where promo_id = ANY(${ids}::text[])
+  `;
   const result: Record<string, IdeaVoteSummary> = {};
   for (const id of ids) result[id] = { stopLoss: 0, takeProfit: 0, mine: null };
-  if (ids.length === 0) return result;
-  for (const row of systemDb.select().from(promoVotes).all()) {
-    const summary = result[row.promoId];
+  for (const row of rows) {
+    const summary = result[row.promo_id as string];
     if (!summary) continue;
     if (row.value === "stop_loss") summary.stopLoss += 1;
     if (row.value === "take_profit") summary.takeProfit += 1;
-    if (userId && row.userId === userId) summary.mine = row.value as IdeaVoteSummary["mine"];
+    if (userId && row.user_id === userId) summary.mine = row.value as IdeaVoteSummary["mine"];
   }
   return result;
 }

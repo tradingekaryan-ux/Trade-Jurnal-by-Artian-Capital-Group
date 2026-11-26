@@ -18,13 +18,13 @@ import {
 import { isTimeZone } from "@/lib/timezone";
 import { parseCurrencyConversion, type CurrencyConversion } from "@/lib/currencies";
 
-export const GET = handler(() =>
+export const GET = handler(async () =>
   ok({
     timeZone: getTimeZone(),
     importTimeZone: getImportTimeZone(),
     multipliers: getMultipliers(),
     currencyConversion: getCurrencyConversion(),
-    ...getAiSettings(),
+    ...(await getAiSettings()),
   }),
 );
 

@@ -193,7 +193,7 @@ export async function parseStatementWithAi(
   );
   const keys = options.apiKey?.trim() ? [options.apiKey.trim()] : getAiKeys();
   requireValue(keys.length > 0, "Tambahkan kunci OpenRouter di Settings untuk parsing AI.");
-  consumeQuota();
+  await consumeQuota();
   let input: UserContent;
   if (statement.encoding === "pdf") {
     requireValue(
@@ -227,7 +227,7 @@ export async function parseStatementWithAi(
             "HTTP-Referer": process.env.SITE_URL ?? "http://localhost:3000",
             "X-Title": "Trade Jurnal by Artian Capital Group",
           },
-        })(options.model.trim() || getAiModel()),
+        })(options.model.trim() || (await getAiModel())),
         system: SYSTEM,
         messages: [
           {

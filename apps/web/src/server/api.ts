@@ -38,6 +38,7 @@ export const handler =
       const userId = user?.id ?? (authDisabled ? "test-user" : null);
       return userId ? await runAsUser(userId, work) : await work();
     } catch (error) {
+      console.error("[api]", error);
       const message = error instanceof Error ? error.message : "Internal error";
       return NextResponse.json(
         { error: message },

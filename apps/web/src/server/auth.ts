@@ -1,13 +1,11 @@
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import { and, eq, gt } from "drizzle-orm";
 import { cookies } from "next/headers";
-import { systemDb } from "@/db";
-import { loginAttempts, sessions, users } from "@/db/system-schema";
+import { sql } from "./pg";
 import { isUserRole, type UserRole } from "@/lib/roles";
 
 /** Session cookie for username/password accounts. No email verification by design. */
 export const AUTH_COOKIE = "tj_session";
-export const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
+export const SESSION_MAX_AGE = 60 * 60 * 24 * 30;
 
 const secret = () => process.env.AUTH_SECRET ?? process.env.JOURNAL_SECRET ?? "dev-only-change-me";
 
@@ -22,8 +20,7 @@ const iso = () => new Date().toISOString();
 
 export const hashPassword = (password: string): string => {
   const salt = randomBytes(16).toString("hex");
-  const hash = scryptSync(password, salt, 64).toString("hex");
-  return `${salt}:${hash}`;
+  return `${salt}:${scryptSync(password, salt, 64).toString("hex")}`;
 };
 
 export const verifyPassword = (password: string, stored: string): boolean => {
@@ -35,7 +32,6 @@ export const verifyPassword = (password: string, stored: string): boolean => {
 };
 
 const sign = (id: string): string => createHmac("sha256", secret()).update(id).digest("hex");
-
 export const sessionToken = (id: string): string => `${id}.${sign(id)}`;
 
 export const readSessionToken = (token: string | undefined): string | null => {
@@ -44,27 +40,19 @@ export const readSessionToken = (token: string | undefined): string | null => {
   if (!id || !signature) return null;
   const expected = Buffer.from(sign(id), "hex");
   const given = Buffer.from(signature, "hex");
-  if (expected.length !== given.length || !timingSafeEqual(expected, given)) return null;
-  return id;
+  return expected.length === given.length && timingSafeEqual(expected, given) ? id : null;
 };
 
-export const createSession = (userId: string): string => {
+export const createSession = async (userId: string): Promise<string> => {
   const id = randomBytes(32).toString("hex");
-  systemDb
-    .insert(sessions)
-    .values({
-      id,
-      userId,
-      expiresAt: new Date(Date.now() + SESSION_MAX_AGE * 1000).toISOString(),
-      createdAt: iso(),
-    })
-    .run();
+  await sql`insert into sessions (id, user_id, expires_at, created_at)
+    values (${id}, ${userId}, ${new Date(Date.now() + SESSION_MAX_AGE * 1000).toISOString()}, ${iso()})`;
   return sessionToken(id);
 };
 
-export const deleteSession = (token: string | undefined): void => {
+export const deleteSession = async (token: string | undefined): Promise<void> => {
   const id = readSessionToken(token);
-  if (id) systemDb.delete(sessions).where(eq(sessions.id, id)).run();
+  if (id) await sql`delete from sessions where id = ${id}`;
 };
 
 export const currentUser = async (): Promise<AuthUser | null> => {
@@ -72,30 +60,24 @@ export const currentUser = async (): Promise<AuthUser | null> => {
   try {
     token = (await cookies()).get(AUTH_COOKIE)?.value;
   } catch {
-    return null; // called outside a request (tests, scripts)
+    return null;
   }
   const id = readSessionToken(token);
   if (!id) return null;
-  const row = systemDb
-    .select({
-      id: users.id,
-      username: users.username,
-      isAdmin: users.isAdmin,
-      role: users.role,
-      expiresAt: sessions.expiresAt,
-    })
-    .from(sessions)
-    .innerJoin(users, eq(sessions.userId, users.id))
-    .where(and(eq(sessions.id, id), gt(sessions.expiresAt, iso())))
-    .get();
-  return row
-    ? {
-        id: row.id,
-        username: row.username,
-        role: isUserRole(row.role) ? row.role : "member",
-        isAdmin: row.isAdmin,
-      }
-    : null;
+  const rows = await sql`
+    select u.id, u.username, u.role, u.is_admin, s.expires_at
+    from sessions s join users u on s.user_id = u.id
+    where s.id = ${id} and s.expires_at > ${iso()}
+    limit 1
+  `;
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    id: row.id,
+    username: row.username,
+    role: isUserRole(row.role) ? row.role : "member",
+    isAdmin: Boolean(row.is_admin),
+  };
 };
 
 export const requireUser = async (): Promise<AuthUser> => {
@@ -104,45 +86,35 @@ export const requireUser = async (): Promise<AuthUser> => {
   return user;
 };
 
-/** Simple per-IP/per-username brute-force protection, stored in the global DB. */
 const LOGIN_LIMIT = 5;
 const LOGIN_WINDOW_MS = 15 * 60_000;
 const LOGIN_BLOCK_MS = 15 * 60_000;
 
-export const loginBlockedFor = (key: string): number => {
-  const row = systemDb.select().from(loginAttempts).where(eq(loginAttempts.key, key)).get();
-  if (!row?.blockedUntil) return 0;
-  const remaining = Date.parse(row.blockedUntil) - Date.now();
-  return remaining > 0 ? remaining : 0;
+export const loginBlockedFor = async (key: string): Promise<number> => {
+  const rows = await sql`select blocked_until from login_attempts where key = ${key} limit 1`;
+  const blocked = rows[0]?.blocked_until;
+  if (!blocked) return 0;
+  return Math.max(0, Date.parse(String(blocked)) - Date.now());
 };
 
-export const recordLoginFailure = (key: string): void => {
+export const recordLoginFailure = async (key: string): Promise<void> => {
   const now = iso();
-  const row = systemDb.select().from(loginAttempts).where(eq(loginAttempts.key, key)).get();
-  if (!row || Date.parse(row.firstFailureAt) < Date.now() - LOGIN_WINDOW_MS) {
-    systemDb
-      .insert(loginAttempts)
-      .values({ key, failures: 1, firstFailureAt: now, lastFailureAt: now })
-      .onConflictDoUpdate({
-        target: loginAttempts.key,
-        set: { failures: 1, firstFailureAt: now, lastFailureAt: now, blockedUntil: null },
-      })
-      .run();
+  const rows =
+    await sql`select failures, first_failure_at from login_attempts where key = ${key} limit 1`;
+  const row = rows[0];
+  if (!row || Date.parse(String(row.first_failure_at)) < Date.now() - LOGIN_WINDOW_MS) {
+    await sql`insert into login_attempts (key, failures, first_failure_at, last_failure_at)
+      values (${key}, 1, ${now}, ${now})
+      on conflict (key) do update set failures = 1, first_failure_at = ${now},
+        last_failure_at = ${now}, blocked_until = null`;
     return;
   }
-  const failures = row.failures + 1;
-  systemDb
-    .update(loginAttempts)
-    .set({
-      failures,
-      lastFailureAt: now,
-      blockedUntil:
-        failures >= LOGIN_LIMIT ? new Date(Date.now() + LOGIN_BLOCK_MS).toISOString() : null,
-    })
-    .where(eq(loginAttempts.key, key))
-    .run();
+  const failures = Number(row.failures) + 1;
+  await sql`update login_attempts set failures = ${failures}, last_failure_at = ${now},
+    blocked_until = ${failures >= LOGIN_LIMIT ? new Date(Date.now() + LOGIN_BLOCK_MS).toISOString() : null}
+    where key = ${key}`;
 };
 
-export const clearLoginFailures = (key: string): void => {
-  systemDb.delete(loginAttempts).where(eq(loginAttempts.key, key)).run();
+export const clearLoginFailures = async (key: string): Promise<void> => {
+  await sql`delete from login_attempts where key = ${key}`;
 };

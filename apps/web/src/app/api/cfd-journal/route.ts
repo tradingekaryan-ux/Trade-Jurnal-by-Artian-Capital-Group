@@ -1,7 +1,7 @@
-import { desc, eq } from "drizzle-orm";
-import { db, cfdTrades } from "@/db";
 import { bad, handler, ok, requireValue } from "@/server/api";
 import { newId, nowIso } from "@/server/ids";
+import { sql } from "@/server/pg";
+import { currentUser } from "@/server/auth";
 import {
   calculateJournal,
   instrumentFor,
@@ -67,16 +67,18 @@ const validateDate = (value: unknown, name: string): string => {
   return new Date(value as string).toISOString();
 };
 
-export const GET = handler((request: Request) => {
+export const GET = handler(async (request: Request) => {
+  const user = await currentUser();
+  requireValue(Boolean(user), "Unauthorized.");
   const modes = new URL(request.url).searchParams
     .get("mode")
     ?.split(",")
     .map((value) => value.trim())
     .filter(Boolean);
-  const rows = db.select().from(cfdTrades).orderBy(desc(cfdTrades.openedAt)).all();
-  return ok({
-    trades: modes?.length ? rows.filter((row) => modes.includes(row.mode)) : rows,
-  });
+  const rows = modes?.length
+    ? await sql`select * from cfd_trades where owner_id = ${user!.id} and mode = any(${modes}::text[]) order by opened_at desc`
+    : await sql`select * from cfd_trades where owner_id = ${user!.id} order by opened_at desc`;
+  return ok({ trades: rows });
 });
 
 export const POST = handler(async (request: Request) => {
@@ -88,82 +90,58 @@ export const POST = handler(async (request: Request) => {
   const calc = calculateJournal(input);
   const id = newId();
   const timestamp = nowIso();
-  db.insert(cfdTrades)
-    .values({
-      id,
-      accountId: typeof body.accountId === "string" ? body.accountId : null,
-      category: spec.class,
-      symbol: input.symbol,
-      mode: input.mode,
-      side: input.side,
-      lot: input.lot,
-      entry: input.entry,
-      takeProfit: input.takeProfit ?? null,
-      stopLoss: input.stopLoss ?? null,
-      exitPrice: calc.exitPrice,
-      resultMode: input.resultMode,
-      manualPnl: input.manualPnl ?? null,
-      usdPerPip: input.usdPerPip ?? null,
-      leverage: input.leverage ?? null,
-      pips: calc.pips,
-      pnl: calc.pnl,
-      riskReward: calc.riskReward,
-      rMultiple: calc.rMultiple,
-      status: calc.status,
-      openedAt,
-      closedAt:
-        calc.status === "closed"
-          ? body.closedAt
-            ? validateDate(body.closedAt, "Closed at")
-            : timestamp
-          : null,
-      notes: typeof body.notes === "string" ? body.notes.slice(0, 100_000) : null,
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    })
-    .run();
+  const user = await currentUser();
+  requireValue(Boolean(user), "Unauthorized.");
+  await sql`insert into cfd_trades
+    (id, owner_id, account_id, category, symbol, mode, side, lot, entry, take_profit,
+     stop_loss, exit_price, result_mode, manual_pnl, usd_per_pip, leverage, pips, pnl,
+     risk_reward, r_multiple, status, opened_at, closed_at, notes, image_urls, created_at, updated_at)
+    values (${id}, ${user!.id}, ${typeof body.accountId === "string" ? body.accountId : null},
+      ${spec.class}, ${input.symbol}, ${input.mode}, ${input.side}, ${input.lot}, ${input.entry},
+      ${input.takeProfit ?? null}, ${input.stopLoss ?? null}, ${calc.exitPrice}, ${input.resultMode},
+      ${input.manualPnl ?? null}, ${input.usdPerPip ?? null}, ${input.leverage ?? null},
+      ${calc.pips}, ${calc.pnl}, ${calc.riskReward}, ${calc.rMultiple}, ${calc.status},
+      ${openedAt},
+      ${calc.status === "closed" ? (body.closedAt ? validateDate(body.closedAt, "Closed at") : timestamp) : null},
+      ${typeof body.notes === "string" ? body.notes.slice(0, 100_000) : null}, '[]', ${timestamp}, ${timestamp})`;
   return ok({ id, ...calc }, { status: 201 });
 });
 
 export const PATCH = handler(async (request: Request) => {
+  const user = await currentUser();
+  requireValue(Boolean(user), "Unauthorized.");
   const body = (await request.json()) as Record<string, unknown>;
   requireValue(typeof body.id === "string" && body.id.length > 0, "Trade id is required.");
-  const current = db.select().from(cfdTrades).where(eq(cfdTrades.id, body.id)).get();
-  requireValue(Boolean(current), "Trade not found.");
+  const found =
+    await sql`select * from cfd_trades where id = ${body.id} and owner_id = ${user!.id} limit 1`;
+  requireValue(found.length > 0, "Trade not found.");
+  const current = found[0]!;
   const merged = {
     ...current,
     ...body,
-    exit: body.exit !== undefined ? body.exit : current!.exitPrice,
-    manualPnl: body.manualPnl !== undefined ? body.manualPnl : current!.manualPnl,
-    resultMode: body.resultMode !== undefined ? body.resultMode : current!.resultMode,
+    exit: body.exit !== undefined ? body.exit : current.exit_price,
+    manualPnl: body.manualPnl !== undefined ? body.manualPnl : current.manual_pnl,
+    resultMode: body.resultMode !== undefined ? body.resultMode : current.result_mode,
   };
   const input = parseInput(merged);
   const calc = calculateJournal(input);
-  db.update(cfdTrades)
-    .set({
-      exitPrice: calc.exitPrice,
-      resultMode: input.resultMode,
-      manualPnl: input.manualPnl ?? null,
-      usdPerPip: input.usdPerPip ?? null,
-      leverage: input.leverage ?? null,
-      pips: calc.pips,
-      pnl: calc.pnl,
-      riskReward: calc.riskReward,
-      rMultiple: calc.rMultiple,
-      status: calc.status,
-      closedAt: calc.status === "closed" ? (current!.closedAt ?? nowIso()) : null,
-      notes: typeof body.notes === "string" ? body.notes.slice(0, 100_000) : current!.notes,
-      updatedAt: nowIso(),
-    })
-    .where(eq(cfdTrades.id, body.id))
-    .run();
+  await sql`update cfd_trades set
+    exit_price = ${calc.exitPrice}, result_mode = ${input.resultMode},
+    manual_pnl = ${input.manualPnl ?? null}, usd_per_pip = ${input.usdPerPip ?? null},
+    leverage = ${input.leverage ?? null}, pips = ${calc.pips}, pnl = ${calc.pnl},
+    risk_reward = ${calc.riskReward}, r_multiple = ${calc.rMultiple}, status = ${calc.status},
+    closed_at = ${calc.status === "closed" ? (current.closed_at ?? nowIso()) : null},
+    notes = ${typeof body.notes === "string" ? body.notes.slice(0, 100_000) : current.notes},
+    updated_at = ${nowIso()}
+    where id = ${body.id} and owner_id = ${user!.id}`;
   return ok({ id: body.id, ...calc });
 });
 
 export const DELETE = handler(async (request: Request) => {
-  const url = new URL(request.url);
-  const id = url.searchParams.get("id");
+  const user = await currentUser();
+  requireValue(Boolean(user), "Unauthorized.");
+  const id = new URL(request.url).searchParams.get("id");
   requireValue(Boolean(id), "Trade id is required.");
-  db.delete(cfdTrades).where(eq(cfdTrades.id, id!)).run();
+  await sql`delete from cfd_trades where id = ${id} and owner_id = ${user!.id}`;
   return ok({ deleted: true });
 });

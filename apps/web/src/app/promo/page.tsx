@@ -304,10 +304,14 @@ export default function PromoPage() {
                     )}
                   </div>
                   <VoteBar
-                    left={votes[promo.id]?.working ?? 0}
-                    right={votes[promo.id]?.notWorking ?? 0}
-                    leftLabel="Working"
-                    rightLabel="Not Working"
+                    sides={[
+                      { label: "Working", count: votes[promo.id]?.working ?? 0, tone: "profit" },
+                      {
+                        label: "Not Working",
+                        count: votes[promo.id]?.notWorking ?? 0,
+                        tone: "loss",
+                      },
+                    ]}
                   />
                   <div className="flex flex-wrap items-center gap-2 border-t pt-2">
                     <span className="text-xs text-muted-foreground">Testimoni:</span>

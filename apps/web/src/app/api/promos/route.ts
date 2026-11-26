@@ -25,6 +25,7 @@ export const GET = handler(async () => {
     select p.id, p.user_id, u.username as author, p.kind, p.title, p.description,
            p.image_url, p.image_name, p.promo_code, p.code_enabled, p.url, p.url_enabled, p.created_at
     from promos p join users u on p.user_id = u.id
+    where p.kind = 'promo'
     order by p.created_at desc
   `;
   return ok({

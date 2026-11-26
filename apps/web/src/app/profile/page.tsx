@@ -51,10 +51,10 @@ export default function ProfilePage() {
     load();
     Promise.all([
       fetch("/api/auth").then((r) => (r.ok ? r.json() : Promise.reject())),
-      fetch("/api/promos").then((r) => (r.ok ? r.json() : Promise.reject())),
+      fetch("/api/posts").then((r) => (r.ok ? r.json() : Promise.reject())),
     ])
-      .then(([session, body]: [{ id: string | null }, { promos: OwnPost[] }]) => {
-        setMyPosts(body.promos.filter((post) => post.userId === session.id));
+      .then(([session, body]: [{ id: string | null }, { posts: OwnPost[] }]) => {
+        setMyPosts(body.posts.filter((post) => post.userId === session.id));
       })
       .catch(() => setMyPosts([]));
   }, []);

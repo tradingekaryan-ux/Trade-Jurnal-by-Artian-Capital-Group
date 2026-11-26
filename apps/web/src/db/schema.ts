@@ -344,6 +344,43 @@ export const propReceipts = sqliteTable(
   },
   (table) => [index("prop_receipts_payout").on(table.payoutId)],
 );
+/** Simplified CFD-first journal entries, independent of the execution round-trip engine. */
+export const cfdTrades = sqliteTable(
+  "cfd_trades",
+  {
+    id: text("id").primaryKey(),
+    accountId: text("account_id"),
+    category: text("category").notNull(),
+    symbol: text("symbol").notNull(),
+    mode: text("mode").notNull(),
+    side: text("side", { enum: ["buy", "sell"] }).notNull(),
+    lot: real("lot").notNull(),
+    entry: real("entry").notNull(),
+    takeProfit: real("take_profit"),
+    stopLoss: real("stop_loss"),
+    exitPrice: real("exit_price"),
+    resultMode: text("result_mode").notNull().default("auto"),
+    manualPnl: real("manual_pnl"),
+    usdPerPip: real("usd_per_pip"),
+    leverage: real("leverage"),
+    pips: real("pips"),
+    pnl: real("pnl"),
+    riskReward: real("risk_reward"),
+    rMultiple: real("r_multiple"),
+    status: text("status", { enum: ["running", "closed"] }).notNull(),
+    openedAt: text("opened_at").notNull(),
+    closedAt: text("closed_at"),
+    notes: text("notes"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("cfd_trades_account").on(table.accountId),
+    index("cfd_trades_closed").on(table.closedAt),
+    index("cfd_trades_symbol").on(table.symbol),
+  ],
+);
+
 export const propAudit = sqliteTable(
   "prop_audit",
   {

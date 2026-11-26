@@ -18,6 +18,8 @@ Perintah lain: `pnpm test`, `pnpm typecheck`, `pnpm build`, atau `docker compose
 
 Deploy produksi memakai **Northflank Sandbox (Free)** — panduan: [`docs/10-deployment-northflank.md`](docs/10-deployment-northflank.md).
 
+Sistem jurnal CFD (lot, pips, lima mode instrumen, running/closed) ada di [`docs/11-cfd-journal.md`](docs/11-cfd-journal.md).
+
 ---
 
 <details>

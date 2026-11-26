@@ -181,6 +181,37 @@ CREATE TABLE IF NOT EXISTS prop_audit (
 );
 CREATE INDEX IF NOT EXISTS prop_audit_entity ON prop_audit(entity_type, entity_id);
 
+CREATE TABLE IF NOT EXISTS cfd_trades (
+  id TEXT PRIMARY KEY,
+  account_id TEXT,
+  category TEXT NOT NULL,
+  symbol TEXT NOT NULL,
+  mode TEXT NOT NULL,
+  side TEXT NOT NULL,
+  lot REAL NOT NULL,
+  entry REAL NOT NULL,
+  take_profit REAL,
+  stop_loss REAL,
+  exit_price REAL,
+  result_mode TEXT NOT NULL DEFAULT 'auto',
+  manual_pnl REAL,
+  usd_per_pip REAL,
+  leverage REAL,
+  pips REAL,
+  pnl REAL,
+  risk_reward REAL,
+  r_multiple REAL,
+  status TEXT NOT NULL,
+  opened_at TEXT NOT NULL,
+  closed_at TEXT,
+  notes TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS cfd_trades_account ON cfd_trades (account_id);
+CREATE INDEX IF NOT EXISTS cfd_trades_closed ON cfd_trades (closed_at);
+CREATE INDEX IF NOT EXISTS cfd_trades_symbol ON cfd_trades (symbol);
+
 CREATE TABLE IF NOT EXISTS import_sources (
  id TEXT PRIMARY KEY, account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
  format TEXT NOT NULL, name TEXT NOT NULL, created_at TEXT NOT NULL

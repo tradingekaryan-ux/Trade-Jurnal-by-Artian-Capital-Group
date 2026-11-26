@@ -57,7 +57,10 @@ export const getMultipliers = (): Record<string, number> => {
   }
 };
 
-/** ---------- OpenRouter connection (hybrid: per-user key or global env key) ---------- */
+/** ---------- OpenRouter connection (BYOK + owner-managed slots + env fallbacks) ---------- */
+
+export const GLOBAL_KEY_SLOTS = 10;
+export const globalKeySetting = (slot: number) => `openrouterKey${slot}`;
 
 export const openRouterEnvironmentKey = (): string | null =>
   process.env.OPENROUTER_API_KEY?.trim() || null;
@@ -73,21 +76,74 @@ const savedUserKey = (): string | null => {
   }
 };
 
+const maskKey = (key: string): string =>
+  key.length <= 14 ? `${key.slice(0, 4)}…` : `${key.slice(0, 12)}…${key.slice(-4)}`;
+
+/** Ten owner-managed fallback keys, encrypted at rest in global_settings. */
+const storedGlobalKeys = async (): Promise<string[]> => {
+  const keys: string[] = [];
+  for (let slot = 1; slot <= GLOBAL_KEY_SLOTS; slot++) {
+    let raw: string | null = null;
+    try {
+      raw = await getGlobalSetting(globalKeySetting(slot));
+    } catch {
+      // No Supabase connection (e.g. unit tests) — env keys still apply.
+      continue;
+    }
+    if (!raw) continue;
+    try {
+      const value = decryptJson<unknown>(raw);
+      if (typeof value === "string" && value.trim()) keys.push(value.trim());
+    } catch {
+      // An unreadable slot is skipped; the next fallback still works.
+    }
+  }
+  return keys;
+};
+
+export const getGlobalKeyOverview = async () => {
+  const overview: { slot: number; configured: boolean; masked: string | null }[] = [];
+  for (let slot = 1; slot <= GLOBAL_KEY_SLOTS; slot++) {
+    let raw: string | null = null;
+    try {
+      raw = await getGlobalSetting(globalKeySetting(slot));
+    } catch {
+      // Keep the slot as empty when the database is unavailable.
+    }
+    let masked: string | null = null;
+    if (raw) {
+      try {
+        const value = decryptJson<unknown>(raw);
+        if (typeof value === "string" && value.trim()) masked = maskKey(value.trim());
+      } catch {
+        // Ignore a slot that cannot be decrypted.
+      }
+    }
+    overview.push({ slot, configured: masked !== null, masked });
+  }
+  return overview;
+};
+
+export const setGlobalKey = async (slot: number, key: string | null): Promise<void> => {
+  await setGlobalSetting(globalKeySetting(slot), key ? encryptJson(key.trim()) : "");
+};
+
 /**
- * All usable keys, in priority order: the user's own key first, then every
- * global key from OPENROUTER_API_KEYS, then OPENROUTER_API_KEY. When one key
- * hits an auth/quota/rate-limit error the next key is tried automatically.
+ * All usable keys, in priority order: the user's own key, the owner-managed
+ * slots, every key in OPENROUTER_API_KEYS, then OPENROUTER_API_KEY. When one
+ * fails with an auth/quota/rate-limit error the next one is tried automatically.
  */
-export const getAiKeys = (): string[] => {
+export const getAiKeys = async (): Promise<string[]> => {
   const keys = [
     savedUserKey(),
+    ...(await storedGlobalKeys()),
     ...(process.env.OPENROUTER_API_KEYS?.split(",") ?? []),
     openRouterEnvironmentKey(),
   ];
   return [...new Set(keys.map((key) => key?.trim()).filter((key): key is string => Boolean(key)))];
 };
 
-export const getAiKey = (): string | null => getAiKeys()[0] ?? null;
+export const getAiKey = async (): Promise<string | null> => (await getAiKeys())[0] ?? null;
 
 export const setAiKey = (key: string | null): void => {
   if (key === null) deleteSetting("openrouterKeyEnc");
@@ -185,10 +241,10 @@ export const consumeQuota = async (): Promise<void> => {
   await sql`update ai_usage set requests = ${Number(row.requests) + 1}, updated_at = ${nowIso()} where id = ${row.id}`;
 };
 
-export const aiConfigured = (): boolean => getAiKey() !== null;
+export const aiConfigured = async (): Promise<boolean> => (await getAiKey()) !== null;
 
 export const getAiSettings = async (): Promise<AiSettingsPayload> => {
-  const key = getAiKey();
+  const key = await getAiKey();
   return {
     configured: key !== null,
     keySource: getSetting("openrouterKeyEnc") ? "saved" : key ? "environment" : "none",

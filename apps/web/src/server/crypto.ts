@@ -10,7 +10,7 @@ import { dataDir } from "@/db";
  * data directory keeps working while a leaked database file alone does not.
  */
 const keyMaterial = (): Buffer => {
-  const secret = process.env.JOURNAL_SECRET;
+  const secret = process.env.JOURNAL_SECRET?.trim() || process.env.AUTH_SECRET?.trim();
   if (secret && secret.length > 0) return scryptSync(secret, "luxalgo-trade-journal", 32);
   const dir = dataDir();
   const keyPath = join(dir, ".secret");

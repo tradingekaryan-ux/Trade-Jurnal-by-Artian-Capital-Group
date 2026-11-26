@@ -69,6 +69,16 @@ interface SiteConfig {
   siteTitle: string;
 }
 
+interface KeySlot {
+  slot: number;
+  configured: boolean;
+  masked: string | null;
+}
+
+const MODEL_EXAMPLES = `openrouter/free
+antdigital/lingdt-decision-fast-1.0:free
+fish-audio/s2.1-pro-free:free`;
+
 const emptySite: SiteConfig = {
   discordUrl: "https://discord.com/",
   showFloatingDiscord: true,
@@ -82,6 +92,9 @@ export default function AdminPage() {
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [detail, setDetail] = useState<{ name: string; data: MemberDetail } | null>(null);
   const [site, setSite] = useState<SiteConfig>(emptySite);
+  const [keySlots, setKeySlots] = useState<KeySlot[]>([]);
+  const [modelInput, setModelInput] = useState("");
+  const [keyDrafts, setKeyDrafts] = useState<Record<number, string>>({});
   const [newUser, setNewUser] = useState({
     username: "",
     password: "",
@@ -126,12 +139,20 @@ export default function AdminPage() {
     }
   }, [role]);
 
+  const loadKeys = () => {
+    fetch("/api/admin/keys")
+      .then((response) => (response.ok ? response.json() : Promise.reject()))
+      .then((body: { slots: KeySlot[] }) => setKeySlots(body.slots))
+      .catch(() => setError("Gagal memuat kunci OpenRouter."));
+  };
+
   useEffect(() => {
     if (role !== "owner") return;
     fetch("/api/admin/site")
       .then((response) => (response.ok ? response.json() : Promise.reject()))
       .then((body: SiteConfig) => setSite(body))
       .catch(() => setError("Gagal memuat konfigurasi situs."));
+    loadKeys();
   }, [role]);
 
   const createUser = async () => {
@@ -214,6 +235,65 @@ export default function AdminPage() {
       setError(cause instanceof Error ? cause.message : "Gagal menyimpan konfigurasi.");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const addModels = async () => {
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const result = await postJson<{ added: number; skipped: number }>("/api/admin/models", {
+        action: "add",
+        ids: modelInput,
+      });
+      setMessage(
+        `${result.added} model ditambahkan${result.skipped ? `, ${result.skipped} sudah ada` : ""}.`,
+      );
+      if (result.added > 0) setModelInput("");
+      load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Gagal menambah model.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removeModel = async (id: string) => {
+    if (!window.confirm(`Hapus model "${id}" dari katalog?`)) return;
+    try {
+      const result = await postJson<{ removed: number }>("/api/admin/models", {
+        action: "remove",
+        id,
+      });
+      setMessage(`${result.removed} model dihapus dari katalog.`);
+      load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Gagal menghapus model.");
+    }
+  };
+
+  const saveKey = async (slot: number) => {
+    const key = (keyDrafts[slot] ?? "").trim();
+    if (!key) return;
+    try {
+      await postJson("/api/admin/keys", { action: "set", slot, key });
+      setKeyDrafts((current) => ({ ...current, [slot]: "" }));
+      setMessage(`Kunci slot ${slot} disimpan (terenkripsi).`);
+      loadKeys();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Gagal menyimpan kunci.");
+    }
+  };
+
+  const clearKey = async (slot: number) => {
+    if (!window.confirm(`Hapus kunci OpenRouter slot ${slot}?`)) return;
+    try {
+      await postJson("/api/admin/keys", { action: "clear", slot });
+      setMessage(`Kunci slot ${slot} dihapus.`);
+      loadKeys();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Gagal menghapus kunci.");
     }
   };
 
@@ -302,12 +382,16 @@ export default function AdminPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" disabled={busy} onClick={sync}>
-            {busy ? "Memproses…" : "Sinkron dari OpenRouter"}
-          </Button>
-          <Button disabled={busy} onClick={save}>
-            Simpan perubahan
-          </Button>
+          {isOwner && (
+            <>
+              <Button variant="outline" disabled={busy} onClick={sync}>
+                {busy ? "Memproses…" : "Sinkron dari OpenRouter"}
+              </Button>
+              <Button disabled={busy} onClick={save}>
+                Simpan perubahan
+              </Button>
+            </>
+          )}
           <LogoutButton />
         </div>
       </div>
@@ -576,46 +660,140 @@ export default function AdminPage() {
         </Card>
       )}
 
-      <Card>
-        <CardContent className="grid gap-4 pt-6 sm:grid-cols-3">
-          <div className="space-y-1">
-            <Label htmlFor="default-model">Model default</Label>
-            <OptionSelect
-              id="default-model"
-              value={data.defaultModel}
-              onValueChange={(value) => setData({ ...data, defaultModel: value })}
-            >
-              {data.models.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.id}
-                </option>
-              ))}
-            </OptionSelect>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="quota">Kuota AI / hari per pengguna</Label>
-            <Input
-              id="quota"
-              type="number"
-              min={1}
-              max={1000}
-              value={data.quota}
-              onChange={(e) => setData({ ...data, quota: Number(e.target.value) })}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="paid-allowed">Model Paid untuk kunci global</Label>
-            <OptionSelect
-              id="paid-allowed"
-              value={data.paidAllowed ? "yes" : "no"}
-              onValueChange={(value) => setData({ ...data, paidAllowed: value === "yes" })}
-            >
-              <option value="no">Tidak diizinkan</option>
-              <option value="yes">Diizinkan</option>
-            </OptionSelect>
-          </div>
-        </CardContent>
-      </Card>
+      {isOwner && (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Input model OpenRouter</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Satu model ID per baris (bisa juga dipisah koma). Suffix <code>:free</code>,{" "}
+                <code>/free</code>, atau <code>-free</code> otomatis ditandai Free. Hanya owner yang
+                bisa menambah atau menghapus model.
+              </p>
+              <textarea
+                rows={4}
+                value={modelInput}
+                onChange={(e) => setModelInput(e.target.value)}
+                placeholder={MODEL_EXAMPLES}
+                className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+              />
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Button disabled={busy || !modelInput.trim()} onClick={() => void addModels()}>
+                  Tambah model ke katalog
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Contoh: {MODEL_EXAMPLES.split("\n")[0]}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Kunci API OpenRouter · 10 slot fallback</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Kunci disimpan terenkripsi di Supabase dan hanya dipakai di server. Kosongkan slot
+                untuk menghapusnya. Urutan fallback: kunci pribadi pengguna → slot 1–10 → kunci di
+                environment. Admin tidak bisa melihat atau mengubah kunci ini.
+              </p>
+              <div className="space-y-2">
+                {keySlots.map((slot) => (
+                  <div
+                    key={slot.slot}
+                    className="grid items-center gap-2 sm:grid-cols-[3rem_1fr_1fr_auto_auto]"
+                  >
+                    <span className="text-xs text-muted-foreground">#{slot.slot}</span>
+                    <span
+                      className="truncate text-xs text-muted-foreground"
+                      title={slot.masked ?? ""}
+                    >
+                      {slot.masked ?? "Kosong"}
+                    </span>
+                    <Input
+                      type="password"
+                      value={keyDrafts[slot.slot] ?? ""}
+                      onChange={(e) =>
+                        setKeyDrafts((current) => ({ ...current, [slot.slot]: e.target.value }))
+                      }
+                      placeholder={slot.configured ? "Ganti kunci…" : "sk-or-…"}
+                      className="h-8 text-xs"
+                    />
+                    <Button
+                      size="sm"
+                      disabled={!(keyDrafts[slot.slot] ?? "").trim()}
+                      onClick={() => void saveKey(slot.slot)}
+                    >
+                      {slot.configured ? "Ubah" : "Simpan"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={!slot.configured}
+                      onClick={() => void clearKey(slot.slot)}
+                    >
+                      Hapus
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {!isOwner && (
+        <p className="rounded-md border p-3 text-xs text-muted-foreground">
+          Katalog model hanya bisa dilihat oleh Admin. Penambahan model, sinkronisasi, kuota, dan
+          kunci OpenRouter hanya bisa diubah oleh Owner.
+        </p>
+      )}
+
+      {isOwner && (
+        <Card>
+          <CardContent className="grid gap-4 pt-6 sm:grid-cols-3">
+            <div className="space-y-1">
+              <Label htmlFor="default-model">Model default</Label>
+              <OptionSelect
+                id="default-model"
+                value={data.defaultModel}
+                onValueChange={(value) => setData({ ...data, defaultModel: value })}
+              >
+                {data.models.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.id}
+                  </option>
+                ))}
+              </OptionSelect>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="quota">Kuota AI / hari per pengguna</Label>
+              <Input
+                id="quota"
+                type="number"
+                min={1}
+                max={1000}
+                value={data.quota}
+                onChange={(e) => setData({ ...data, quota: Number(e.target.value) })}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="paid-allowed">Model Paid untuk kunci global</Label>
+              <OptionSelect
+                id="paid-allowed"
+                value={data.paidAllowed ? "yes" : "no"}
+                onValueChange={(value) => setData({ ...data, paidAllowed: value === "yes" })}
+              >
+                <option value="no">Tidak diizinkan</option>
+                <option value="yes">Diizinkan</option>
+              </OptionSelect>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       <Card>
         <CardHeader>
           <CardTitle>Katalog model</CardTitle>
@@ -635,6 +813,7 @@ export default function AdminPage() {
                   <th className="p-2">PDF</th>
                   <th className="p-2">Aktif</th>
                   <th className="p-2">Sumber</th>
+                  {isOwner && <th className="p-2">Aksi</th>}
                 </tr>
               </thead>
               <tbody>
@@ -645,29 +824,54 @@ export default function AdminPage() {
                       <div className="text-muted-foreground">{m.id}</div>
                     </td>
                     <td className="p-2">
-                      <OptionSelect
-                        value={m.tier}
-                        onValueChange={(value) => update(m.id, { tier: value as "free" | "paid" })}
-                      >
-                        <option value="free">Free</option>
-                        <option value="paid">Paid</option>
-                      </OptionSelect>
+                      {isOwner ? (
+                        <OptionSelect
+                          value={m.tier}
+                          onValueChange={(value) =>
+                            update(m.id, { tier: value as "free" | "paid" })
+                          }
+                        >
+                          <option value="free">Free</option>
+                          <option value="paid">Paid</option>
+                        </OptionSelect>
+                      ) : (
+                        m.tier
+                      )}
                     </td>
                     <td className="p-2">
-                      <input
-                        type="checkbox"
-                        checked={m.supportsPdf}
-                        onChange={(e) => update(m.id, { supportsPdf: e.target.checked })}
-                      />
+                      {isOwner ? (
+                        <input
+                          type="checkbox"
+                          checked={m.supportsPdf}
+                          onChange={(e) => update(m.id, { supportsPdf: e.target.checked })}
+                        />
+                      ) : m.supportsPdf ? (
+                        "Ya"
+                      ) : (
+                        "Tidak"
+                      )}
                     </td>
                     <td className="p-2">
-                      <input
-                        type="checkbox"
-                        checked={m.enabled}
-                        onChange={(e) => update(m.id, { enabled: e.target.checked })}
-                      />
+                      {isOwner ? (
+                        <input
+                          type="checkbox"
+                          checked={m.enabled}
+                          onChange={(e) => update(m.id, { enabled: e.target.checked })}
+                        />
+                      ) : m.enabled ? (
+                        "Ya"
+                      ) : (
+                        "Tidak"
+                      )}
                     </td>
                     <td className="p-2 text-muted-foreground">{m.source}</td>
+                    {isOwner && (
+                      <td className="p-2">
+                        <Button size="sm" variant="ghost" onClick={() => void removeModel(m.id)}>
+                          Hapus
+                        </Button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

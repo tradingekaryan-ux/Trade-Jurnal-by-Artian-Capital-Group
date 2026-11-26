@@ -16,7 +16,7 @@ import { sql } from "./pg";
  * Reflection layer. Every request goes from this server to OpenRouter using
  * the OpenAI-compatible Chat Completions API. The key never reaches the browser.
  */
-export const aiConfiguredForUser = (): boolean => aiConfigured();
+export const aiConfiguredForUser = async (): Promise<boolean> => aiConfigured();
 
 const SYSTEM = `You are the reflection layer of a trader's journal.
 You see only the trader's own recorded data — trades, stats, and notes. Ground every
@@ -39,7 +39,7 @@ const openrouter = (apiKey: string) =>
   });
 
 export const runAi = async (prompt: string, maxOutputTokens = 1200): Promise<string> => {
-  if (getAiKeys().length === 0)
+  if ((await getAiKeys()).length === 0)
     throw new Error("AI is not configured — add an OpenRouter key in Settings.");
   const modelId = await getAiModel();
   const found = await sql`select tier from models where id = ${modelId} limit 1`;

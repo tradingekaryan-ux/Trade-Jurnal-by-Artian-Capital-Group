@@ -191,7 +191,7 @@ export async function parseStatementWithAi(
       (typeof options.apiKey === "string" && options.apiKey.length <= 1000),
     "Invalid API key.",
   );
-  const keys = options.apiKey?.trim() ? [options.apiKey.trim()] : getAiKeys();
+  const keys = options.apiKey?.trim() ? [options.apiKey.trim()] : await getAiKeys();
   requireValue(keys.length > 0, "Tambahkan kunci OpenRouter di Settings untuk parsing AI.");
   await consumeQuota();
   let input: UserContent;

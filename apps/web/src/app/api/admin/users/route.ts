@@ -24,7 +24,14 @@ const ownerOnly = async () => {
 export const GET = handler(async () => {
   if (!(await privilege())) return bad("Forbidden", 403);
   const rows = await sql`select id, username, role, created_at from users order by created_at`;
-  return ok({ users: rows });
+  return ok({
+    users: rows.map((row) => ({
+      id: row.id,
+      username: row.username,
+      role: row.role,
+      createdAt: row.created_at,
+    })),
+  });
 });
 
 export const POST = handler(async (request: Request) => {

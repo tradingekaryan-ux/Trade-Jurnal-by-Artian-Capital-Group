@@ -19,7 +19,7 @@ Website jurnal trading **gratis, multi-pengguna**, berbasis kode open-source [`L
 | Kuota AI                  | **10 permintaan per pengguna per hari**                                                                                                                                                                                                               |
 | Implementasi              | **Disetujui untuk dilanjutkan**                                                                                                                                                                                                                       |
 
-Konsekuensi teknis dari keputusan model: tersedia tabel/halaman **Admin → Model AI** (hanya untuk pengguna dengan role admin) untuk menyunting daftar model Free/Paid, model default, dan tombol "Sinkron dari OpenRouter". Pengguna biasa memilih model dari katalog yang sudah difilter admin.
+Konsekuensi teknis dari keputusan model: halaman **Admin → Model AI OpenRouter** dapat dibuka Owner/Admin (baca saja untuk Admin). **Hanya Owner** yang boleh menambah/menghapus model secara manual (satu ID per baris, contoh `openrouter/free`, `antdigital/lingdt-decision-fast-1.0:free`, `fish-audio/s2.1-pro-free:free`), menyinkron dari OpenRouter, mengubah kuota/default, dan mengelola **10 slot kunci API fallback** (terenkripsi di Supabase, bisa diganti/dihapus). Admin tidak memiliki akses ke fitur ini. Pengguna biasa memilih model dari katalog yang sudah difilter owner.
 
 ## Daftar dokumen
 

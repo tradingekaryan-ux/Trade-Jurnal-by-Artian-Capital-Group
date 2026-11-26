@@ -23,12 +23,13 @@ const shouldTryNextKey = (error: unknown): boolean => {
  */
 export const withKeyFallback = async <T>(
   run: (key: string) => Promise<T>,
-  keys: string[] = getAiKeys(),
+  keys?: string[],
 ): Promise<T> => {
-  if (keys.length === 0)
+  const candidates = keys ?? (await getAiKeys());
+  if (candidates.length === 0)
     throw new Error("AI is not configured — tambahkan kunci OpenRouter di server atau Settings.");
   let lastError: unknown;
-  for (const key of keys) {
+  for (const key of candidates) {
     try {
       return await run(key);
     } catch (error) {

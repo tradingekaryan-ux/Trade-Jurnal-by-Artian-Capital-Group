@@ -1,4 +1,4 @@
-import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { blob, index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 /** Global tables: accounts, sessions, model catalog and AI quota. One DB for the whole site. */
 export const users = sqliteTable(
@@ -9,6 +9,7 @@ export const users = sqliteTable(
     usernameNormalized: text("username_normalized").notNull(),
     passwordHash: text("password_hash").notNull(),
     isAdmin: integer("is_admin", { mode: "boolean" }).notNull().default(false),
+    role: text("role").notNull().default("member"),
     createdAt: text("created_at").notNull(),
     lastLoginAt: text("last_login_at"),
   },
@@ -77,3 +78,26 @@ export const globalSettings = sqliteTable("global_settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
 });
+
+/** Public promo/discount posts. Images live in the global DB so every account can see them. */
+export const promos = sqliteTable(
+  "promos",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description").notNull().default(""),
+    imageData: blob("image_data", { mode: "buffer" }),
+    imageMime: text("image_mime"),
+    imageName: text("image_name"),
+    promoCode: text("promo_code"),
+    codeEnabled: integer("code_enabled", { mode: "boolean" }).notNull().default(false),
+    url: text("url"),
+    urlEnabled: integer("url_enabled", { mode: "boolean" }).notNull().default(false),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [index("promos_user").on(table.userId), index("promos_created").on(table.createdAt)],
+);

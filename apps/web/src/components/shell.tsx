@@ -46,6 +46,7 @@ const NAV = [
   { href: "/trades", label: "Trades", icon: ListOrdered },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/prop-firms", label: "Prop firms", icon: Landmark },
+  { href: "/promo", label: "Promo", icon: BookmarkPlus },
   { href: "/notebook", label: "Notebook", icon: BookText },
   { href: "/playbooks", label: "Playbooks", icon: BookOpen },
   { href: "/progress", label: "Progress", icon: ListChecks },

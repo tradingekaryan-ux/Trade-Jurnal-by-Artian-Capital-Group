@@ -350,8 +350,10 @@ export function JournalPage({
                         : form.mode === "futures"
                           ? "Kontrak"
                           : form.mode === "stock"
-                            ? "Size (lembar saham)"
-                            : "Size (unit koin)"}
+                            ? "Nominal masuk (USD)"
+                            : form.mode === "crypto-perp"
+                              ? "Nominal setelah leverage (USD)"
+                              : "Nominal masuk (USD)"}
                     </Label>
                     <Input
                       id="journal-lot"
@@ -430,7 +432,7 @@ export function JournalPage({
                   )}
                   {form.mode === "crypto-perp" && (
                     <div className="space-y-1">
-                      <Label htmlFor="journal-lev">Leverage</Label>
+                      <Label htmlFor="journal-lev">Leverage (informasi)</Label>
                       <Input
                         id="journal-lev"
                         inputMode="decimal"

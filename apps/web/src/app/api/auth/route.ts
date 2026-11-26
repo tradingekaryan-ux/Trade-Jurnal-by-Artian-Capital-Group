@@ -31,9 +31,11 @@ const clientKey = (request: Request) => {
 export const GET = handler(async () => {
   const user = await currentUser();
   return ok({
+    id: user?.id ?? null,
     authenticated: Boolean(user),
     username: user?.username ?? null,
     isAdmin: user?.isAdmin ?? false,
+    role: user?.role ?? "member",
   });
 });
 
@@ -70,7 +72,12 @@ export const POST = handler(
       path: "/",
       maxAge: SESSION_MAX_AGE,
     });
-    return ok({ authenticated: true, username: user.username, isAdmin: user.isAdmin });
+    return ok({
+      authenticated: true,
+      username: user.username,
+      isAdmin: user.isAdmin,
+      role: user.role,
+    });
   },
   { public: true },
 );

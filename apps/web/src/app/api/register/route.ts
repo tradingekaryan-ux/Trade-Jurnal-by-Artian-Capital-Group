@@ -5,6 +5,7 @@ import { loginAttempts, users } from "@/db/system-schema";
 import { AUTH_COOKIE, createSession, hashPassword, SESSION_MAX_AGE } from "@/server/auth";
 import { bad, handler, ok, requireValue } from "@/server/api";
 import { newId } from "@/server/ids";
+import type { UserRole } from "@/lib/roles";
 
 const REGISTRATION_LIMIT = 3;
 const REGISTRATION_WINDOW_MS = 60 * 60_000;
@@ -53,7 +54,13 @@ export const POST = handler(
     if (existing) return bad("Username is already taken.", 409);
 
     const count = systemDb.select({ id: users.id }).from(users).all().length;
-    const isAdmin = count === 0 || normalized === (process.env.ADMIN_USERNAME ?? "").toLowerCase();
+    const role: UserRole =
+      count === 0
+        ? "owner"
+        : normalized === (process.env.ADMIN_USERNAME ?? "").toLowerCase()
+          ? "admin"
+          : "member";
+    const isAdmin = role === "owner" || role === "admin";
     const id = newId();
     systemDb
       .insert(users)
@@ -63,6 +70,7 @@ export const POST = handler(
         usernameNormalized: normalized,
         passwordHash: hashPassword(password),
         isAdmin,
+        role,
         createdAt: new Date().toISOString(),
       })
       .run();
@@ -101,7 +109,7 @@ export const POST = handler(
       path: "/",
       maxAge: SESSION_MAX_AGE,
     });
-    return ok({ authenticated: true, username, isAdmin }, { status: 201 });
+    return ok({ authenticated: true, username, isAdmin, role }, { status: 201 });
   },
   { public: true },
 );

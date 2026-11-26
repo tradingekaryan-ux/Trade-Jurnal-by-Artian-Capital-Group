@@ -8,9 +8,11 @@ import { postJson } from "@/lib/use-api";
 import { Button } from "./ui/button";
 
 interface SessionInfo {
+  id: string | null;
   authenticated: boolean;
   username: string | null;
   isAdmin: boolean;
+  role?: string;
 }
 
 export function UserMenu() {
@@ -37,6 +39,7 @@ export function UserMenu() {
           {session.username}
         </div>
       )}
+      {session?.role && <div className="text-xs text-muted-foreground">{session.role}</div>}
       {session?.isAdmin && (
         <Link
           href="/admin"

@@ -37,3 +37,4 @@ Konsekuensi teknis dari keputusan model: tersedia tabel/halaman **Admin → Mode
 | [10 — Deployment Northflank](10-deployment-northflank.md)           | Panduan deploy pilihan: combined service, volume `/data`, environment     |
 | [11 — CFD journal](11-cfd-journal.md)                               | Sistem jurnal CFD: lot, pips, mode instrumen, running/closed, statistik   |
 | [12 — Strategy Lab & fitur dihapus](12-chart-dan-strategy-lab.md)   | Simulator prop firm; chart/feed dihapus, diganti upload gambar            |
+| [13 — Promo, Role & Discord](13-promo-role-discord.md)              | Halaman promo, role owner/admin/staff/company, tombol Discord             |

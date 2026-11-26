@@ -15,13 +15,13 @@ Sistem jurnal baru berorientasi CFD, berjalan **berdampingan** dengan engine rou
 
 Pengguna memilih mode saat membuat trade:
 
-| Mode                                | Kalkulasi                                                                     |
-| ----------------------------------- | ----------------------------------------------------------------------------- |
-| **CFD (Pips)**                      | `pips = arah × (exit − entry) / pipSize`; `P&L = pips × USD_per_pip × lot`    |
-| **Futures (Tick)**                  | `ticks = arah × (exit − entry) / tickSize`; `P&L = ticks × nilai_tick × lot`  |
-| **Crypto Spot (%)**                 | `notional = size(unit koin) × entry`; `P&L = notional × (exit − entry)/entry` |
-| **Crypto Perpetual (% × Leverage)** | `P&L = notional × persentase × leverage`                                      |
-| **US Stock Spot (%)**               | `notional = size(lembar saham) × entry`; `P&L = notional × persentase`        |
+| Mode                                | Kalkulasi                                                                    |
+| ----------------------------------- | ---------------------------------------------------------------------------- |
+| **CFD (Pips)**                      | `pips = arah × (exit − entry) / pipSize`; `P&L = pips × USD_per_pip × lot`   |
+| **Futures (Tick)**                  | `ticks = arah × (exit − entry) / tickSize`; `P&L = ticks × nilai_tick × lot` |
+| **Crypto Spot (%)**                 | Input = **nominal masuk USD**; `P&L = nominal × (exit − entry)/entry`        |
+| **Crypto Perpetual (% × Leverage)** | Input = **nominal setelah leverage (USD)**; `P&L = nominal × persentase`     |
+| **US Stock Spot (%)**               | Input = **nominal masuk USD** (mis. beli $100); `P&L = nominal × persentase` |
 
 Untuk crypto dan US Stock **tidak ada parameter lot** — field yang dipakai adalah **size nyata** (jumlah koin atau lembar saham). Notional dihitung otomatis dari `size × entry`. API juga menerima `size` sebagai alias input.
 
@@ -29,12 +29,12 @@ Untuk crypto dan US Stock **tidak ada parameter lot** — field yang dipakai ada
 
 ## Empat jurnal terpisah
 
-| Halaman            | Mode                                              | Instrument                                               | Parameter utama                    |
-| ------------------ | ------------------------------------------------- | -------------------------------------------------------- | ---------------------------------- |
-| `/journal/cfd`     | CFD (Pips)                                        | FOREX, COMMODITY, INDICE                                 | Lot, pip size, USD per pip per lot |
-| `/journal/futures` | Futures (Tick)                                    | ES, NQ, MES, MNQ, MRTY, MGC, MCL, SPXN, NQ100N, …        | Kontrak, tick size, USD/tick       |
-| `/journal/crypto`  | Crypto Spot (%) + Crypto Perpetual (% × Leverage) | BTCUSD, ETHUSD, SOLUSD, BTCUSDT, ETHUSDT, …              | Size unit koin, leverage (perp)    |
-| `/journal/stock`   | US Stock Spot (%)                                 | NVDA, MSFT, AAPL, TSLA, MU, INTC, AMD, META, GOOGL, AMZN | Size lembar saham, persentase      |
+| Halaman            | Mode                                              | Instrument                                               | Parameter utama                                    |
+| ------------------ | ------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------- |
+| `/journal/cfd`     | CFD (Pips)                                        | FOREX, COMMODITY, INDICE                                 | Lot, pip size, USD per pip per lot                 |
+| `/journal/futures` | Futures (Tick)                                    | ES, NQ, MES, MNQ, MRTY, MGC, MCL, SPXN, NQ100N, …        | Kontrak, tick size, USD/tick                       |
+| `/journal/crypto`  | Crypto Spot (%) + Crypto Perpetual (% × Leverage) | BTCUSD, ETHUSD, SOLUSD, BTCUSDT, ETHUSDT, …              | Nominal USD (spot) / nominal pasca-leverage (perp) |
+| `/journal/stock`   | US Stock Spot (%)                                 | NVDA, MSFT, AAPL, TSLA, MU, INTC, AMD, META, GOOGL, AMZN | Nominal masuk USD, persentase                      |
 
 URL lama `/cfd-journal` otomatis mengarah ke `/journal/cfd`. API `GET /api/cfd-journal?mode=...` menyaring daftar sesuai jurnal.
 

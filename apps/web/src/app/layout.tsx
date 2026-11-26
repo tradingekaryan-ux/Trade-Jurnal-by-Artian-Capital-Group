@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Shell } from "@/components/shell";
 import { PrivacyProvider } from "@/components/privacy";
+import { FloatingDiscord } from "@/components/floating-discord";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <ThemeProvider>
               <PrivacyProvider>
                 <Shell>{children}</Shell>
+                <FloatingDiscord />
               </PrivacyProvider>
             </ThemeProvider>
           </Suspense>

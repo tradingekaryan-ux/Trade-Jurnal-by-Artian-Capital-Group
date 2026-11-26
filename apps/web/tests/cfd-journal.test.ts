@@ -71,26 +71,37 @@ describe("CFD journal calculations", () => {
     expect(result.pnl).toBe(50);
   });
 
-  it("calculates percentage modes with leverage for crypto perpetuals", () => {
+  it("uses USD notional for spot/stock and post-leverage notional for perpetuals", () => {
     const spot = calculateJournal({
       ...base,
       mode: "crypto-spot",
       symbol: "BTCUSD",
       entry: 100,
       exit: 110,
-      lot: 10,
+      lot: 1000,
     });
     expect(spot.pnl).toBe(100);
+
+    const stock = calculateJournal({
+      ...base,
+      mode: "stock",
+      symbol: "NVDA",
+      entry: 100,
+      exit: 110,
+      lot: 1000,
+    });
+    expect(stock.pnl).toBe(100);
 
     const perp = calculateJournal({
       ...base,
       mode: "crypto-perp",
-      symbol: "BTCUSD",
+      symbol: "BTCUSDT",
       entry: 100,
       exit: 110,
-      lot: 10,
+      lot: 1000,
       leverage: 5,
     });
-    expect(perp.pnl).toBe(500);
+    // 1000 is already the exposure after leverage, so leverage is not applied again.
+    expect(perp.pnl).toBe(100);
   });
 });

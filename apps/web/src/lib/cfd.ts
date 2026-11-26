@@ -91,9 +91,9 @@ export function calculateJournal(input: JournalInput): JournalCalculation {
     pnl = input.manualPnl as number;
     if (input.mode === "cfd" || input.mode === "futures") move = pnl / (perUnit * (input.lot || 1));
     else
-      move =
-        pnl /
-        (input.lot * input.entry * (input.mode === "crypto-perp" ? (input.leverage ?? 1) : 1));
+      // Percentage modes use `lot` as the USD notional entered by the user.
+      // For perpetuals this is the post-leverage notional, so no extra factor.
+      move = pnl / (input.lot || 1);
   } else if (input.resultMode === "breakeven") {
     pnl = 0;
     move = 0;
@@ -107,8 +107,9 @@ export function calculateJournal(input: JournalInput): JournalCalculation {
       pnl = move * perUnit * input.lot;
     } else {
       move = difference / input.entry;
-      const leverage = input.mode === "crypto-perp" ? (input.leverage ?? 1) : 1;
-      pnl = input.lot * input.entry * move * leverage;
+      // `lot` is the USD notional: entry cash for stock/spot, post-leverage
+      // exposure for crypto perpetuals. Leverage is informational only here.
+      pnl = input.lot * move;
     }
   } else {
     move = 0;
@@ -134,10 +135,7 @@ export function calculateJournal(input: JournalInput): JournalCalculation {
   const riskAmount =
     input.mode === "cfd" || input.mode === "futures"
       ? ((stopDistance ?? 0) / step) * perUnit * input.lot
-      : input.lot *
-        input.entry *
-        ((stopDistance ?? 0) / input.entry) *
-        (input.mode === "crypto-perp" ? (input.leverage ?? 1) : 1);
+      : input.lot * ((stopDistance ?? 0) / input.entry);
   const rMultiple = riskAmount > 0 ? pnl / riskAmount : null;
 
   return {

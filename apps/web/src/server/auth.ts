@@ -3,6 +3,7 @@ import { and, eq, gt } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { systemDb } from "@/db";
 import { loginAttempts, sessions, users } from "@/db/system-schema";
+import { isUserRole, type UserRole } from "@/lib/roles";
 
 /** Session cookie for username/password accounts. No email verification by design. */
 export const AUTH_COOKIE = "tj_session";
@@ -13,6 +14,7 @@ const secret = () => process.env.AUTH_SECRET ?? process.env.JOURNAL_SECRET ?? "d
 export interface AuthUser {
   id: string;
   username: string;
+  role: UserRole;
   isAdmin: boolean;
 }
 
@@ -79,13 +81,21 @@ export const currentUser = async (): Promise<AuthUser | null> => {
       id: users.id,
       username: users.username,
       isAdmin: users.isAdmin,
+      role: users.role,
       expiresAt: sessions.expiresAt,
     })
     .from(sessions)
     .innerJoin(users, eq(sessions.userId, users.id))
     .where(and(eq(sessions.id, id), gt(sessions.expiresAt, iso())))
     .get();
-  return row ? { id: row.id, username: row.username, isAdmin: row.isAdmin } : null;
+  return row
+    ? {
+        id: row.id,
+        username: row.username,
+        role: isUserRole(row.role) ? row.role : "member",
+        isAdmin: row.isAdmin,
+      }
+    : null;
 };
 
 export const requireUser = async (): Promise<AuthUser> => {

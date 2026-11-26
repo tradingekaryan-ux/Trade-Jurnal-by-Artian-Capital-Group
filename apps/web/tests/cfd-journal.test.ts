@@ -78,7 +78,7 @@ describe("CFD journal calculations", () => {
       symbol: "xyz:GOLD",
       entry: 100,
       exit: 110,
-      lot: 1000,
+      lot: 10,
     });
     expect(spot.pnl).toBe(100);
 
@@ -88,7 +88,7 @@ describe("CFD journal calculations", () => {
       symbol: "xyz:GOLD",
       entry: 100,
       exit: 110,
-      lot: 1000,
+      lot: 10,
       leverage: 5,
     });
     expect(perp.pnl).toBe(500);

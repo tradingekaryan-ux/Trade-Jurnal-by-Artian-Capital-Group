@@ -15,13 +15,15 @@ Sistem jurnal baru berorientasi CFD, berjalan **berdampingan** dengan engine rou
 
 Pengguna memilih mode saat membuat trade:
 
-| Mode                                | Kalkulasi                                                                    |
-| ----------------------------------- | ---------------------------------------------------------------------------- |
-| **CFD (Pips)**                      | `pips = arah × (exit − entry) / pipSize`; `P&L = pips × USD_per_pip × lot`   |
-| **Futures (Tick)**                  | `ticks = arah × (exit − entry) / tickSize`; `P&L = ticks × nilai_tick × lot` |
-| **Crypto Spot (%)**                 | `P&L = lot(USD) × (exit − entry)/entry`                                      |
-| **Crypto Perpetual (% × Leverage)** | `P&L = lot(USD) × persentase × leverage`                                     |
-| **US Stock Spot (%)**               | `P&L = lot(USD) × persentase`                                                |
+| Mode                                | Kalkulasi                                                                     |
+| ----------------------------------- | ----------------------------------------------------------------------------- |
+| **CFD (Pips)**                      | `pips = arah × (exit − entry) / pipSize`; `P&L = pips × USD_per_pip × lot`    |
+| **Futures (Tick)**                  | `ticks = arah × (exit − entry) / tickSize`; `P&L = ticks × nilai_tick × lot`  |
+| **Crypto Spot (%)**                 | `notional = size(unit koin) × entry`; `P&L = notional × (exit − entry)/entry` |
+| **Crypto Perpetual (% × Leverage)** | `P&L = notional × persentase × leverage`                                      |
+| **US Stock Spot (%)**               | `notional = size(lembar saham) × entry`; `P&L = notional × persentase`        |
+
+Untuk crypto dan US Stock **tidak ada parameter lot** — field yang dipakai adalah **size nyata** (jumlah koin atau lembar saham). Notional dihitung otomatis dari `size × entry`. API juga menerima `size` sebagai alias input.
 
 **Futures (Tick)** ditandai _coming soon_ — pilihannya dinonaktifkan di UI dan ditolak oleh API.
 
@@ -31,8 +33,8 @@ Pengguna memilih mode saat membuat trade:
 | ------------------ | ------------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------- |
 | `/journal/cfd`     | CFD (Pips)                                        | FOREX, COMMODITY, INDICE                                            | Lot, pip size, USD per pip per lot     |
 | `/journal/futures` | Futures (Tick)                                    | INDICE, COMMODITY                                                   | _Coming soon_ (tick size & nilai tick) |
-| `/journal/crypto`  | Crypto Spot (%) + Crypto Perpetual (% × Leverage) | BTC, ETH, SOL, HYPE, XRP, DOGE, PURR/USDC                           | Lot(USD), leverage (perp)              |
-| `/journal/stock`   | US Stock Spot (%)                                 | Saham/ETF HIP-3 (NVDA, MSFT, MU, INTC, TSLA, SPCX, SKHX, SOXL, SMH) | Lot(USD), persentase                   |
+| `/journal/crypto`  | Crypto Spot (%) + Crypto Perpetual (% × Leverage) | BTC, ETH, SOL, HYPE, XRP, DOGE, PURR/USDC                           | Size unit koin, leverage (perp)        |
+| `/journal/stock`   | US Stock Spot (%)                                 | Saham/ETF HIP-3 (NVDA, MSFT, MU, INTC, TSLA, SPCX, SKHX, SOXL, SMH) | Size lembar saham, persentase          |
 
 URL lama `/cfd-journal` otomatis mengarah ke `/journal/cfd`. API `GET /api/cfd-journal?mode=...` menyaring daftar sesuai jurnal.
 

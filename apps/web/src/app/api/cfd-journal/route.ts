@@ -32,7 +32,7 @@ const parseInput = (body: Record<string, unknown>): JournalInput => {
   const spec = instrumentFor(body.symbol);
   requireValue(Boolean(spec), "Instrument is not in the Hyperliquid tradfi feed.");
   requireValue(isResultMode(body.resultMode), "Choose a result mode.");
-  const lot = numberField(body.lot, "Lot", true)!;
+  const lot = numberField(body.size ?? body.lot, "Size", true)!;
   const entry = numberField(body.entry, "Entry", true)!;
   requireValue(lot > 0, "Lot must be greater than zero.");
   requireValue(entry > 0, "Entry must be greater than zero.");

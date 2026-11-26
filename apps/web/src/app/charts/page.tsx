@@ -283,7 +283,13 @@ export default function ChartsPage() {
                 </OptionSelect>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="journal-lot">Lot / ukuran</Label>
+                <Label htmlFor="journal-lot">
+                  {mode === "cfd"
+                    ? "Lot"
+                    : mode === "stock"
+                      ? "Size (lembar saham)"
+                      : "Size (unit koin)"}
+                </Label>
                 <Input
                   id="journal-lot"
                   inputMode="decimal"

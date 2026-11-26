@@ -331,7 +331,13 @@ export function JournalPage({
                     </OptionSelect>
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="journal-lot">Lot / ukuran</Label>
+                    <Label htmlFor="journal-lot">
+                      {form.mode === "cfd"
+                        ? "Lot"
+                        : form.mode === "stock"
+                          ? "Size (lembar saham)"
+                          : "Size (unit koin)"}
+                    </Label>
                     <Input
                       id="journal-lot"
                       inputMode="decimal"
@@ -478,7 +484,7 @@ export function JournalPage({
                         <th className="p-2">Instrument</th>
                         <th className="p-2">Mode</th>
                         <th className="p-2">Side</th>
-                        <th className="p-2">Lot</th>
+                        <th className="p-2">Lot/Size</th>
                         <th className="p-2">Entry</th>
                         <th className="p-2">Hasil</th>
                         <th className="p-2">P&L</th>

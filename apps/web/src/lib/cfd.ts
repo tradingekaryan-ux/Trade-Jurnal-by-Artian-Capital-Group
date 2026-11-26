@@ -269,7 +269,10 @@ export function calculateJournal(input: JournalInput): JournalCalculation {
     pnl = input.manualPnl as number;
     // Derive a display-only pips/ticks/percent move from the entered USD result.
     if (input.mode === "cfd" || input.mode === "futures") move = pnl / (perPip * (input.lot || 1));
-    else move = pnl / (input.lot * (input.mode === "crypto-perp" ? (input.leverage ?? 1) : 1));
+    else
+      move =
+        pnl /
+        (input.lot * input.entry * (input.mode === "crypto-perp" ? (input.leverage ?? 1) : 1));
   } else if (input.resultMode === "breakeven") {
     pnl = 0;
     move = 0;
@@ -282,9 +285,11 @@ export function calculateJournal(input: JournalInput): JournalCalculation {
       move = difference / (spec?.pipSize ?? 1);
       pnl = move * (spec?.usdPerPipPerLot ?? 1) * input.lot;
     } else {
+      // Crypto spot/perp and US stock use REAL size (coins / shares), not lots.
+      // Notional = size × entry, so the percentage move is applied to that notional.
       move = difference / input.entry;
       const leverage = input.mode === "crypto-perp" ? (input.leverage ?? 1) : 1;
-      pnl = input.lot * move * leverage;
+      pnl = input.lot * input.entry * move * leverage;
     }
   } else {
     move = 0;
@@ -314,6 +319,7 @@ export function calculateJournal(input: JournalInput): JournalCalculation {
     input.mode === "cfd" || input.mode === "futures"
       ? ((stopDistance ?? 0) / (spec?.pipSize ?? 0.0001)) * perPip * input.lot
       : input.lot *
+        input.entry *
         ((stopDistance ?? 0) / input.entry) *
         (input.mode === "crypto-perp" ? (input.leverage ?? 1) : 1);
   const rMultiple = riskAmount > 0 ? pnl / riskAmount : null;

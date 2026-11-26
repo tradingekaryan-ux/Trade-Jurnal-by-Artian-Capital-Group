@@ -1,0 +1,8 @@
+# Contoh defaults untuk Northflank CLI. Salin menjadi northflank.yaml lalu isi ID
+# project/service/volume Anda. Jangan simpan kunci API atau secret di file ini.
+# CLI hanya memakai file ini untuk memilih resource default, bukan untuk deploy otomatis.
+context:
+  team: ganti-dengan-team-id
+  project: ganti-dengan-project-id
+  service: ganti-dengan-service-id
+  volume: ganti-dengan-volume-id

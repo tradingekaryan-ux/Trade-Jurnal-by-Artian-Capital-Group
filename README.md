@@ -16,6 +16,8 @@ Registrasi pertama otomatis menjadi **admin** (halaman `/admin` untuk mengelola 
 
 Perintah lain: `pnpm test`, `pnpm typecheck`, `pnpm build`, atau `docker compose up -d`.
 
+Deploy produksi memakai **Northflank Sandbox (Free)** — panduan: [`docs/10-deployment-northflank.md`](docs/10-deployment-northflank.md).
+
 ---
 
 <details>

@@ -39,26 +39,28 @@ Semua kunci yang Anda berikan sudah ditempatkan di `.env.local` lokal dan **tida
 
 Kuota 10 permintaan/hari per pengguna, batas `maxOutputTokens`, model default, dan daftar model yang diizinkan menjaga pemakaian tetap terkendali. Model Paid hanya dipakai bila diizinkan admin atau pengguna memakai kunci sendiri. Perkiraan token output: recap ±150–250, critique ±150, ask ±200, AI import hingga 16.000.
 
-## 3. Rekomendasi hosting server gratis
+## 3. Hosting yang dipakai: Northflank
 
-Aplikasi ini membutuhkan **disk persisten** (SQLite per pengguna). Karena itu, host platform gratis dengan filesystem sementara tidak cocok.
+**Keputusan: Northflank Sandbox (Free).** Aplikasi tidak perlu diubah — Dockerfile sudah menyediakan port `3000` dan direktori `/data` untuk persistent volume.
 
-| Pilihan                                           | Cocok?                                                            | Keterangan                                                                                                                                                                                                                               |
-| ------------------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Oracle Cloud Always Free — VM ARM (Ampere A1)** | **Rekomendasi utama**                                             | Gratis selamanya: 2 OCPU / 12 GB RAM, hingga 200 GB storage, 10 TB traffic/bulan. Server menyala terus. Perlu verifikasi kartu kredit (tanpa biaya bila dalam kuota). VM idle <20% selama 7 hari bisa di-reclaim. Build image ARM/arm64. |
-| **Railway Free**                                  | Alternatif untuk demo                                             | $1 kredit/bulan, 1 volume 0,5 GB, domain `.up.railway.app`. Service tidur saat idle dan kredit kecil, jadi kurang cocok untuk pemakaian publik 24/7. Volume dihapus 30 hari setelah kredit habis.                                        |
-| Render Free                                       | **Tidak disarankan**                                              | Filesystem sementara: SQLite hilang saat restart/redeploy, tidak ada persistent disk pada plan gratis, service tidur setelah 15 menit.                                                                                                   |
-| Fly.io                                            | **Tidak ada plan gratis** untuk akun baru (trial $1/7 hari saja). | —                                                                                                                                                                                                                                        |
-| Koyeb Free                                        | **Tidak cocok**                                                   | Tidak ada volume persisten.                                                                                                                                                                                                              |
+| Item        | Nilai                                                                                                 |
+| ----------- | ----------------------------------------------------------------------------------------------------- |
+| Service     | Combined service dari GitHub (branch `main`), build Dockerfile, engine BuildKit                       |
+| Volume      | Persistent volume di-mount ke `/data`, `ReadWriteOnce`, 1 instance                                    |
+| Environment | `OPENROUTER_API_KEYS`, `AUTH_SECRET`, `SITE_URL`, `JOURNAL_DATA_DIR=/data`, opsional `JOURNAL_SECRET` |
+| Biaya       | Sandbox: hingga $20/bulan resource, always on; volume tetap ditagih walau service mati                |
 
-### Langkah singkat di Oracle Cloud Always Free (ARM)
+Panduan lengkap: [`10-deployment-northflank.md`](10-deployment-northflank.md).
 
-1. Buat akun Oracle Cloud, pilih region "home region", buat VM **Ampere A1** (Ubuntu arm64, 2 OCPU/12 GB).
-2. Buka port 3000 di security list / firewall, dan siapkan domain + reverse proxy (Caddy/Nginx) untuk HTTPS.
-3. Install Node 22 (mis. lewat `nvm`) dan pnpm 11.0.8.
-4. `git clone https://github.com/tradingekaryan-ux/Trade-Jurnal-by-Artian-Capital-Group.git`
-5. Isi environment (termasuk `OPENROUTER_API_KEYS` dan `AUTH_SECRET`) lalu `docker compose up -d` — Dockerfile akan build sesuai arsitektur ARM.
-6. Backup: salin seluruh direktori `data/` (database global + per pengguna + lampiran) dan simpan `JOURNAL_SECRET`/`AUTH_SECRET` terpisah.
+### Alternatif lain (tidak dipilih)
+
+| Pilihan                               | Keterangan                                                                      |
+| ------------------------------------- | ------------------------------------------------------------------------------- |
+| Railway Free                          | $1/bulan, volume 0,5 GB, service tidur saat idle; cocok untuk demo, bukan 24/7  |
+| AWS EC2 t2/t3.micro / Google e2-micro | x86, gratis 12 bulan / kuota always-free, tetapi perlu konfigurasi VM sendiri   |
+| Oracle Cloud Always Free              | ARM; **tidak dipakai** sesuai keputusan                                         |
+| Render Free / Koyeb Free / Fly.io     | Tidak cocok: tanpa disk persisten atau tidak ada plan gratis                    |
+| Cloudflare Workers/Pages              | Bisa, tapi butuh port besar ke D1/R2 (better-sqlite3 tidak berjalan di Workers) |
 
 ## 4. API yang tidak dibutuhkan
 

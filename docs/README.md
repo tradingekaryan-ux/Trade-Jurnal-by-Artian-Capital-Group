@@ -34,3 +34,4 @@ Konsekuensi teknis dari keputusan model: tersedia tabel/halaman **Admin → Mode
 | [07 — Model data](07-model-data.md)                                 | Database global + per pengguna: users, sessions, ai_usage, katalog model  |
 | [08 — Rencana implementasi](08-rencana-implementasi.md)             | Tahapan kerja, kriteria penerimaan, risiko                                |
 | [09 — Deployment & legalitas](09-deployment-dan-legalitas.md)       | Hosting, environment, backup, atribusi MIT & trademark                    |
+| [10 — Deployment Northflank](10-deployment-northflank.md)           | Panduan deploy pilihan: combined service, volume `/data`, environment     |

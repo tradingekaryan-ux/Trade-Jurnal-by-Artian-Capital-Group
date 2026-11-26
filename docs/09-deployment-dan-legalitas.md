@@ -2,6 +2,8 @@
 
 ## Deployment
 
+> **Hosting yang dipakai: Northflank Sandbox (Free).** Panduan lengkap ada di [`10-deployment-northflank.md`](10-deployment-northflank.md). Bagian di bawah tetap berlaku sebagai prinsip umum.
+
 ### Kebutuhan
 
 - **Node.js 22+**, **pnpm 11.0.8**

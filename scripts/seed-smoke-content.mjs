@@ -26,19 +26,22 @@ async function post(path, body) {
 await post("/api/notes", {
   folderId: "my-notes",
   title: "Checklist sesi Asia",
-  content: "# Checklist sesi Asia\n\n- Cek arah DXY sebelum entry forex\n- Tunggu konfirmasi 15m\n- Max 2 trade per sesi\n\n**Pelajaran:** entry cepat di awal sesi sering kena spread.",
-  tags: [" checklist", "forex", "Asia" ].map((t) => t.trim()),
+  content:
+    "# Checklist sesi Asia\n\n- Cek arah DXY sebelum entry forex\n- Tunggu konfirmasi 15m\n- Max 2 trade per sesi\n\n**Pelajaran:** entry cepat di awal sesi sering kena spread.",
+  tags: [" checklist", "forex", "Asia"].map((t) => t.trim()),
 });
 await post("/api/notes", {
   folderId: "trade-notes",
   title: "Review EURUSD +50 pips",
-  content: "Entry 1.1000, exit 1.1050. Konfirmasi breakout dan volume bagus. R:R 2.0 sesuai rencana.",
+  content:
+    "Entry 1.1000, exit 1.1050. Konfirmasi breakout dan volume bagus. R:R 2.0 sesuai rencana.",
   tags: ["EURUSD", "CFD", "review"],
 });
 await post("/api/notes", {
   folderId: "daily-journal",
   title: "Refleksi 26 November",
-  content: "Disiplin terjaga, tidak ada revenge trading. Perlu mengurangi ukuran pada setup yang belum teruji.",
+  content:
+    "Disiplin terjaga, tidak ada revenge trading. Perlu mengurangi ukuran pada setup yang belum teruji.",
   tags: ["refleksi", "disiplin"],
 });
 await post("/api/workspace/templates", {
@@ -95,7 +98,9 @@ const prog = await (await fetch(`${base}/api/workspace/progress`, { headers: { c
 console.log("RESULT", {
   notes: notes.notes.length,
   folders: notes.folders.length,
-  templates: (await (await fetch(`${base}/api/workspace/templates`, { headers: { cookie } })).json()).templates.length,
+  templates: (
+    await (await fetch(`${base}/api/workspace/templates`, { headers: { cookie } })).json()
+  ).templates.length,
   playbooks: books.playbooks.length,
   routines: prog.rules.length,
   checks: prog.checks.length,

@@ -146,3 +146,11 @@ CREATE TABLE IF NOT EXISTS profiles (
   banner_id text,
   updated_at text NOT NULL
 );
+
+-- Snapshot seluruh data jurnal per user. Supabase = source of truth,
+-- SQLite lokal hanya cache yang bisa dihapus/restored kapan saja.
+CREATE TABLE IF NOT EXISTS journal_snapshots (
+  user_id text PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  payload jsonb NOT NULL,
+  updated_at text NOT NULL
+);

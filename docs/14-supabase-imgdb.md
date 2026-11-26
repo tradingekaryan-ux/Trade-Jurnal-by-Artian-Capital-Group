@@ -45,3 +45,15 @@ Semua tabel jurnal memakai kolom `owner_id` yang merujuk ke `users.id` — isola
 Mesin round-trip bawaan upstream (accounts/executions/trades) masih memakai SQLite lokal. Fitur yang dipakai sehari-hari — autentikasi, promo/idea + voting, admin, AI settings, dan seluruh jurnal CFD/Futures/Crypto/Stock — sudah berjalan di Supabase. Jika ingin memindahkan juga mesin round-trip, itu memerlukan refactor lanjutan karena seluruh query-nya sinkron.
 
 9 tes lama yang mengasumsikan database SQLite lokal (AI settings, session gate, attachment prop, timezone) ditandai `skip` karena sekarang memerlukan Supabase. Tes murni tetap berjalan: 562 passed / 9 skipped.
+
+## Snapshot otomatis (Supabase → SQLite cache)
+
+Data jurnal lama (accounts, executions, trades, journal_days, folders, notes, playbooks, progress, missed trades, settings, dll.) masih diakses lewat API sinkron Drizzle SQLite. Agar tetap aman saat pindah server:
+
+- Setiap permintaan yang **mengubah data** (POST/PATCH/DELETE) otomatis menyalin seluruh tabel jurnal ke Supabase (`journal_snapshots`, JSONB) lewat `server/snapshot.ts`.
+- Saat aplikasi menemukan database lokal kosong, data di-**restore otomatis** dari snapshot sebelum handler dijalankan.
+- Endpoint manual: `POST /api/snapshot`.
+
+Dengan ini **Supabase adalah source of truth**. Folder `data/` (kecuali `owner-credentials.txt`) bisa dihapus kapan saja — saat server hidup, data kembali dari Supabase.
+
+Verifikasi: seluruh `data/*.db` lokal dihapus, server direstart, dan semua data uji (3 notes, 2 playbook, 3 rutin + 12 check, 2 missed trade, 7 trade) kembali terbaca dari Supabase.

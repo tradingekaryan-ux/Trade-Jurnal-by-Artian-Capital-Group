@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { runAsUser } from "@/db";
 import { currentUser } from "./auth";
 
+function requestIsMutation(value: unknown): boolean {
+  return value instanceof Request && !["GET", "HEAD", "OPTIONS"].includes(value.method);
+}
+
 export class RequestError extends Error {}
 export function requireValue(condition: unknown, message: string): asserts condition {
   if (!condition) throw new RequestError(message);
@@ -36,7 +40,19 @@ export const handler =
         return bad("Unauthorized", 401);
       const work = () => fn(...args);
       const userId = user?.id ?? (authDisabled ? "test-user" : null);
-      return userId ? await runAsUser(userId, work) : await work();
+      if (!userId) return work();
+      await runAsUser(userId, async () => {
+        const { ensureRestored } = await import("./snapshot");
+        await ensureRestored(userId).catch(() => {});
+      }).catch(() => {});
+      const result = await runAsUser(userId, work);
+      if (requestIsMutation(args[0])) {
+        await runAsUser(userId, async () => {
+          const { snapshotUser } = await import("./snapshot");
+          await snapshotUser(userId);
+        }).catch(() => {});
+      }
+      return result;
     } catch (error) {
       console.error("[api]", error);
       const message = error instanceof Error ? error.message : "Internal error";

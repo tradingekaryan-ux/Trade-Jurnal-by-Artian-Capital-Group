@@ -7,7 +7,9 @@ import * as systemSchema from "./system-schema";
 import { openJournalDatabase } from "./bootstrap";
 import { openSystemDatabase } from "./system-bootstrap";
 
-export const dataDir = (): string => process.env.JOURNAL_DATA_DIR ?? join(process.cwd(), "data");
+export const dataDir = (): string =>
+  process.env.JOURNAL_DATA_DIR ??
+  (process.env.VERCEL ? "/tmp/artian-journal-data" : join(process.cwd(), "data"));
 
 type TenantDb = ReturnType<typeof createTenantDb>;
 type SystemDb = ReturnType<typeof createSystemDb>;

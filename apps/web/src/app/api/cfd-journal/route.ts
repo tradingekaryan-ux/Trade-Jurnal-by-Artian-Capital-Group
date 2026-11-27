@@ -38,7 +38,7 @@ const parseInput = (body: Record<string, unknown>): JournalInput => {
   requireValue(isResultMode(body.resultMode), "Choose a result mode.");
   const lot = numberField(body.size ?? body.lot, "Size", true)!;
   const entry = numberField(body.entry, "Entry", true)!;
-  requireValue(lot > 0, "Lot must be greater than zero.");
+  requireValue(lot > 0, "Size must be greater than zero.");
   requireValue(entry > 0, "Entry must be greater than zero.");
   const mode = body.mode as JournalMode;
   const leverage = numberField(body.leverage, "Leverage");

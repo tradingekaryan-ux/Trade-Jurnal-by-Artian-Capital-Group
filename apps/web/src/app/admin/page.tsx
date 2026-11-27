@@ -139,6 +139,89 @@ function DataTable({ rows, columns }: { rows: Record<string, unknown>[]; columns
   );
 }
 
+/** Tabel dengan kolom Aksi (Hapus) di ujung kanan setiap baris. */
+function DataTableWithDelete({
+  rows,
+  columns,
+  idKey,
+  onDelete,
+  deleteLabel = "Hapus",
+  confirmMsg,
+}: {
+  rows: Record<string, unknown>[];
+  columns: string[];
+  idKey: string;
+  onDelete: (id: string) => Promise<void>;
+  deleteLabel?: string;
+  confirmMsg?: (row: Record<string, unknown>) => string;
+}) {
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  const handleDelete = async (row: Record<string, unknown>) => {
+    const id = String(row[idKey] ?? "");
+    if (!id) return;
+    const msg = confirmMsg
+      ? confirmMsg(row)
+      : `Hapus item ini secara permanen?`;
+    if (!window.confirm(msg)) return;
+    setDeleting(id);
+    try {
+      await onDelete(id);
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  return (
+    <div className="max-h-72 overflow-auto rounded border">
+      <table className="w-full text-left text-xs">
+        <thead className="sticky top-0 bg-muted/80">
+          <tr>
+            {columns.map((column) => (
+              <th key={column} className="p-2">
+                {column}
+              </th>
+            ))}
+            <th className="p-2">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, index) => {
+            const id = String(row[idKey] ?? "");
+            return (
+              <tr key={index} className="border-t">
+                {columns.map((column) => (
+                  <td key={column} className="p-2">
+                    {cell(row[column])}
+                  </td>
+                ))}
+                <td className="p-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive"
+                    disabled={deleting === id}
+                    onClick={() => void handleDelete(row)}
+                  >
+                    {deleting === id ? "…" : deleteLabel}
+                  </Button>
+                </td>
+              </tr>
+            );
+          })}
+          {rows.length === 0 && (
+            <tr>
+              <td className="p-2 text-muted-foreground" colSpan={columns.length + 1}>
+                Tidak ada data.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 interface SiteConfig {
   discordUrl: string;
   showFloatingDiscord: boolean;
@@ -303,6 +386,38 @@ export default function AdminPage() {
       setDetailTab("trades");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Gagal memuat detail member.");
+    }
+  };
+
+  /** Hapus data spesifik milik seorang member dari admin panel.
+   *  Setelah berhasil, reload detail member agar tabel ter-refresh. */
+  const adminDelete = async (
+    userId: string,
+    memberName: string,
+    resource: string,
+    id?: string,
+  ) => {
+    try {
+      setError(null);
+      await fetch("/api/admin/member-delete", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, resource, id }),
+      }).then(async (r) => {
+        if (!r.ok) {
+          const json = (await r.json()) as { error?: string };
+          throw new Error(json.error ?? "Gagal menghapus.");
+        }
+      });
+      setMessage(`Data ${resource} ${memberName} berhasil dihapus.`);
+      // Reload detail
+      const body = await fetch(
+        `/api/admin/member-data?userId=${encodeURIComponent(userId)}`,
+      ).then((r) => (r.ok ? r.json() : Promise.reject()));
+      setDetail((prev) => (prev ? { ...prev, data: body as MemberDetail } : prev));
+      loadMembers();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Gagal menghapus data.");
     }
   };
 
@@ -695,20 +810,39 @@ export default function AdminPage() {
               </div>
 
               {detailTab === "trades" && (
-                <DataTable
-                  rows={detail.data.trades}
-                  columns={[
-                    "opened_at",
-                    "symbol",
-                    "mode",
-                    "side",
-                    "entry",
-                    "exit_price",
-                    "pnl",
-                    "status",
-                    "notes",
-                  ]}
-                />
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground">
+                      {detail.data.trades.length} trade di Supabase
+                    </p>
+                    {detail.data.trades.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              `Hapus SEMUA ${detail.data.trades.length} trade milik ${detail.name} secara permanen?`,
+                            )
+                          )
+                            void adminDelete(detail.data.user.id, detail.name, "journal");
+                        }}
+                      >
+                        Hapus semua trade
+                      </Button>
+                    )}
+                  </div>
+                  <DataTableWithDelete
+                    rows={detail.data.trades}
+                    columns={["opened_at", "symbol", "mode", "side", "entry", "exit_price", "pnl", "status"]}
+                    idKey="id"
+                    onDelete={(id) => adminDelete(detail.data.user.id, detail.name, "trade", id)}
+                    confirmMsg={(row) =>
+                      `Hapus trade ${String(row.symbol ?? "")} ${String(row.side ?? "")} ${String(row.opened_at ?? "")} milik ${detail.name}?`
+                    }
+                  />
+                </div>
               )}
 
               {detailTab === "journals" && (
@@ -752,9 +886,12 @@ export default function AdminPage() {
               {detailTab === "notebook" && (
                 <div className="space-y-2">
                   <p className="text-xs text-muted-foreground">Catatan</p>
-                  <DataTable
+                  <DataTableWithDelete
                     rows={detail.data.workspace.notes ?? []}
                     columns={["title", "folderId", "tagsJson", "updatedAt"]}
+                    idKey="id"
+                    onDelete={(id) => adminDelete(detail.data.user.id, detail.name, "notebook", id)}
+                    confirmMsg={(row) => `Hapus catatan "${String(row.title ?? "")}" milik ${detail.name}?`}
                   />
                   <p className="text-xs text-muted-foreground">Folder</p>
                   <DataTable
@@ -765,18 +902,25 @@ export default function AdminPage() {
               )}
 
               {detailTab === "playbooks" && (
-                <DataTable
+                <DataTableWithDelete
                   rows={detail.data.workspace.playbooks ?? []}
                   columns={["name", "description", "rulesJson", "createdAt"]}
+                  idKey="id"
+                  onDelete={(id) => adminDelete(detail.data.user.id, detail.name, "playbook", id)}
+                  confirmMsg={(row) => `Hapus playbook "${String(row.name ?? "")}" milik ${detail.name}?`}
                 />
               )}
 
               {detailTab === "progress" && (
                 <div className="space-y-2">
                   <p className="text-xs text-muted-foreground">Rutinitas</p>
-                  <DataTable
+                  <DataTableWithDelete
                     rows={detail.data.workspace.progressRules ?? []}
                     columns={["title", "stage", "weekdaysJson", "archivedAt"]}
+                    idKey="id"
+                    deleteLabel="Archive"
+                    onDelete={(id) => adminDelete(detail.data.user.id, detail.name, "progress", id)}
+                    confirmMsg={(row) => `Archive rutinitas "${String(row.title ?? "")}" milik ${detail.name}?`}
                   />
                   <p className="text-xs text-muted-foreground">Checklist</p>
                   <DataTable
@@ -787,22 +931,26 @@ export default function AdminPage() {
               )}
 
               {detailTab === "missed" && (
-                <DataTable
+                <DataTableWithDelete
                   rows={detail.data.workspace.missedTrades ?? []}
-                  columns={[
-                    "symbol",
-                    "direction",
-                    "observedAt",
-                    "entry",
-                    "stop",
-                    "target",
-                    "notes",
-                  ]}
+                  columns={["symbol", "direction", "observedAt", "entry", "stop", "target", "notes"]}
+                  idKey="id"
+                  deleteLabel="Archive"
+                  onDelete={(id) => adminDelete(detail.data.user.id, detail.name, "missed", id)}
+                  confirmMsg={(row) => `Archive missed trade ${String(row.symbol ?? "")} milik ${detail.name}?`}
                 />
               )}
 
               {detailTab === "posts" && (
-                <DataTable rows={detail.data.promos} columns={["kind", "title", "created_at"]} />
+                <DataTableWithDelete
+                  rows={detail.data.promos}
+                  columns={["kind", "title", "created_at"]}
+                  idKey="id"
+                  onDelete={(id) => adminDelete(detail.data.user.id, detail.name, "post", id)}
+                  confirmMsg={(row) =>
+                    `Hapus postingan "${String(row.title ?? "")}" milik ${detail.name}? Semua vote akan ikut dihapus.`
+                  }
+                />
               )}
             </div>
           )}

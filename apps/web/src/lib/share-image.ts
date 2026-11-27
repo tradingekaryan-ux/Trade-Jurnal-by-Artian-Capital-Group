@@ -86,7 +86,19 @@ export const loadAvatarImage = (url?: string | null): Promise<HTMLImageElement |
         image.src = url;
       });
     img = await tryLoad("anonymous");
-    if (!img) img = await tryLoad(null);
+    // Fallback via same-origin proxy when external host (e.g. imgdb.io) lacks CORS headers
+    // (drawing cross-origin without CORS taints the canvas and breaks canvas.toBlob).
+    if (!img && url.startsWith("https://")) {
+      const proxyUrl = `/api/avatar-proxy?url=${encodeURIComponent(url)}`;
+      img = await new Promise<HTMLImageElement | null>((resolve) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => resolve(null);
+        image.src = proxyUrl;
+      });
+    } else if (!img && !url.startsWith("http")) {
+      img = await tryLoad(null);
+    }
     return img;
   })();
   avatarCache.set(url, p);

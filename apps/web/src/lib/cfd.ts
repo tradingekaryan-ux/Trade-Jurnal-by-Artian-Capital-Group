@@ -16,6 +16,38 @@ export const MODE_LABELS: Record<JournalMode, string> = {
   stock: "US Stock Spot (%)",
 };
 
+export const SIZE_LABEL: Record<JournalMode, string> = {
+  cfd: "Lot",
+  futures: "Qty (Kontrak)",
+  "crypto-spot": "Nilai Beli (USD)",
+  "crypto-perp": "Nilai Beli (USD)",
+  stock: "Nilai Beli (USD)",
+};
+
+export const SIZE_UNIT: Record<JournalMode, string> = {
+  cfd: "LOT",
+  futures: "QTY",
+  "crypto-spot": "USD",
+  "crypto-perp": "USD",
+  stock: "USD",
+};
+
+export const formatTradeSize = (mode: string, size: number): string => {
+  const unit = isJournalMode(mode) ? SIZE_UNIT[mode] : "LOT";
+  if (unit === "USD") {
+    return `${size.toLocaleString("en-US", { maximumFractionDigits: 2 })} USD`;
+  }
+  return `${Number(size.toFixed(4))} ${unit}`;
+};
+
+export const formatTradeMove = (mode: string, pips: number | null): string => {
+  if (pips === null) return "—";
+  const val = pips.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  if (mode === "cfd") return `${val} pips`;
+  if (mode === "futures") return `${val} tick`;
+  return `${val}%`;
+};
+
 export const isJournalMode = (value: unknown): value is JournalMode =>
   typeof value === "string" && Object.hasOwn(MODE_LABELS, value);
 

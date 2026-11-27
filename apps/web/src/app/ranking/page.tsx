@@ -13,6 +13,8 @@ import {
   downloadBlob,
   renderCertificatePng,
 } from "@/lib/certificate-image";
+import { exportCanvasVideo } from "@/lib/video-export";
+import type { EdgeScoreComponents } from "@luxalgo/journal-core";
 
 interface JournalSummary {
   mode: string;
@@ -36,6 +38,7 @@ interface Entry {
   avatarUrl: string | null;
   role: string;
   edgeScore: number | null;
+  edgeComponents: EdgeScoreComponents | null;
   netPnl: number;
   totalTrades: number;
   closedTrades: number;
@@ -54,6 +57,7 @@ const score = (value: number | null) => (value === null ? "—" : value.toFixed(
 export default function RankingPage() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [rankedAt, setRankedAt] = useState<string | null>(null);
+  const [discordUrl, setDiscordUrl] = useState<string>("https://discord.com/");
   const [error, setError] = useState("");
   const [open, setOpen] = useState<string | null>(null);
   const [cert, setCert] = useState<{ entry: Entry } | null>(null);
@@ -73,9 +77,10 @@ export default function RankingPage() {
   useEffect(() => {
     fetch("/api/ranking")
       .then((response) => (response.ok ? response.json() : Promise.reject()))
-      .then((body: { rankedAt: string; entries: Entry[] }) => {
+      .then((body: { rankedAt: string; discordUrl?: string; entries: Entry[] }) => {
         setEntries(body.entries);
         setRankedAt(body.rankedAt);
+        if (body.discordUrl) setDiscordUrl(body.discordUrl);
       })
       .catch(() => setError("Gagal memuat ranking."));
   }, []);
@@ -90,55 +95,30 @@ export default function RankingPage() {
   }, [bgMedia]);
 
   const buildCertOptions = useCallback(
-    (entry: Entry, transparentBg = false) => {
-      // ── Real-data radar values (all normalized 0–1) ───────────────────────
-      const wr = entry.winRate ?? 0.5; // Win %
-      const pfNorm = Math.min(1, (entry.profitFactor ?? 1) / 4); // Profit Factor (4 = excellent)
-      const wlRatio = // Win/Loss Ratio
-        entry.wins > 0 && entry.losses > 0
-          ? Math.min(1, entry.wins / entry.losses / 2) // 2:1 wins → 1.0
-          : entry.wins > 0
-            ? 1
-            : 0;
-      const edgeNorm = Math.min(1, (entry.edgeScore ?? 50) / 100); // Drawdown control proxy
-      const recoveryNorm = Math.min(
-        // Recovery: win streak ratio
-        1,
-        (entry.wins / Math.max(1, entry.closedTrades)) * 1.5,
-      );
-      const consistencyNorm = Math.min(1, edgeNorm * 1.1); // Consistency from edge score
-      return {
-        traderName: entry.displayName || entry.username,
-        username: `@${entry.username}`,
-        journalName: entry.journalName,
-        avatarUrl: entry.avatarUrl,
-        rank: `Rank #${entry.rank}/${entries.length}`,
-        rankNum: entry.rank,
-        edgeScore: score(entry.edgeScore),
-        netPnl: entry.netPnl,
-        winRate: entry.winRate,
-        profitFactor: entry.profitFactor,
-        closedTrades: entry.closedTrades,
-        downloadDate: new Date().toLocaleDateString("en-GB", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        }),
-        radarValues: [wr, pfNorm, wlRatio, edgeNorm, recoveryNorm, consistencyNorm] as [
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-        ],
-        background: bgMedia,
-        transparentBackground: transparentBg,
-        overlayOpacity,
-        siteUrl: typeof window !== "undefined" ? window.location.origin : "https://artian.capital",
-      };
-    },
-    [entries.length, bgMedia, overlayOpacity],
+    (entry: Entry, transparentBg = false) => ({
+      traderName: entry.displayName || entry.username,
+      username: `@${entry.username}`,
+      journalName: entry.journalName,
+      avatarUrl: entry.avatarUrl,
+      rank: `Rank #${entry.rank}/${entries.length}`,
+      rankNum: entry.rank,
+      edgeScore: score(entry.edgeScore),
+      edgeComponents: entry.edgeComponents,
+      netPnl: entry.netPnl,
+      winRate: entry.winRate,
+      profitFactor: entry.profitFactor,
+      closedTrades: entry.closedTrades,
+      downloadDate: new Date().toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }),
+      background: bgMedia,
+      transparentBackground: transparentBg,
+      overlayOpacity,
+      siteUrl: discordUrl,
+    }),
+    [entries.length, bgMedia, overlayOpacity, discordUrl],
   );
 
   const renderCertHud = useMemo(() => {
@@ -227,69 +207,15 @@ export default function RankingPage() {
       const baseName = `sertifikat-${cert.entry.username}-${dateStr}`;
 
       if (bgIsVideo && bgMedia instanceof HTMLVideoElement) {
-        const offscreen = document.createElement("canvas");
-        offscreen.width = CERT_WIDTH;
-        offscreen.height = CERT_HEIGHT;
-        const ctx = offscreen.getContext("2d")!;
-
         const hudBlob = await renderCertificatePng(buildCertOptions(cert.entry, true));
-        const hudImg = new Image();
-        hudImg.src = URL.createObjectURL(hudBlob);
-        await hudImg.decode();
-
-        const mimeType = MediaRecorder.isTypeSupported("video/mp4;codecs=avc1")
-          ? "video/mp4;codecs=avc1"
-          : MediaRecorder.isTypeSupported("video/mp4")
-            ? "video/mp4"
-            : MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-              ? "video/webm;codecs=vp9"
-              : "video/webm";
-
-        const stream = offscreen.captureStream(30);
-        const rec = new MediaRecorder(stream, { mimeType });
-        const chunks: Blob[] = [];
-        rec.ondataavailable = (e) => {
-          if (e.data.size > 0) chunks.push(e.data);
-        };
-
-        const video = bgMedia;
-        const duration = video.duration;
-        video.currentTime = 0;
-        await new Promise<void>((r) => {
-          video.onseeked = () => r();
-          window.setTimeout(r, 500);
-        });
-
-        await new Promise<void>((resolve, reject) => {
-          rec.start();
-          rec.onerror = () => reject(new Error("MediaRecorder error."));
-          const fps = 30;
-          const totalFrames = Math.round(duration * fps);
-          let frame = 0;
-          const seekTo = (t: number): Promise<void> =>
-            new Promise((r) => {
-              video.onseeked = () => r();
-              video.currentTime = t;
-              window.setTimeout(r, 200);
-            });
-          const draw = async () => {
-            if (frame >= totalFrames) {
-              rec.stop();
-              resolve();
-              return;
-            }
-            await seekTo(frame / fps);
-            ctx.clearRect(0, 0, CERT_WIDTH, CERT_HEIGHT);
-            drawBgToCanvas(ctx, video, CERT_WIDTH, CERT_HEIGHT, transform);
-            ctx.drawImage(hudImg, 0, 0, CERT_WIDTH, CERT_HEIGHT);
-            frame++;
-            requestAnimationFrame(draw);
-          };
-          requestAnimationFrame(draw);
-        });
-
-        URL.revokeObjectURL(hudImg.src);
-        downloadBlob(new Blob(chunks, { type: mimeType }), `${baseName}.mp4`);
+        const { blob, extension } = await exportCanvasVideo(
+          bgMedia,
+          hudBlob,
+          CERT_WIDTH,
+          CERT_HEIGHT,
+          transform,
+        );
+        downloadBlob(blob, `${baseName}.${extension}`);
       } else {
         const canvas = document.createElement("canvas");
         canvas.width = CERT_WIDTH;

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { OptionSelect } from "@/components/ui/option-select";
+import { formatTradeSize } from "@/lib/cfd";
 import { SharePreview, type BgTransform } from "@/components/share-preview";
 import {
   downloadBlob,
@@ -14,6 +15,7 @@ import {
   type ShareSize,
   type ShareStatEx,
 } from "@/lib/share-image";
+import { exportCanvasVideo } from "@/lib/video-export";
 
 interface ShareTrade {
   id: string;
@@ -46,6 +48,7 @@ interface ShareData {
   displayName: string;
   username: string;
   avatarUrl: string | null;
+  discordUrl?: string;
   rank: number | null;
   totalParticipants: number;
   trades: ShareTrade[];
@@ -207,7 +210,8 @@ export default function SharePage() {
   const shareOptions = useMemo<ShareImageOptions | null>(() => {
     if (!data) return null;
     const siteUrl =
-      typeof window !== "undefined" ? window.location.origin : "https://artian.capital";
+      data.discordUrl ||
+      (typeof window !== "undefined" ? window.location.origin : "https://discord.com/");
     const journalLabel = journalModeLabels[journalFilter] ?? journalFilter.toUpperCase();
     const rankText = data.rank ? `Rank #${data.rank}/${data.totalParticipants}` : "";
 
@@ -255,7 +259,7 @@ export default function SharePage() {
         highlightText: fmtHighlight(pnl),
         pnlValue: pnl,
         stats: [
-          { label: "Size", value: `${selectedTrade.lot} LOT` },
+          { label: "Size", value: formatTradeSize(selectedTrade.mode, selectedTrade.lot) },
           { label: "PnL", value: secondaryPnl },
           { label: "Entry", value: String(selectedTrade.entry) },
           { label: "Exit", value: String(selectedTrade.exitPrice ?? "—") },
@@ -387,73 +391,13 @@ export default function SharePage() {
       const baseName = `artian-${tab}-${new Date().toISOString().slice(0, 10)}`;
 
       if (bgIsVideo && bgMedia instanceof HTMLVideoElement) {
-        const offscreen = document.createElement("canvas");
-        offscreen.width = cW;
-        offscreen.height = cH;
-        const ctx = offscreen.getContext("2d")!;
-
         const hudBlob = await renderSharePng({
           ...shareOptions,
           background: null,
           transparentBackground: true,
         });
-        const hudImg = new Image();
-        hudImg.src = URL.createObjectURL(hudBlob);
-        await hudImg.decode();
-
-        const mimeType = MediaRecorder.isTypeSupported("video/mp4;codecs=avc1")
-          ? "video/mp4;codecs=avc1"
-          : MediaRecorder.isTypeSupported("video/mp4")
-            ? "video/mp4"
-            : MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-              ? "video/webm;codecs=vp9"
-              : "video/webm";
-
-        const stream = offscreen.captureStream(30);
-        const rec = new MediaRecorder(stream, { mimeType });
-        const chunks: Blob[] = [];
-        rec.ondataavailable = (e) => {
-          if (e.data.size > 0) chunks.push(e.data);
-        };
-
-        const video = bgMedia;
-        const duration = video.duration;
-        video.currentTime = 0;
-        await new Promise<void>((r) => {
-          video.onseeked = () => r();
-          window.setTimeout(r, 500);
-        });
-
-        await new Promise<void>((resolve, reject) => {
-          rec.start();
-          rec.onerror = () => reject(new Error("MediaRecorder error."));
-          const fps = 30;
-          const totalFrames = Math.round(duration * fps);
-          let frame = 0;
-          const seekTo = (t: number): Promise<void> =>
-            new Promise((r) => {
-              video.onseeked = () => r();
-              video.currentTime = t;
-              window.setTimeout(r, 200);
-            });
-          const draw = async () => {
-            if (frame >= totalFrames) {
-              rec.stop();
-              resolve();
-              return;
-            }
-            await seekTo(frame / fps);
-            ctx.clearRect(0, 0, cW, cH);
-            drawBgToCanvas(ctx, video, cW, cH, transform);
-            ctx.drawImage(hudImg, 0, 0, cW, cH);
-            frame++;
-            requestAnimationFrame(draw);
-          };
-          requestAnimationFrame(draw);
-        });
-
-        URL.revokeObjectURL(hudImg.src);
-        downloadBlob(new Blob(chunks, { type: mimeType }), `${baseName}.mp4`);
+        const { blob, extension } = await exportCanvasVideo(bgMedia, hudBlob, cW, cH, transform);
+        downloadBlob(blob, `${baseName}.${extension}`);
       } else {
         const canvas = document.createElement("canvas");
         canvas.width = cW;

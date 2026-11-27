@@ -12,7 +12,10 @@ import { OptionSelect } from "@/components/ui/option-select";
 import {
   INSTRUMENTS,
   MODE_LABELS,
+  SIZE_LABEL,
   calculateJournal,
+  formatTradeMove,
+  formatTradeSize,
   instrumentFor,
   type JournalMode,
   type ResultMode,
@@ -87,21 +90,24 @@ export function JournalPage({
     () => INSTRUMENTS.filter((item) => categories.includes(item.class)),
     [categories],
   );
-  const [form, setForm] = useState<FormState>(() => ({
-    mode: modes[0] ?? "cfd",
-    symbol: instruments[0]?.symbol ?? "xyz:EUR",
-    side: "buy",
-    lot: "1",
-    entry: "",
-    takeProfit: "",
-    stopLoss: "",
-    exit: "",
-    resultMode: "auto",
-    manualPnl: "",
-    leverage: "1",
-    usdPerPip: "",
-    openedAt: nowLocal(),
-  }));
+  const [form, setForm] = useState<FormState>(() => {
+    const initialMode = modes[0] ?? "cfd";
+    return {
+      mode: initialMode,
+      symbol: instruments[0]?.symbol ?? "xyz:EUR",
+      side: "buy",
+      lot: initialMode === "cfd" || initialMode === "futures" ? "1" : "1000",
+      entry: "",
+      takeProfit: "",
+      stopLoss: "",
+      exit: "",
+      resultMode: "auto",
+      manualPnl: "",
+      leverage: "1",
+      usdPerPip: "",
+      openedAt: nowLocal(),
+    };
+  });
   const [trades, setTrades] = useState<JournalTrade[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -367,20 +373,11 @@ export function JournalPage({
                     </OptionSelect>
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="journal-lot">
-                      {form.mode === "cfd"
-                        ? "Lot"
-                        : form.mode === "futures"
-                          ? "Kontrak"
-                          : form.mode === "stock"
-                            ? "Nominal masuk (USD)"
-                            : form.mode === "crypto-perp"
-                              ? "Nominal setelah leverage (USD)"
-                              : "Nominal masuk (USD)"}
-                    </Label>
+                    <Label htmlFor="journal-lot">{SIZE_LABEL[form.mode]}</Label>
                     <Input
                       id="journal-lot"
                       inputMode="decimal"
+                      placeholder={form.mode === "cfd" ? "0.10" : form.mode === "futures" ? "1" : "1000"}
                       value={form.lot}
                       onChange={(e) => set("lot", e.target.value)}
                     />
@@ -591,7 +588,7 @@ export function JournalPage({
                         <th className="p-2">Instrument</th>
                         <th className="p-2">Mode</th>
                         <th className="p-2">Side</th>
-                        <th className="p-2">Lot/Size</th>
+                        <th className="p-2">Size / Nilai</th>
                         <th className="p-2">Entry</th>
                         <th className="p-2">Hasil</th>
                         <th className="p-2">P&L</th>
@@ -606,11 +603,9 @@ export function JournalPage({
                           <td className="p-2">{trade.symbol}</td>
                           <td className="p-2">{MODE_LABELS[trade.mode]}</td>
                           <td className="p-2">{trade.side.toUpperCase()}</td>
-                          <td className="p-2">{fmtNumber(trade.lot, 2)}</td>
+                          <td className="p-2">{formatTradeSize(trade.mode, trade.lot)}</td>
                           <td className="p-2">{fmtNumber(trade.entry, 4)}</td>
-                          <td className="p-2">
-                            {trade.pips === null ? "—" : fmtNumber(trade.pips, 2)}
-                          </td>
+                          <td className="p-2">{formatTradeMove(trade.mode, trade.pips)}</td>
                           <td className="p-2">
                             {trade.pnl === null ? "—" : `$${fmtNumber(trade.pnl, 2)}`}
                           </td>

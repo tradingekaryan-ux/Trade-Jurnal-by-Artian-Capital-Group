@@ -1,4 +1,6 @@
-import { getGlobalSetting } from "@/server/settings";
+"use client";
+
+import { useEffect, useState } from "react";
 
 /** Official Discord mark (simple-icons Discord path). */
 function DiscordLogo({ className }: { className?: string }) {
@@ -9,22 +11,29 @@ function DiscordLogo({ className }: { className?: string }) {
   );
 }
 
-/** Floating Discord shortcut, visible on every page. Link and visibility are
- *  configured by the owner; env var is only the initial fallback. */
-export async function FloatingDiscord() {
-  let url = process.env.NEXT_PUBLIC_DISCORD_URL?.trim() || "https://discord.com/";
-  let enabled = true;
-  try {
-    const [savedUrl, savedEnabled] = await Promise.all([
-      getGlobalSetting("discordUrl"),
-      getGlobalSetting("showFloatingDiscord"),
-    ]);
-    if (savedUrl) url = savedUrl;
-    if (savedEnabled === "false") enabled = false;
-  } catch {
-    // Supabase unavailable — keep the env fallback.
-  }
-  if (!enabled) return null;
+/** Floating Discord button — mengambil URL dari /api/discord-url (selalu fresh,
+ *  tidak ter-cache oleh layout Next.js) sehingga perubahan dari admin langsung
+ *  terlihat tanpa perlu redeploy. */
+export function FloatingDiscord() {
+  const [url, setUrl] = useState<string | null>(null);
+  const [enabled, setEnabled] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/discord-url")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body: { url: string; enabled: boolean } | null) => {
+        if (!body) return;
+        setUrl(body.url);
+        setEnabled(body.enabled);
+      })
+      .catch(() => {
+        // Gagal fetch — tampilkan tombol dengan link default
+        setUrl(process.env.NEXT_PUBLIC_DISCORD_URL || "https://discord.com/");
+      });
+  }, []);
+
+  // Sembunyikan sampai URL dimuat agar tidak ada flash dengan URL lama
+  if (!url || !enabled) return null;
 
   return (
     <a

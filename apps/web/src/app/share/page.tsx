@@ -140,7 +140,8 @@ export default function SharePage() {
   const [videoDuration, setVideoDuration] = useState(0);
 
   useEffect(() => {
-    const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+    const params =
+      typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
     const qTab = params?.get("tab");
     const qScope = params?.get("scope");
     const qJournal = params?.get("journal");
@@ -205,7 +206,8 @@ export default function SharePage() {
 
   const shareOptions = useMemo<ShareImageOptions | null>(() => {
     if (!data) return null;
-    const siteUrl = typeof window !== "undefined" ? window.location.origin : "https://artian.capital";
+    const siteUrl =
+      typeof window !== "undefined" ? window.location.origin : "https://artian.capital";
     const journalLabel = journalModeLabels[journalFilter] ?? journalFilter.toUpperCase();
     const rankText = data.rank ? `Rank #${data.rank}/${data.totalParticipants}` : "";
 
@@ -428,20 +430,25 @@ export default function SharePage() {
           const fps = 30;
           const totalFrames = Math.round(duration * fps);
           let frame = 0;
-          const draw = () => {
+          const seekTo = (t: number): Promise<void> =>
+            new Promise((r) => {
+              video.onseeked = () => r();
+              video.currentTime = t;
+              window.setTimeout(r, 200);
+            });
+          const draw = async () => {
             if (frame >= totalFrames) {
               rec.stop();
               resolve();
               return;
             }
-            video.currentTime = frame / fps;
+            await seekTo(frame / fps);
             ctx.clearRect(0, 0, cW, cH);
             drawBgToCanvas(ctx, video, cW, cH, transform);
             ctx.drawImage(hudImg, 0, 0, cW, cH);
             frame++;
             requestAnimationFrame(draw);
           };
-          video.onseeked = null;
           requestAnimationFrame(draw);
         });
 
@@ -512,7 +519,10 @@ export default function SharePage() {
                       background={bgMedia}
                       transform={transform}
                       onTransformChange={setTransform}
-                      displayWidth={Math.min(680, typeof window !== "undefined" ? window.innerWidth - 48 : 680)}
+                      displayWidth={Math.min(
+                        680,
+                        typeof window !== "undefined" ? window.innerWidth - 48 : 680,
+                      )}
                     />
                   )}
                 </CardContent>
@@ -529,7 +539,9 @@ export default function SharePage() {
                         max={5}
                         step={0.05}
                         value={transform.scale}
-                        onChange={(e) => setTransform({ ...transform, scale: Number(e.target.value) })}
+                        onChange={(e) =>
+                          setTransform({ ...transform, scale: Number(e.target.value) })
+                        }
                         className="w-full"
                       />
                     </div>
@@ -559,11 +571,7 @@ export default function SharePage() {
               )}
 
               <Button disabled={busy} onClick={() => void exportAuto()}>
-                {busy
-                  ? "Memproses…"
-                  : bgIsVideo
-                    ? "⬇ Download MP4"
-                    : "⬇ Download PNG"}
+                {busy ? "Memproses…" : bgIsVideo ? "⬇ Download MP4" : "⬇ Download PNG"}
               </Button>
             </div>
 
@@ -581,7 +589,11 @@ export default function SharePage() {
                         variant={tab === id ? "default" : "outline"}
                         onClick={() => setTab(id)}
                       >
-                        {id === "pnl" ? "PnL per Periode" : id === "journal" ? "Jurnal PnL" : "Postingan"}
+                        {id === "pnl"
+                          ? "PnL per Periode"
+                          : id === "journal"
+                            ? "Jurnal PnL"
+                            : "Postingan"}
                       </Button>
                     ))}
                   </div>
@@ -721,7 +733,8 @@ export default function SharePage() {
                             <OptionSelect value={tradeId} onValueChange={setTradeId}>
                               {journalTrades.slice(0, 100).map((t) => (
                                 <option key={t.id} value={t.id}>
-                                  {new Date(t.openedAt).toLocaleDateString()} · {t.symbol} · {money(t.pnl ?? 0)}
+                                  {new Date(t.openedAt).toLocaleDateString()} · {t.symbol} ·{" "}
+                                  {money(t.pnl ?? 0)}
                                 </option>
                               ))}
                             </OptionSelect>

@@ -64,20 +64,30 @@ export const loadBrandIcon = (): Promise<HTMLImageElement | null> => {
 };
 
 const avatarCache = new Map<string, Promise<HTMLImageElement | null>>();
+
+/**
+ * Muat gambar avatar. Coba dengan crossOrigin dulu (agar canvas tidak ter-laint
+ * saat gambar dari origin lain dengan header CORS). Jika gagal, coba tanpa
+ * crossOrigin (berkas same-origin biasanya masih bisa digambar). Jika masih gagal,
+ * kembalikan null sehingga pemanggil menggambar placeholder.
+ */
 export const loadAvatarImage = (url?: string | null): Promise<HTMLImageElement | null> => {
   if (!url || typeof Image === "undefined") return Promise.resolve(null);
   const hit = avatarCache.get(url);
   if (hit) return hit;
   const p = (async () => {
-    try {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.src = url;
-      await img.decode();
-      return img;
-    } catch {
-      return null;
-    }
+    let img: HTMLImageElement | null = null;
+    const tryLoad = (crossOrigin: string | null): Promise<HTMLImageElement | null> =>
+      new Promise((resolve) => {
+        const image = new Image();
+        if (crossOrigin) image.crossOrigin = crossOrigin;
+        image.onload = () => resolve(image);
+        image.onerror = () => resolve(null);
+        image.src = url;
+      });
+    img = await tryLoad("anonymous");
+    if (!img) img = await tryLoad(null);
+    return img;
   })();
   avatarCache.set(url, p);
   return p;

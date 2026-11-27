@@ -92,20 +92,21 @@ export default function RankingPage() {
   const buildCertOptions = useCallback(
     (entry: Entry, transparentBg = false) => {
       // ── Real-data radar values (all normalized 0–1) ───────────────────────
-      const wr = entry.winRate ?? 0.5;                              // Win %
-      const pfNorm = Math.min(1, (entry.profitFactor ?? 1) / 4);   // Profit Factor (4 = excellent)
-      const wlRatio =                                               // Win/Loss Ratio
+      const wr = entry.winRate ?? 0.5; // Win %
+      const pfNorm = Math.min(1, (entry.profitFactor ?? 1) / 4); // Profit Factor (4 = excellent)
+      const wlRatio = // Win/Loss Ratio
         entry.wins > 0 && entry.losses > 0
-          ? Math.min(1, entry.wins / entry.losses / 2)             // 2:1 wins → 1.0
+          ? Math.min(1, entry.wins / entry.losses / 2) // 2:1 wins → 1.0
           : entry.wins > 0
             ? 1
             : 0;
       const edgeNorm = Math.min(1, (entry.edgeScore ?? 50) / 100); // Drawdown control proxy
-      const recoveryNorm = Math.min(                                // Recovery: win streak ratio
+      const recoveryNorm = Math.min(
+        // Recovery: win streak ratio
         1,
-        entry.wins / Math.max(1, entry.closedTrades) * 1.5,
+        (entry.wins / Math.max(1, entry.closedTrades)) * 1.5,
       );
-      const consistencyNorm = Math.min(1, edgeNorm * 1.1);         // Consistency from edge score
+      const consistencyNorm = Math.min(1, edgeNorm * 1.1); // Consistency from edge score
       return {
         traderName: entry.displayName || entry.username,
         username: `@${entry.username}`,
@@ -265,20 +266,25 @@ export default function RankingPage() {
           const fps = 30;
           const totalFrames = Math.round(duration * fps);
           let frame = 0;
-          const draw = () => {
+          const seekTo = (t: number): Promise<void> =>
+            new Promise((r) => {
+              video.onseeked = () => r();
+              video.currentTime = t;
+              window.setTimeout(r, 200);
+            });
+          const draw = async () => {
             if (frame >= totalFrames) {
               rec.stop();
               resolve();
               return;
             }
-            video.currentTime = frame / fps;
+            await seekTo(frame / fps);
             ctx.clearRect(0, 0, CERT_WIDTH, CERT_HEIGHT);
             drawBgToCanvas(ctx, video, CERT_WIDTH, CERT_HEIGHT, transform);
             ctx.drawImage(hudImg, 0, 0, CERT_WIDTH, CERT_HEIGHT);
             frame++;
             requestAnimationFrame(draw);
           };
-          video.onseeked = null;
           requestAnimationFrame(draw);
         });
 
@@ -351,7 +357,10 @@ export default function RankingPage() {
                     background={bgMedia}
                     transform={transform}
                     onTransformChange={setTransform}
-                    displayWidth={Math.min(640, typeof window !== "undefined" ? window.innerWidth - 64 : 640)}
+                    displayWidth={Math.min(
+                      640,
+                      typeof window !== "undefined" ? window.innerWidth - 64 : 640,
+                    )}
                   />
                 </div>
                 {certError && <p className="text-sm text-destructive">{certError}</p>}
@@ -410,7 +419,9 @@ export default function RankingPage() {
                         max={5}
                         step={0.05}
                         value={transform.scale}
-                        onChange={(e) => setTransform({ ...transform, scale: Number(e.target.value) })}
+                        onChange={(e) =>
+                          setTransform({ ...transform, scale: Number(e.target.value) })
+                        }
                         className="w-full"
                       />
                     </div>
@@ -500,11 +511,7 @@ export default function RankingPage() {
                           >
                             {open === entry.userId ? "Tutup" : "Detail"}
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setCert({ entry })}
-                          >
+                          <Button size="sm" variant="outline" onClick={() => setCert({ entry })}>
                             Sertifikat
                           </Button>
                         </div>

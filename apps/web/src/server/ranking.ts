@@ -98,9 +98,22 @@ const toTrade = (row: TradeRow): AnnotatedTrade => {
   };
 };
 
-const summarize = (rows: TradeRow[], mode?: string): JournalSummary => {
+/**
+ * Hitung ringkasan jurnal untuk satu set trade.
+ *
+ * initialBalance — total saldo awal akun user (dari journal_snapshots atau 0).
+ * Ketika > 0, drawdown% dihitung relatif terhadap (initialBalance + peak)
+ * sehingga hasilnya konsisten dengan tampilan dashboard. Ketika 0 (tidak
+ * diketahui), library fallback ke base = peak — masih bermakna tapi berbeda
+ * dari dashboard; drawdown score TIDAK diset ke 0 karena formula di
+ * edge-score.ts mengembalikan (1 - ddPct/0.25)*100 yang masih reasonable.
+ */
+const summarize = (rows: TradeRow[], mode?: string, initialBalance = 0): JournalSummary => {
   const trades = rows.map(toTrade);
-  const metrics = computeMetrics(trades, { timeZone: "UTC", initialBalance: 0 });
+  const metrics = computeMetrics(trades, {
+    timeZone: "UTC",
+    initialBalance,
+  });
   const edge = computeEdgeScore(metrics);
   const modeKey = mode as JournalMode | undefined;
   return {
@@ -124,16 +137,46 @@ const summarize = (rows: TradeRow[], mode?: string): JournalSummary => {
   };
 };
 
+/**
+ * Parse total initial_balance dari payload journal_snapshots.
+ * Snapshot menyimpan array accounts (dari SQLite) — kita sum initial_balance.
+ */
+const parseInitialBalance = (payload: unknown): number => {
+  if (!payload || typeof payload !== "object") return 0;
+  const p = payload as Record<string, unknown>;
+  // Field "accounts" di snapshot payload (dari schema SQLite)
+  const accounts = Array.isArray(p["accounts"]) ? p["accounts"] : [];
+  return accounts.reduce((sum: number, acc: unknown) => {
+    if (acc && typeof acc === "object") {
+      const balance = Number((acc as Record<string, unknown>)["initialBalance"] ?? 0);
+      return sum + (Number.isFinite(balance) ? balance : 0);
+    }
+    return sum;
+  }, 0);
+};
+
 /** Public leaderboard: one entry per account, computed from Supabase source of truth. */
 export const getRanking = async (): Promise<RankingEntry[]> => {
-  const [users, profiles, trades] = await Promise.all([
+  const [users, profiles, trades, snapshots] = await Promise.all([
     sql`select id, username, role from users`,
     sql`select user_id, display_name, journal_name, avatar_url from profiles`,
     sql`select id, owner_id, category, symbol, mode, side, lot, entry, exit_price,
       stop_loss, take_profit, pnl, status, opened_at, closed_at
       from cfd_trades order by opened_at desc`,
+    // Ambil snapshot payload untuk parse initial_balance per user
+    sql`select user_id, payload from journal_snapshots`,
   ]);
+
   const profileMap = new Map(profiles.map((row) => [row.user_id, row]));
+
+  // Map user_id → total initial balance (sum semua akun dari snapshot)
+  const balanceMap = new Map<string, number>(
+    (snapshots as unknown as { user_id: string; payload: unknown }[]).map((row) => [
+      row.user_id,
+      parseInitialBalance(row.payload),
+    ]),
+  );
+
   const byOwner = new Map<string, TradeRow[]>();
   for (const row of trades as unknown as TradeRow[]) {
     const list = byOwner.get(row.owner_id) ?? [];
@@ -143,7 +186,8 @@ export const getRanking = async (): Promise<RankingEntry[]> => {
 
   const entries = users.map((user) => {
     const rows = byOwner.get(user.id) ?? [];
-    const overall = summarize(rows);
+    const userBalance = balanceMap.get(user.id) ?? 0;
+    const overall = summarize(rows, undefined, userBalance);
     const profile = profileMap.get(user.id);
     const modes = [...new Set(rows.map((row) => row.mode))].sort();
     return {
@@ -170,6 +214,7 @@ export const getRanking = async (): Promise<RankingEntry[]> => {
         summarize(
           rows.filter((row) => row.mode === mode),
           mode,
+          userBalance,
         ),
       ),
     } satisfies RankingEntry;
@@ -187,12 +232,16 @@ export const getRanking = async (): Promise<RankingEntry[]> => {
 /** Same metric helper used by ranking, reused by the admin member detail view. */
 export const summarizeTrades = (
   rows: TradeRow[],
+  initialBalance = 0,
 ): {
   metrics: TradeMetrics;
   edge: EdgeScore;
   perMode: JournalSummary[];
 } => {
-  const metrics = computeMetrics(rows.map(toTrade), { timeZone: "UTC", initialBalance: 0 });
+  const metrics = computeMetrics(rows.map(toTrade), {
+    timeZone: "UTC",
+    initialBalance,
+  });
   const modes = [...new Set(rows.map((row) => row.mode))].sort();
   return {
     metrics,
@@ -201,6 +250,7 @@ export const summarizeTrades = (
       summarize(
         rows.filter((row) => row.mode === mode),
         mode,
+        initialBalance,
       ),
     ),
   };

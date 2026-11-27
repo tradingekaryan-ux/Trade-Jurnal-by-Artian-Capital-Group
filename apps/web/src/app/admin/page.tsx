@@ -842,7 +842,7 @@ export default function AdminPage() {
                       {isOwner ? (
                         <input
                           type="checkbox"
-                          checked={m.supportsPdf}
+                          checked={Boolean(m.supportsPdf)}
                           onChange={(e) => update(m.id, { supportsPdf: e.target.checked })}
                         />
                       ) : m.supportsPdf ? (
@@ -855,7 +855,7 @@ export default function AdminPage() {
                       {isOwner ? (
                         <input
                           type="checkbox"
-                          checked={m.enabled}
+                          checked={Boolean(m.enabled)}
                           onChange={(e) => update(m.id, { enabled: e.target.checked })}
                         />
                       ) : m.enabled ? (

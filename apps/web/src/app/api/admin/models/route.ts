@@ -39,7 +39,16 @@ export const GET = handler(async () => {
   ]);
   const map = new Map(settings.map((row) => [row.key, row.value]));
   return ok({
-    models,
+    models: models.map((row) => ({
+      id: row.id,
+      name: row.name,
+      tier: row.tier,
+      contextLength: row.context_length,
+      supportsPdf: Boolean(row.supports_pdf),
+      enabled: Boolean(row.enabled),
+      isDefault: Boolean(row.is_default),
+      source: row.source,
+    })),
     defaultModel: map.get("defaultModel") ?? "",
     quota: Number(map.get("aiQuota") ?? 10),
     paidAllowed: map.get("paidAllowed") === "true",

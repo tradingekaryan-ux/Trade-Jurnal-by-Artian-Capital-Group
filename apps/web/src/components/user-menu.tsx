@@ -54,11 +54,17 @@ export function UserMenu() {
   const router = useRouter();
   const [session, setSession] = useState<SessionInfo | null>(null);
 
+  const [quota, setQuota] = useState<{ used: number; limit: number } | null>(null);
+
   useEffect(() => {
     fetch("/api/auth")
       .then((response) => (response.ok ? response.json() : Promise.reject()))
       .then((data: SessionInfo) => setSession(data))
       .catch(() => setSession(null));
+    fetch("/api/ai/quota")
+      .then((response) => (response.ok ? response.json() : Promise.reject()))
+      .then((data: { used: number; limit: number }) => setQuota(data))
+      .catch(() => setQuota(null));
   }, []);
 
   const logout = async () => {
@@ -81,6 +87,11 @@ export function UserMenu() {
       {session?.role && (
         <div className="text-xs text-muted-foreground">
           <RoleName role={session.role} />
+        </div>
+      )}
+      {quota && (
+        <div className="text-xs text-muted-foreground" title="Kuota AI harian">
+          AI {quota.used}/{quota.limit}
         </div>
       )}
       {session?.isAdmin && (

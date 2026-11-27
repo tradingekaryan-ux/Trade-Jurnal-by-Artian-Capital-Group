@@ -23,22 +23,23 @@ Konsekuensi teknis dari keputusan model: halaman **Admin → Model AI OpenRouter
 
 ## Daftar dokumen
 
-| Dokumen                                                             | Isi                                                                       |
-| ------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| [01 — Ringkasan eksekutif](01-ringkasan-eksekutif.md)               | Tujuan, ruang lingkup, prinsip                                            |
-| [02 — Arsitektur sistem](02-arsitektur.md)                          | Stack, struktur monorepo, desain multi-tenancy, alur request              |
-| [03 — Daftar fitur](03-daftar-fitur.md)                             | Pemetaan **semua** fitur upstream + status pelaksanaannya                 |
-| [04 — Autentikasi & multi-pengguna](04-autentikasi-dan-pengguna.md) | Registrasi, login, session, isolasi data, kuota 10/hari                   |
-| [05 — Integrasi OpenRouter](05-integrasi-openrouter.md)             | Kunci hybrid, katalog model dinamis Free/Paid, panel admin, kontrol biaya |
-| [06 — API yang dibutuhkan](06-api-yang-dibutuhkan.md)               | Daftar kunci/API yang harus disiapkan                                     |
-| [07 — Model data](07-model-data.md)                                 | Database global + per pengguna: users, sessions, ai_usage, katalog model  |
-| [08 — Rencana implementasi](08-rencana-implementasi.md)             | Tahapan kerja, kriteria penerimaan, risiko                                |
-| [09 — Deployment & legalitas](09-deployment-dan-legalitas.md)       | Hosting, environment, backup, atribusi MIT & trademark                    |
-| [10 — Deployment Northflank](10-deployment-northflank.md)           | Panduan deploy pilihan: combined service, volume `/data`, environment     |
-| [11 — CFD journal](11-cfd-journal.md)                               | Sistem jurnal CFD: lot, pips, mode instrumen, running/closed, statistik   |
-| [12 — Strategy Lab & fitur dihapus](12-chart-dan-strategy-lab.md)   | Simulator prop firm; chart/feed dihapus, diganti upload gambar            |
-| [13 — Promo, Role & Discord](13-promo-role-discord.md)              | Promo & idea, role owner/admin/member, badge verifikasi, tombol Discord   |
-| [14 — Supabase & imgdb.io](14-supabase-imgdb.md)                    | Data di Supabase Postgres, gambar di imgdb.io, akun owner                 |
-| [15 — Penghapusan & profil](15-deletion-dan-profile.md)             | Cascade delete, halaman profil foto/banner/bio, catatan hosting           |
-| [16 — Konsistensi analytics](16-consistensi-analytics.md)           | Penyatuan daily journal/trades dengan jurnal CFD/Futures/Crypto/Stock     |
-| [17 — Ranking & data member](17-ranking-dan-admin-data.md)          | Data member di admin, leaderboard publik, sertifikat PDF, urutan sidebar  |
+| Dokumen                                                             | Isi                                                                          |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| [01 — Ringkasan eksekutif](01-ringkasan-eksekutif.md)               | Tujuan, ruang lingkup, prinsip                                               |
+| [02 — Arsitektur sistem](02-arsitektur.md)                          | Stack, struktur monorepo, desain multi-tenancy, alur request                 |
+| [03 — Daftar fitur](03-daftar-fitur.md)                             | Pemetaan **semua** fitur upstream + status pelaksanaannya                    |
+| [04 — Autentikasi & multi-pengguna](04-autentikasi-dan-pengguna.md) | Registrasi, login, session, isolasi data, kuota 10/hari                      |
+| [05 — Integrasi OpenRouter](05-integrasi-openrouter.md)             | Kunci hybrid, katalog model dinamis Free/Paid, panel admin, kontrol biaya    |
+| [06 — API yang dibutuhkan](06-api-yang-dibutuhkan.md)               | Daftar kunci/API yang harus disiapkan                                        |
+| [07 — Model data](07-model-data.md)                                 | Database global + per pengguna: users, sessions, ai_usage, katalog model     |
+| [08 — Rencana implementasi](08-rencana-implementasi.md)             | Tahapan kerja, kriteria penerimaan, risiko                                   |
+| [09 — Deployment & legalitas](09-deployment-dan-legalitas.md)       | Hosting, environment, backup, atribusi MIT & trademark                       |
+| [10 — Deployment Northflank](10-deployment-northflank.md)           | Panduan deploy pilihan: combined service, volume `/data`, environment        |
+| [11 — CFD journal](11-cfd-journal.md)                               | Sistem jurnal CFD: lot, pips, mode instrumen, running/closed, statistik      |
+| [12 — Strategy Lab & fitur dihapus](12-chart-dan-strategy-lab.md)   | Simulator prop firm; chart/feed dihapus, diganti upload gambar               |
+| [13 — Promo, Role & Discord](13-promo-role-discord.md)              | Promo & idea, role owner/admin/member, badge verifikasi, tombol Discord      |
+| [14 — Supabase & imgdb.io](14-supabase-imgdb.md)                    | Data di Supabase Postgres, gambar di imgdb.io, akun owner                    |
+| [15 — Penghapusan & profil](15-deletion-dan-profile.md)             | Cascade delete, halaman profil foto/banner/bio, catatan hosting              |
+| [16 — Konsistensi analytics](16-consistensi-analytics.md)           | Penyatuan daily journal/trades dengan jurnal CFD/Futures/Crypto/Stock        |
+| [17 — Ranking & data member](17-ranking-dan-admin-data.md)          | Data member di admin, leaderboard publik, sertifikat PDF, urutan sidebar     |
+| [18 — Fitur AI](18-fitur-ai.md)                                     | Ask, recap, review + Vision, debrief, performance, import, asisten komunitas |

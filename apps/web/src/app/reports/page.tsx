@@ -14,6 +14,7 @@ import { FilterBar, useFilters } from "@/components/filter-bar";
 import { FilterFields, Field, fieldClass } from "@/components/filter-fields";
 import { ReviewExport } from "@/components/review-export";
 import { AskJournal } from "@/components/ask-journal";
+import { AiPerformanceCard } from "@/components/ai-performance-card";
 import { ReportOverview } from "@/components/report-overview";
 import { MonetaryValue, usePrivacy } from "@/components/privacy";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -281,6 +282,7 @@ function Reports() {
       <FilterBar title="Reports" />
       <div className="space-y-4 p-4">
         <AskJournal />
+        <AiPerformanceCard />
         <div className="flex flex-wrap items-center gap-2">
           {(
             [

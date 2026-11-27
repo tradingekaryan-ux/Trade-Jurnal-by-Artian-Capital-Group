@@ -4,6 +4,8 @@ import { sql } from "@/server/pg";
 import { currentUser } from "@/server/auth";
 import { syncJournalsToLegacy } from "@/server/legacy-sync";
 import { deleteJournalCascade, deleteTradeCascade } from "@/server/cascade";
+import { getPlaybookRules, buildJournalAiContext } from "@/server/ai-context";
+import { runAi } from "@/server/ai";
 import {
   calculateJournal,
   instrumentFor,
@@ -137,6 +139,29 @@ export const PATCH = handler(async (request: Request) => {
     notes = ${typeof body.notes === "string" ? body.notes.slice(0, 100_000) : current.notes},
     updated_at = ${nowIso()}
     where id = ${body.id} and owner_id = ${user!.id}`;
+
+  // Best-effort debrief when a running trade is closed. It never blocks the save.
+  if (current.status === "running" && calc.status === "closed") {
+    try {
+      const rules = await getPlaybookRules(user!.id);
+      const context = await buildJournalAiContext(user!.id);
+      const debrief = await runAi(
+        `Tutup trade ini dan berikan debrief singkat (maks. 120 kata, Bahasa Indonesia).
+Trade: ${current.symbol} ${current.side} ${current.mode}, entry ${current.entry}, exit ${calc.exitPrice}, pips ${calc.pips ?? "n/a"}, P&L ${calc.pnl ?? 0}, R ${calc.rMultiple ?? "n/a"}, result mode ${input.resultMode}.
+Catatan trader: ${typeof body.notes === "string" ? body.notes.slice(0, 1000) : (current.notes ?? "-")}
+Aturan playbook: ${rules || "tidak ada playbook"}
+Konteks jurnal ringkas: ${context.text.slice(0, 2500)}
+Tulis: (1) apakah aturan playbook diikuti, (2) satu kesalahan spesifik, (3) satu instruksi konkret untuk trade berikutnya. Jangan mengarang harga.`,
+        1500,
+      );
+      await sql`update cfd_trades set
+        notes = coalesce(nullif(notes, ''), '') || ${`\n\n## AI debrief (${nowIso().slice(0, 10)})\n${debrief}`}
+        where id = ${body.id} and owner_id = ${user!.id}`;
+    } catch {
+      // AI unavailable/quota exhausted — the trade itself is already saved.
+    }
+  }
+
   await syncJournalsToLegacy(user!.id);
   return ok({ id: body.id, ...calc });
 });

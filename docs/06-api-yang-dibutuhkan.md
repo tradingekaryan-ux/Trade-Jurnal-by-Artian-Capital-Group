@@ -1,15 +1,15 @@
 # 06 — API yang dibutuhkan
 
-> **Tidak ada fitur opsional tambahan yang dipasang.** Aplikasi hanya berisi fitur inti dari library upstream, autentikasi username/password, integrasi OpenRouter, dan data feed Hyperliquid untuk indeks/komoditas/forex. Tidak ada CAPTCHA, monitoring pihak ketiga, email, atau pembayaran.
+> Aplikasi berisi autentikasi username/password, jurnal CFD/Futures/Crypto/Stock di Supabase, komunitas promo/idea, ranking publik, dan fitur AI berbasis OpenRouter. Data feed harga/chart sudah dihapus; gambar disimpan di imgdb.io.
 
 ## 1. Wajib
 
-| #   | Kredensial / Infrastruktur                        | Fungsi                                                                                      | Catatan                                                                                                                                                         |
-| --- | ------------------------------------------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | **OpenRouter API key** — satu atau beberapa kunci | Seluruh fitur AI: ringkasan sesi, kritik trade, "ask your journal", dan AI statement import | Dibaca hanya oleh server. Kunci **tidak pernah** dikirim ke browser atau disimpan di source code/GitHub.                                                        |
-| 2   | **Server Node.js 22+ dengan disk persisten**      | Menjalankan aplikasi & menyimpan SQLite                                                     | `pnpm` 11.0.8. Platform tanpa disk persisten tidak cocok. HTTPS disarankan untuk cookie `Secure`.                                                               |
-| 3   | `AUTH_SECRET`                                     | Menandatangani cookie session                                                               | Wajib di produksi. Nilai berbeda untuk tiap deployment.                                                                                                         |
-| 4   | **Hyperliquid public API**                        | Data harga & chart candle untuk indeks, komoditas, dan forex                                | `https://api.hyperliquid.xyz/info`, endpoint `candleSnapshot` (HIP-3). **Tanpa API key**. Simbol lain tidak didukung; lihat [`market-data.md`](market-data.md). |
+| #   | Kredensial / Infrastruktur                        | Fungsi                                                                                      | Catatan                                                                                                     |
+| --- | ------------------------------------------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| 1   | **OpenRouter API key** — satu atau beberapa kunci | Seluruh fitur AI: ringkasan sesi, kritik trade, "ask your journal", dan AI statement import | Dibaca hanya oleh server. Kunci **tidak pernah** dikirim ke browser atau disimpan di source code/GitHub.    |
+| 2   | **Server Node.js 22+**                            | Menjalankan aplikasi Next.js standalone (port 3000)                                         | SQLite lokal hanya cache yang bisa dihapus/direstore dari Supabase. HTTPS disarankan untuk cookie `Secure`. |
+| 3   | `AUTH_SECRET`                                     | Menandatangani cookie session                                                               | Wajib di produksi. Nilai berbeda untuk tiap deployment.                                                     |
+| 4   | **Supabase Postgres + imgdb.io**                  | Source of truth data & penyimpanan gambar                                                   | `DATABASE_URL` wajib. Gambar diunggah ke imgdb.io dengan `ttl=0`; DB hanya menyimpan URL.                   |
 
 Variabel pendukung: `SITE_URL` (dikirim sebagai `HTTP-Referer` ke OpenRouter), `OPENROUTER_BASE_URL` (default `https://openrouter.ai/api/v1`), `JOURNAL_SECRET` (enkripsi kredensial), `ADMIN_USERNAME` (opsional).
 
@@ -27,7 +27,7 @@ SITE_URL=https://domain-anda
 
 Perilaku:
 
-- Urutan pemakaian: **kunci milik pengguna (BYOK, jika ada)** → semua kunci di `OPENROUTER_API_KEYS` berurutan → `OPENROUTER_API_KEY`.
+- Urutan pemakaian: **kunci milik pengguna (BYOK)** → **10 slot kunci milik owner di Supabase (terenkripsi)** → semua kunci di `OPENROUTER_API_KEYS` → `OPENROUTER_API_KEY`.
 - Jika suatu kunci gagal karena `401/403` (auth), `402` (saldo habis), `429/529` (rate limit), atau tidak ada respons jaringan, server **otomatis mencoba kunci berikutnya** dalam satu permintaan yang sama.
 - Kegagalan karena model tidak tersedia (`404`) atau kesalahan format tidak memicu pergantian kunci.
 - Kuota pengguna (**10 permintaan/hari**, diatur admin) dihitung **satu kali per permintaan**, bukan per kunci yang dicoba.
@@ -37,7 +37,7 @@ Semua kunci yang Anda berikan sudah ditempatkan di `.env.local` lokal dan **tida
 
 ### Biaya
 
-Kuota 10 permintaan/hari per pengguna, batas `maxOutputTokens`, model default, dan daftar model yang diizinkan menjaga pemakaian tetap terkendali. Model Paid hanya dipakai bila diizinkan admin atau pengguna memakai kunci sendiri. Perkiraan token output: recap ±150–250, critique ±150, ask ±200, AI import hingga 16.000.
+Kuota 10 permintaan/hari per pengguna (BYOK tidak menambah kuota, hanya membuka model Paid), batas `maxOutputTokens`, model default, dan katalog model menjaga pemakaian tetap terkendali. Jawaban ask identik di-cache 5 menit agar tidak membuang kuota. Perkiraan token output: recap ±150–250, critique ±150, ask ±200, AI review ±180, debrief ±120, performance ±250, community ±180, AI import hingga 16.000.
 
 ## 3. Hosting yang dipakai: Northflank
 

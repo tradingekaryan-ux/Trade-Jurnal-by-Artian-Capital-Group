@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { VoteBar } from "@/components/vote-bar";
 import { VerifiedBadge } from "@/components/verified-badge";
+import { postJson } from "@/lib/use-api";
 
 import type { Post } from "@/lib/posts";
 
@@ -32,6 +33,8 @@ export default function IdeasPage() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [aiSummary, setAiSummary] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
 
   const loadVotes = (items: Post[]) => {
     if (!items.length) return setVotes({});
@@ -85,6 +88,19 @@ export default function IdeasPage() {
     }
   };
 
+  const summarize = async () => {
+    setAiBusy(true);
+    setError("");
+    try {
+      const result = await postJson<{ text: string }>("/api/ai/community", { kind: "idea" });
+      setAiSummary(result.text);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Gagal membuat ringkasan AI.");
+    } finally {
+      setAiBusy(false);
+    }
+  };
+
   const vote = async (idea: Post, value: IdeaVote["mine"]) => {
     if (!value) return;
     try {
@@ -114,6 +130,23 @@ export default function IdeasPage() {
           </a>
           .
         </p>
+
+        {aiSummary && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-2">
+              <CardTitle>AI · Konsensus komunitas</CardTitle>
+              <Button size="sm" variant="ghost" onClick={() => setAiSummary("")}>
+                Tutup
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <p className="whitespace-pre-wrap text-sm">{aiSummary}</p>
+            </CardContent>
+          </Card>
+        )}
+        <Button size="sm" variant="outline" disabled={aiBusy} onClick={() => void summarize()}>
+          {aiBusy ? "Meringkas…" : "AI ringkasan ide"}
+        </Button>
 
         <Card>
           <CardHeader>

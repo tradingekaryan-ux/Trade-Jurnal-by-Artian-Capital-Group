@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { VerifiedBadge } from "@/components/verified-badge";
+import { postJson } from "@/lib/use-api";
 import { VoteBar } from "@/components/vote-bar";
 
 interface Promo {
@@ -51,6 +52,8 @@ export default function PromoPage() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [aiFlags, setAiFlags] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
 
   const loadVotes = (items: Promo[]) => {
     if (items.length === 0) {
@@ -129,6 +132,19 @@ export default function PromoPage() {
     }
   };
 
+  const scanPromos = async () => {
+    setAiBusy(true);
+    setError("");
+    try {
+      const result = await postJson<{ text: string }>("/api/ai/community", { kind: "promo" });
+      setAiFlags(result.text);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Gagal memindai promo.");
+    } finally {
+      setAiBusy(false);
+    }
+  };
+
   const copy = async (value: string) => {
     try {
       await navigator.clipboard.writeText(value);
@@ -151,6 +167,23 @@ export default function PromoPage() {
           </a>
           .
         </p>
+
+        <Button size="sm" variant="outline" disabled={aiBusy} onClick={() => void scanPromos()}>
+          {aiBusy ? "Memindai…" : "AI cek promo"}
+        </Button>
+        {aiFlags && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-2">
+              <CardTitle>AI · Temuan promo</CardTitle>
+              <Button size="sm" variant="ghost" onClick={() => setAiFlags("")}>
+                Tutup
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <p className="whitespace-pre-wrap text-sm">{aiFlags}</p>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>

@@ -94,23 +94,23 @@ docker compose up -d
 
 ### Configuration (all optional)
 
-| Env var              | Effect                                                                                                   |
-| -------------------- | -------------------------------------------------------------------------------------------------------- |
-| `JOURNAL_PASSWORD`   | Require a password; recommended when accessible beyond localhost                                         |
-| `JOURNAL_SECRET`     | Encryption key source for credentials at rest (default: generated key file in the data dir)              |
-| `JOURNAL_DATA_DIR`   | Database, attachments, and local encryption key directory (default `./data` relative to the app process) |
-| `ANTHROPIC_API_KEY`  | Anthropic AI key via env instead of the Settings page                                                    |
-| `OPENAI_API_KEY`     | OpenAI AI key via env instead of the Settings page                                                       |
-| `ANTHROPIC_BASE_URL` | Send Anthropic requests through a gateway or proxy (default `https://api.anthropic.com/v1`)              |
-| `OPENAI_BASE_URL`    | Send OpenAI requests through a gateway or proxy (default `https://api.openai.com/v1`)                    |
+| Env var               | Effect                                                                                                   |
+| --------------------- | -------------------------------------------------------------------------------------------------------- |
+| `JOURNAL_PASSWORD`    | Require a password; recommended when accessible beyond localhost                                         |
+| `JOURNAL_SECRET`      | Encryption key source for credentials at rest (default: generated key file in the data dir)              |
+| `JOURNAL_DATA_DIR`    | Database, attachments, and local encryption key directory (default `./data` relative to the app process) |
+| `OPENROUTER_API_KEY`  | Fallback OpenRouter key used when no user key or owner slot is available                                 |
+| `OPENROUTER_API_KEYS` | Comma-separated list of additional fallback keys (the last of the 10+env chain)                          |
+| `OPENROUTER_BASE_URL` | Optional OpenAI-compatible gateway (default `https://openrouter.ai/api/v1`)                              |
+| `OPENROUTER_MODEL`    | Optional fallback model ID when the catalog has no default                                               |
 
 Set these in the process environment or in `apps/web/.env.local` for local Next.js runs; the root [`.env.example`](.env.example) documents the optional values. For Docker, configure the service environment in [`docker-compose.yml`](docker-compose.yml).
 
-For AI, open **Settings → AI**, select **Anthropic** or **OpenAI**, enter your API key, and choose **Save AI settings**. OpenAI defaults to `gpt-4.1-mini`; you can enter another text model ID available to your account. Each provider keeps its own encrypted key and model choice. Existing Anthropic settings continue to work. An OpenAI-only environment setup selects OpenAI automatically; with both keys present, Anthropic remains the default until you save a provider choice. Environment keys override saved keys and must be changed on the server. Saving settings does not make a model request or verify account access.
+For AI, open **Settings → AI**: choose a model from the owner-managed OpenRouter catalog, optionally save your own encrypted API key (BYOK), and check your daily quota. The key chain is: your own key → the owner's 10 encrypted slots → `OPENROUTER_API_KEYS` → `OPENROUTER_API_KEY`; the next key is tried automatically on auth/quota/rate-limit errors. Keys never reach the browser. Saving settings makes no model request and does not verify account access.
 
-To use a local or third-party model, select **OpenAI-compatible** and enter the server's API URL, a model ID, and an API key only if the server requires one: for example `http://localhost:11434/v1` for Ollama or `https://openrouter.ai/api/v1` for OpenRouter. The journal server sends Chat Completions requests to that URL, so it must be reachable from there. In Docker, `localhost` is the container itself; use `http://host.docker.internal:11434/v1` instead (on Linux, also add `extra_hosts: ["host.docker.internal:host-gateway"]` to the service and make sure the model server listens beyond `127.0.0.1`). A saved key is only sent to the URL it was saved with, so saving a different URL removes it. AI statement parsing on the Import page stays on Anthropic and OpenAI, which accept PDFs and strict structured output.
+AI is used for: **Ask your journal** (Reports), **AI recap** (daily journal), **AI review** for Supabase-native trades with chart screenshots (CFD/Futures/Crypto/Stock), **AI trade critique** (legacy Trades), **AI performance recap with PDF export** (Reports), **AI statement parsing** (Import, with a review step before commit), and **community summaries / promo risk flags** (Ideas & Promo). All AI calls share the 10-request daily quota; BYOK unlocks Paid models but does not raise the quota. Model capabilities (Vision / File-PDF) are detected from OpenRouter `input_modalities` and can be overridden by the owner in **Admin → Model AI OpenRouter**.
 
-Deploy anywhere a Node process and a persistent disk exist: Docker, Railway, Fly.io, a small VPS. Serverless platforms without a disk need an external database, which this release does not support. SQLite on disk is the point.
+Supabase is the source of truth; the local SQLite directory is a disposable cache restored from `journal_snapshots`. Deploy with Docker on any platform that can run a Node process and expose port 3000 (see [`docs/10-deployment-northflank.md`](docs/10-deployment-northflank.md)).
 
 Optional historical market data powers estimated MAE/MFE and candle replay on closed trades, with Vela™ rendering the charts. Configure a connection or upload candle CSVs in **Settings → Market data**. No provider is enabled or selected by default. See [Market data and replay](#market-data-and-replay) below and the [market data guide](docs/market-data.md) for setup, calculation definitions, and coverage limits.
 

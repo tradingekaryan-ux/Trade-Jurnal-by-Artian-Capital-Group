@@ -6,13 +6,15 @@ Seluruh fitur AI memakai **OpenRouter** sebagai satu-satunya penyedia. Dukungan 
 
 ## Konfigurasi
 
-| Nama                        | Nilai / default                | Keterangan                                                               |
-| --------------------------- | ------------------------------ | ------------------------------------------------------------------------ |
-| `OPENROUTER_API_KEY`        | **(wajib)**                    | Kunci dari akun OpenRouter; dibaca dari environment server               |
-| `OPENROUTER_BASE_URL`       | `https://openrouter.ai/api/v1` | Dapat diubah untuk gateway/proxy                                         |
-| `OPENROUTER_MODEL`          | `openai/gpt-4.1-mini` (contoh) | Model default untuk refleksi                                             |
-| `OPENROUTER_IMPORT_MODEL`   | mengikuti model default        | Model untuk AI statement import; wajib mendukung PDF + structured output |
-| `OPENROUTER_ALLOWED_MODELS` | opsional                       | Daftar model yang boleh dipilih pengguna (kontrol biaya)                 |
+| Nama                  | Nilai / default                | Keterangan                                                          |
+| --------------------- | ------------------------------ | ------------------------------------------------------------------- |
+| `OPENROUTER_API_KEY`  | **(wajib)**                    | Kunci dari akun OpenRouter; dibaca dari environment server          |
+| `OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1` | Dapat diubah untuk gateway/proxy                                    |
+| `OPENROUTER_MODEL`    | `openai/gpt-4.1-mini` (contoh) | Model default untuk refleksi                                        |
+| `OPENROUTER_API_KEYS` | opsional                       | Daftar kunci fallback tambahan dipisah koma (setelah 10 slot owner) |
+| `SITE_URL`            | `http://localhost:3000`        | Dikirim sebagai `HTTP-Referer` ke OpenRouter                        |
+
+Model default, daftar model yang boleh dipilih, kuota, dan izin model Paid kini **dikelola di halaman Admin → Model AI OpenRouter** (disimpan di `global_settings`/`models`), bukan lewat environment variable. Model untuk AI import wajib mendukung PDF/structured output dan kini juga memeriksa tier Paid seperti `runAi()`.
 
 Contoh model yang umum tersedia di OpenRouter untuk refleksi: `openai/gpt-4.1-mini`, `google/gemini-2.5-flash`, `anthropic/claude-sonnet-4.5`. **Periksa daftar & harga aktual di dashboard OpenRouter sebelum menetapkan default.** Model untuk AI import harus mendukung input PDF dan `response_format: json_schema`.
 

@@ -107,6 +107,8 @@ export function JournalPage({
   const [message, setMessage] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [review, setReview] = useState<{ title: string; text: string; model: string } | null>(null);
+  const [reviewBusy, setReviewBusy] = useState<string | null>(null);
 
   const load = () => {
     fetch(`/api/cfd-journal?mode=${modes.join(",")}`)
@@ -196,6 +198,26 @@ export function JournalPage({
       load();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Gagal menutup trade.");
+    }
+  };
+
+  const reviewTrade = async (trade: JournalTrade) => {
+    setReviewBusy(trade.id);
+    setError("");
+    try {
+      const result = await postJson<{ review: string; model: string; imagesUsed: number }>(
+        "/api/cfd-journal/ai-review",
+        { id: trade.id },
+      );
+      setReview({
+        title: `${trade.symbol} · ${new Date(trade.openedAt).toLocaleDateString()}`,
+        text: result.review,
+        model: `${result.model}${result.imagesUsed ? ` · ${result.imagesUsed} gambar` : ""}`,
+      });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Gagal membuat AI review.");
+    } finally {
+      setReviewBusy(null);
     }
   };
 
@@ -510,6 +532,21 @@ export function JournalPage({
               </CardContent>
             </Card>
 
+            {review && (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between gap-2">
+                  <CardTitle>AI review · {review.title}</CardTitle>
+                  <Button size="sm" variant="ghost" onClick={() => setReview(null)}>
+                    Tutup
+                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <p className="whitespace-pre-wrap text-sm">{review.text}</p>
+                  <p className="text-xs text-muted-foreground">Model: {review.model}</p>
+                </CardContent>
+              </Card>
+            )}
+
             <Card>
               <CardHeader className="flex flex-row items-center justify-between gap-2">
                 <CardTitle>Riwayat trade</CardTitle>
@@ -578,6 +615,14 @@ export function JournalPage({
                           </td>
                           <td className="p-2">{trade.status}</td>
                           <td className="p-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={reviewBusy !== null}
+                              onClick={() => void reviewTrade(trade)}
+                            >
+                              {reviewBusy === trade.id ? "AI…" : "AI review"}
+                            </Button>
                             {trade.status === "running" && (
                               <Button
                                 size="sm"

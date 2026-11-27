@@ -13,7 +13,15 @@ import {
   type AiImportOptions,
 } from "@/lib/ai-import";
 import { requireValue } from "./api";
-import { consumeQuota, getAiKeys, getAiModel, getOpenRouterBaseUrl } from "./settings";
+import {
+  consumeQuota,
+  getAiKeys,
+  getAiModel,
+  getOpenRouterBaseUrl,
+  getSetting,
+  isPaidAllowed,
+} from "./settings";
+import { sql } from "./pg";
 import { withKeyFallback } from "./openrouter";
 import { encryptJson, decryptJson } from "./crypto";
 import { executionHash } from "./ids";
@@ -193,6 +201,19 @@ export async function parseStatementWithAi(
   );
   const keys = options.apiKey?.trim() ? [options.apiKey.trim()] : await getAiKeys();
   requireValue(keys.length > 0, "Tambahkan kunci OpenRouter di Settings untuk parsing AI.");
+  let tier: string | undefined;
+  try {
+    const [modelRow] =
+      await sql`select tier from models where id = ${options.model.trim()} limit 1`;
+    tier = modelRow?.tier;
+  } catch {
+    // No catalog available (offline/tests) — the ID format check still applies.
+  }
+  const hasOwnKey = Boolean(options.apiKey?.trim() || getSetting("openrouterKeyEnc"));
+  requireValue(
+    tier !== "paid" || (await isPaidAllowed()) || hasOwnKey,
+    "Model Paid tidak diizinkan dengan kunci global. Pilih model Free atau gunakan kunci sendiri.",
+  );
   await consumeQuota();
   let input: UserContent;
   if (statement.encoding === "pdf") {

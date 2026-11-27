@@ -46,11 +46,13 @@ CREATE TABLE IF NOT EXISTS models (
   tier text NOT NULL DEFAULT 'paid',
   context_length integer,
   supports_pdf boolean NOT NULL DEFAULT false,
+  supports_vision boolean NOT NULL DEFAULT false,
   enabled boolean NOT NULL DEFAULT true,
   is_default boolean NOT NULL DEFAULT false,
   source text NOT NULL DEFAULT 'openrouter',
   updated_at text NOT NULL
 );
+ALTER TABLE models ADD COLUMN IF NOT EXISTS supports_vision boolean NOT NULL DEFAULT false;
 
 CREATE TABLE IF NOT EXISTS global_settings (
   key text PRIMARY KEY,

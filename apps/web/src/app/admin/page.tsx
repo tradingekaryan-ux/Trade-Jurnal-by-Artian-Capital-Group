@@ -26,6 +26,7 @@ interface ModelRow {
   tier: "free" | "paid";
   contextLength: number | null;
   supportsPdf: boolean;
+  supportsVision: boolean;
   enabled: boolean;
   isDefault: boolean;
   source: "openrouter" | "admin";
@@ -94,6 +95,7 @@ export default function AdminPage() {
   const [site, setSite] = useState<SiteConfig>(emptySite);
   const [keySlots, setKeySlots] = useState<KeySlot[]>([]);
   const [modelInput, setModelInput] = useState("");
+  const [newModelCaps, setNewModelCaps] = useState({ supportsPdf: false, supportsVision: false });
   const [keyDrafts, setKeyDrafts] = useState<Record<number, string>>({});
   const [newUser, setNewUser] = useState({
     username: "",
@@ -246,6 +248,8 @@ export default function AdminPage() {
       const result = await postJson<{ added: number; skipped: number }>("/api/admin/models", {
         action: "add",
         ids: modelInput,
+        supportsPdf: newModelCaps.supportsPdf,
+        supportsVision: newModelCaps.supportsVision,
       });
       setMessage(
         `${result.added} model ditambahkan${result.skipped ? `, ${result.skipped} sudah ada` : ""}.`,
@@ -332,6 +336,7 @@ export default function AdminPage() {
           tier: m.tier,
           enabled: m.enabled,
           supportsPdf: m.supportsPdf,
+          supportsVision: m.supportsVision,
         })),
         defaultModel: data.defaultModel,
         quota: data.quota,
@@ -669,8 +674,10 @@ export default function AdminPage() {
             <CardContent className="space-y-3">
               <p className="text-xs text-muted-foreground">
                 Satu model ID per baris (bisa juga dipisah koma). Suffix <code>:free</code>,{" "}
-                <code>/free</code>, atau <code>-free</code> otomatis ditandai Free. Hanya owner yang
-                bisa menambah atau menghapus model.
+                <code>/free</code>, atau <code>-free</code> otomatis ditandai Free. Saat{" "}
+                <b>Sinkron dari OpenRouter</b>, kemampuan Vision/File deteksi otomatis dari{" "}
+                <code>input_modalities</code>. Model input manual bisa ditandai di bawah. Hanya
+                owner yang bisa menambah atau menghapus model.
               </p>
               <textarea
                 rows={4}
@@ -679,6 +686,28 @@ export default function AdminPage() {
                 placeholder={MODEL_EXAMPLES}
                 className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
               />
+              <div className="flex flex-wrap items-center gap-4 text-xs">
+                <label className="flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    checked={newModelCaps.supportsVision}
+                    onChange={(e) =>
+                      setNewModelCaps({ ...newModelCaps, supportsVision: e.target.checked })
+                    }
+                  />
+                  Vision / gambar
+                </label>
+                <label className="flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    checked={newModelCaps.supportsPdf}
+                    onChange={(e) =>
+                      setNewModelCaps({ ...newModelCaps, supportsPdf: e.target.checked })
+                    }
+                  />
+                  File / PDF
+                </label>
+              </div>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <Button disabled={busy || !modelInput.trim()} onClick={() => void addModels()}>
                   Tambah model ke katalog
@@ -810,7 +839,8 @@ export default function AdminPage() {
                 <tr>
                   <th className="p-2">Model</th>
                   <th className="p-2">Tier</th>
-                  <th className="p-2">PDF</th>
+                  <th className="p-2">Vision</th>
+                  <th className="p-2">File / PDF</th>
                   <th className="p-2">Aktif</th>
                   <th className="p-2">Sumber</th>
                   {isOwner && <th className="p-2">Aksi</th>}
@@ -836,6 +866,19 @@ export default function AdminPage() {
                         </OptionSelect>
                       ) : (
                         m.tier
+                      )}
+                    </td>
+                    <td className="p-2">
+                      {isOwner ? (
+                        <input
+                          type="checkbox"
+                          checked={Boolean(m.supportsVision)}
+                          onChange={(e) => update(m.id, { supportsVision: e.target.checked })}
+                        />
+                      ) : m.supportsVision ? (
+                        "Ya"
+                      ) : (
+                        "Tidak"
                       )}
                     </td>
                     <td className="p-2">

@@ -9,6 +9,14 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { OptionSelect } from "./ui/option-select";
 
+const capabilityLabel = (model: { supportsVision?: boolean; supportsPdf?: boolean }): string => {
+  const tags = [
+    model.supportsVision ? "Vision" : null,
+    model.supportsPdf ? "File/PDF" : null,
+  ].filter(Boolean);
+  return tags.length ? ` · ${tags.join(" + ")}` : "";
+};
+
 export function AiSettings() {
   const { data, error, loading, refresh } = useApi<AiSettingsPayload>("/api/settings");
   const [model, setModel] = useState("");
@@ -88,11 +96,13 @@ export function AiSettings() {
             {freeModels.map((m) => (
               <option key={m.id} value={m.id}>
                 [Free] {m.name}
+                {capabilityLabel(m)}
               </option>
             ))}
             {paidModels.map((m) => (
               <option key={m.id} value={m.id}>
                 [Paid] {m.name}
+                {capabilityLabel(m)}
               </option>
             ))}
           </OptionSelect>

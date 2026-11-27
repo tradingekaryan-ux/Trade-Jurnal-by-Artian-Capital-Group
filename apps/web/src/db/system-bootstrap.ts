@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS models (
   tier TEXT NOT NULL DEFAULT 'paid',
   context_length INTEGER,
   supports_pdf INTEGER NOT NULL DEFAULT 0,
+  supports_vision INTEGER NOT NULL DEFAULT 0,
   enabled INTEGER NOT NULL DEFAULT 1,
   is_default INTEGER NOT NULL DEFAULT 0,
   source TEXT NOT NULL DEFAULT 'openrouter',
@@ -154,6 +155,9 @@ export function openSystemDatabase(file: string): Database.Database {
   sqlite.exec(SYSTEM_BOOTSTRAP_SQL);
   if (!hasColumn(sqlite, "promos", "kind")) {
     sqlite.exec("ALTER TABLE promos ADD COLUMN kind TEXT NOT NULL DEFAULT 'promo'");
+  }
+  if (!hasColumn(sqlite, "models", "supports_vision")) {
+    sqlite.exec("ALTER TABLE models ADD COLUMN supports_vision INTEGER NOT NULL DEFAULT 0");
   }
   if (!hasColumn(sqlite, "users", "role")) {
     sqlite.exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'member'");

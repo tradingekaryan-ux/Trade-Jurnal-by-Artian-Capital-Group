@@ -5,6 +5,9 @@ export interface AiModel {
   name: string;
   tier: AiModelTier;
   contextLength: number | null;
+  /** Model menerima gambar/video (vision). */
+  supportsVision: boolean;
+  /** Model menerima lampiran berkas, termasuk PDF. */
   supportsPdf: boolean;
   enabled: boolean;
   isDefault: boolean;

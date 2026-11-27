@@ -66,6 +66,7 @@ export const models = sqliteTable("models", {
     .default("paid"),
   contextLength: integer("context_length"),
   supportsPdf: integer("supports_pdf", { mode: "boolean" }).notNull().default(false),
+  supportsVision: integer("supports_vision", { mode: "boolean" }).notNull().default(false),
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
   isDefault: integer("is_default", { mode: "boolean" }).notNull().default(false),
   source: text("source", { enum: ["openrouter", "admin"] })

@@ -175,7 +175,8 @@ export const getOpenRouterBaseUrl = (): string =>
   normalizeAiBaseUrl(process.env.OPENROUTER_BASE_URL ?? "") ?? OPENROUTER_BASE_URL;
 
 export const listModels = async (): Promise<AiModel[]> => {
-  const rows = await sql`select id, name, tier, context_length, supports_pdf, enabled,
+  const rows =
+    await sql`select id, name, tier, context_length, supports_pdf, supports_vision, enabled,
     is_default, source from models where enabled = true order by name`;
   return rows.map((row) => ({
     id: row.id,
@@ -183,6 +184,7 @@ export const listModels = async (): Promise<AiModel[]> => {
     tier: row.tier,
     contextLength: row.context_length,
     supportsPdf: Boolean(row.supports_pdf),
+    supportsVision: Boolean(row.supports_vision),
     enabled: Boolean(row.enabled),
     isDefault: Boolean(row.is_default),
     source: row.source,

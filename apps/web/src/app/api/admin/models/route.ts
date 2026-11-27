@@ -6,12 +6,7 @@ import { sql } from "@/server/pg";
 import { nowIso } from "@/server/ids";
 import { getAiKeys, getGlobalSetting } from "@/server/settings";
 
-interface OpenRouterModel {
-  id: string;
-  name?: string;
-  context_length?: number;
-  pricing?: { prompt?: string | number; completion?: string | number };
-}
+import { capabilitiesFor, type OpenRouterModelMeta } from "@/lib/model-capabilities";
 
 const privileged = async () => {
   const user = await currentUser();
@@ -44,6 +39,7 @@ export const GET = handler(async () => {
       name: row.name,
       tier: row.tier,
       contextLength: row.context_length,
+      supportsVision: Boolean(row.supports_vision),
       supportsPdf: Boolean(row.supports_pdf),
       enabled: Boolean(row.enabled),
       isDefault: Boolean(row.is_default),
@@ -66,7 +62,14 @@ export const POST = handler(async (request: Request) => {
     tier?: string;
     contextLength?: number;
     supportsPdf?: boolean;
-    models?: { id: string; tier?: string; enabled?: boolean; supportsPdf?: boolean }[];
+    supportsVision?: boolean;
+    models?: {
+      id: string;
+      tier?: string;
+      enabled?: boolean;
+      supportsPdf?: boolean;
+      supportsVision?: boolean;
+    }[];
     defaultModel?: string;
     quota?: number;
     paidAllowed?: boolean;
@@ -91,9 +94,10 @@ export const POST = handler(async (request: Request) => {
     let skipped = 0;
     for (const id of ids) {
       const result = await sql`insert into models
-        (id, name, tier, context_length, supports_pdf, enabled, is_default, source, updated_at)
+        (id, name, tier, context_length, supports_pdf, supports_vision, enabled, is_default, source, updated_at)
         values (${id}, ${body.name?.trim() || id}, ${body.tier ?? inferTier(id)},
-          ${body.contextLength ?? null}, ${body.supportsPdf ?? false}, true, false, 'admin', ${nowIso()})
+          ${body.contextLength ?? null}, ${body.supportsPdf ?? false}, ${body.supportsVision ?? false},
+          true, false, 'admin', ${nowIso()})
         on conflict (id) do nothing`;
       if (Number((result as { count?: number }).count ?? 0) > 0) added++;
       else skipped++;
@@ -126,7 +130,7 @@ export const POST = handler(async (request: Request) => {
         return bad(`Gagal mengambil daftar model OpenRouter (${candidate.status}).`, 502);
     }
     requireValue(response, "Semua kunci OpenRouter gagal.");
-    const payload = (await response!.json()) as { data?: OpenRouterModel[] };
+    const payload = (await response!.json()) as { data?: OpenRouterModelMeta[] };
     const incoming = payload.data ?? [];
     requireValue(incoming.length > 0, "OpenRouter tidak mengembalikan model.");
 
@@ -134,12 +138,12 @@ export const POST = handler(async (request: Request) => {
     for (const item of incoming) {
       const free =
         Number(item.pricing?.prompt ?? 1) === 0 && Number(item.pricing?.completion ?? 1) === 0;
-      const pdfCapable =
-        /^(openai\/gpt-4|google\/gemini|anthropic\/claude|meta-llama\/.*vision)/i.test(item.id);
+      const capabilities = capabilitiesFor(item);
       await sql`insert into models
-        (id, name, tier, context_length, supports_pdf, enabled, is_default, source, updated_at)
+        (id, name, tier, context_length, supports_pdf, supports_vision, enabled, is_default, source, updated_at)
         values (${item.id}, ${item.name || item.id}, ${free ? "free" : "paid"},
-          ${item.context_length ?? null}, ${pdfCapable}, true, false, 'openrouter', ${nowIso()})
+          ${item.context_length ?? null}, ${capabilities.supportsPdf}, ${capabilities.supportsVision},
+          true, false, 'openrouter', ${nowIso()})
         on conflict (id) do nothing`;
     }
     await sql`insert into global_settings (key, value) values ('lastModelSync', ${nowIso()})
@@ -161,6 +165,7 @@ export const POST = handler(async (request: Request) => {
         tier = coalesce(${item.tier ?? null}::text, tier),
         enabled = coalesce(${item.enabled === undefined ? null : item.enabled}::boolean, enabled),
         supports_pdf = coalesce(${item.supportsPdf === undefined ? null : item.supportsPdf}::boolean, supports_pdf),
+        supports_vision = coalesce(${item.supportsVision === undefined ? null : item.supportsVision}::boolean, supports_vision),
         source = 'admin', updated_at = ${nowIso()}
         where id = ${item.id}`;
     }

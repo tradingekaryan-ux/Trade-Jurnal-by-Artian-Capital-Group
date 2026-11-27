@@ -49,19 +49,94 @@ interface AdminUser {
 
 interface MemberRow extends AdminUser {
   lastLoginAt: string | null;
+  journalName: string;
   trades: number;
   wins: number;
   losses: number;
   running: number;
+  edgeScore: number | null;
   snapshotUpdatedAt: string | null;
+}
+
+interface JournalScore {
+  mode: string;
+  label: string;
+  trades: number;
+  closed: number;
+  wins: number;
+  losses: number;
+  winRate: number | null;
+  netPnl: number;
+  edgeScore: number | null;
 }
 
 interface MemberDetail {
   user: { id: string; username: string; role: string };
+  profile: { journal_name: string | null; display_name: string | null } | null;
   trades: Record<string, unknown>[];
   promos: Record<string, unknown>[];
-  snapshot: Record<string, unknown[]> | null;
+  analysis: {
+    metrics: Record<string, unknown>;
+    edge: { score: number | null; components: Record<string, number>; closedTrades: number };
+    journals: JournalScore[];
+  };
+  workspace: Record<string, Record<string, unknown>[]>;
   snapshotUpdatedAt: string | null;
+}
+
+const DETAIL_TABS = [
+  { id: "trades", label: "Trade" },
+  { id: "journals", label: "Jurnal & Edge" },
+  { id: "notebook", label: "Notebook" },
+  { id: "playbooks", label: "Playbook" },
+  { id: "progress", label: "Progress" },
+  { id: "missed", label: "Missed trades" },
+  { id: "posts", label: "Postingan" },
+] as const;
+type DetailTab = (typeof DETAIL_TABS)[number]["id"];
+
+const cell = (value: unknown): string => {
+  if (value === null || value === undefined || value === "") return "—";
+  if (typeof value === "object") return JSON.stringify(value).slice(0, 140);
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}T/.test(value))
+    return new Date(value).toLocaleString();
+  return String(value);
+};
+
+function DataTable({ rows, columns }: { rows: Record<string, unknown>[]; columns: string[] }) {
+  return (
+    <div className="max-h-72 overflow-auto rounded border">
+      <table className="w-full text-left text-xs">
+        <thead className="sticky top-0 bg-muted/80">
+          <tr>
+            {columns.map((column) => (
+              <th key={column} className="p-2">
+                {column}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, index) => (
+            <tr key={index} className="border-t">
+              {columns.map((column) => (
+                <td key={column} className="p-2">
+                  {cell(row[column])}
+                </td>
+              ))}
+            </tr>
+          ))}
+          {rows.length === 0 && (
+            <tr>
+              <td className="p-2 text-muted-foreground" colSpan={columns.length}>
+                Tidak ada data.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 interface SiteConfig {
@@ -92,6 +167,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [detail, setDetail] = useState<{ name: string; data: MemberDetail } | null>(null);
+  const [detailTab, setDetailTab] = useState<DetailTab>("trades");
   const [site, setSite] = useState<SiteConfig>(emptySite);
   const [keySlots, setKeySlots] = useState<KeySlot[]>([]);
   const [modelInput, setModelInput] = useState("");
@@ -219,6 +295,7 @@ export default function AdminPage() {
         `/api/admin/member-data?userId=${encodeURIComponent(member.id)}`,
       ).then((response) => (response.ok ? response.json() : Promise.reject()));
       setDetail({ name: member.username, data: body as MemberDetail });
+      setDetailTab("trades");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Gagal memuat detail member.");
     }
@@ -514,7 +591,9 @@ export default function AdminPage() {
               <thead className="text-muted-foreground">
                 <tr>
                   <th className="p-2">Member</th>
+                  <th className="p-2">Jurnal</th>
                   <th className="p-2">Role</th>
+                  <th className="p-2">Edge</th>
                   <th className="p-2">Trade</th>
                   <th className="p-2">Profit / Loss</th>
                   <th className="p-2">Running</th>
@@ -531,8 +610,12 @@ export default function AdminPage() {
                         <VerifiedBadge role={member.role} />
                       </span>
                     </td>
+                    <td className="p-2">{member.journalName}</td>
                     <td className="p-2">
                       <RoleName role={member.role} />
+                    </td>
+                    <td className="p-2 font-semibold text-brand">
+                      {member.edgeScore === null ? "—" : member.edgeScore.toFixed(1)}
                     </td>
                     <td className="p-2">{member.trades}</td>
                     <td className="p-2">
@@ -556,64 +639,149 @@ export default function AdminPage() {
             </table>
           </div>
           {detail && (
-            <div className="space-y-2 rounded-md border p-3">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold">
-                  Data {detail.name} <VerifiedBadge role={detail.data.user.role} />
-                </p>
+            <div className="space-y-3 rounded-md border p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold">
+                    Data {detail.name} <VerifiedBadge role={detail.data.user.role} />
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {detail.data.profile?.journal_name || `Jurnal ${detail.name}`} ·{" "}
+                    {detail.data.trades.length} trade · {detail.data.promos.length} postingan · Edge{" "}
+                    {detail.data.analysis.edge.score ?? "—"} · snapshot{" "}
+                    {detail.data.snapshotUpdatedAt
+                      ? new Date(detail.data.snapshotUpdatedAt).toLocaleString()
+                      : "tidak ada"}
+                  </p>
+                </div>
                 <Button size="sm" variant="ghost" onClick={() => setDetail(null)}>
                   Tutup
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                {detail.data.trades.length} trade · {detail.data.promos.length} postingan · snapshot{" "}
-                {detail.data.snapshotUpdatedAt
-                  ? new Date(detail.data.snapshotUpdatedAt).toLocaleString()
-                  : "tidak ada"}
-              </p>
-              <div className="max-h-64 overflow-auto rounded border">
-                <table className="w-full text-left text-xs">
-                  <thead className="sticky top-0 bg-muted/80">
-                    <tr>
-                      <th className="p-2">Tanggal</th>
-                      <th className="p-2">Simbol</th>
-                      <th className="p-2">Mode</th>
-                      <th className="p-2">Side</th>
-                      <th className="p-2">PnL</th>
-                      <th className="p-2">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {detail.data.trades.map((trade) => (
-                      <tr key={String(trade.id)} className="border-t">
-                        <td className="p-2">
-                          {new Date(String(trade.opened_at)).toLocaleDateString()}
-                        </td>
-                        <td className="p-2">{String(trade.symbol)}</td>
-                        <td className="p-2">{String(trade.mode)}</td>
-                        <td className="p-2">{String(trade.side)}</td>
-                        <td className="p-2">{String(trade.pnl ?? "—")}</td>
-                        <td className="p-2">{String(trade.status)}</td>
-                      </tr>
-                    ))}
-                    {detail.data.trades.length === 0 && (
-                      <tr>
-                        <td className="p-2 text-muted-foreground" colSpan={6}>
-                          Belum ada trade.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+
+              <div className="flex flex-wrap gap-1">
+                {DETAIL_TABS.map((tab) => (
+                  <Button
+                    key={tab.id}
+                    size="sm"
+                    variant={detailTab === tab.id ? "default" : "outline"}
+                    onClick={() => setDetailTab(tab.id)}
+                  >
+                    {tab.label}
+                  </Button>
+                ))}
               </div>
-              <details className="text-xs">
-                <summary className="cursor-pointer text-muted-foreground">
-                  Lihat snapshot jurnal lengkap (JSON)
-                </summary>
-                <pre className="mt-2 max-h-64 overflow-auto rounded bg-muted/40 p-2 text-[11px]">
-                  {JSON.stringify(detail.data.snapshot ?? {}, null, 2)}
-                </pre>
-              </details>
+
+              {detailTab === "trades" && (
+                <DataTable
+                  rows={detail.data.trades}
+                  columns={[
+                    "opened_at",
+                    "symbol",
+                    "mode",
+                    "side",
+                    "entry",
+                    "exit_price",
+                    "pnl",
+                    "status",
+                    "notes",
+                  ]}
+                />
+              )}
+
+              {detailTab === "journals" && (
+                <div className="space-y-2">
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    <div className="rounded border p-2 text-xs">
+                      <p className="text-muted-foreground">Edge Score</p>
+                      <p className="text-lg font-semibold text-brand">
+                        {detail.data.analysis.edge.score ?? "—"}
+                      </p>
+                    </div>
+                    <div className="rounded border p-2 text-xs">
+                      <p className="text-muted-foreground">Trade selesai</p>
+                      <p className="text-lg font-semibold">
+                        {detail.data.analysis.edge.closedTrades}
+                      </p>
+                    </div>
+                    <div className="rounded border p-2 text-xs">
+                      <p className="text-muted-foreground">Net P&L</p>
+                      <p className="text-lg font-semibold">
+                        {cell(detail.data.analysis.metrics.netPnl)}
+                      </p>
+                    </div>
+                  </div>
+                  <DataTable
+                    rows={detail.data.analysis.journals as unknown as Record<string, unknown>[]}
+                    columns={[
+                      "label",
+                      "closed",
+                      "wins",
+                      "losses",
+                      "winRate",
+                      "netPnl",
+                      "profitFactor",
+                      "edgeScore",
+                    ]}
+                  />
+                </div>
+              )}
+
+              {detailTab === "notebook" && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">Catatan</p>
+                  <DataTable
+                    rows={detail.data.workspace.notes ?? []}
+                    columns={["title", "folderId", "tagsJson", "updatedAt"]}
+                  />
+                  <p className="text-xs text-muted-foreground">Folder</p>
+                  <DataTable
+                    rows={detail.data.workspace.folders ?? []}
+                    columns={["name", "kind", "deletedAt"]}
+                  />
+                </div>
+              )}
+
+              {detailTab === "playbooks" && (
+                <DataTable
+                  rows={detail.data.workspace.playbooks ?? []}
+                  columns={["name", "description", "rulesJson", "createdAt"]}
+                />
+              )}
+
+              {detailTab === "progress" && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">Rutinitas</p>
+                  <DataTable
+                    rows={detail.data.workspace.progressRules ?? []}
+                    columns={["title", "stage", "weekdaysJson", "archivedAt"]}
+                  />
+                  <p className="text-xs text-muted-foreground">Checklist</p>
+                  <DataTable
+                    rows={detail.data.workspace.progressChecks ?? []}
+                    columns={["ruleId", "date", "done"]}
+                  />
+                </div>
+              )}
+
+              {detailTab === "missed" && (
+                <DataTable
+                  rows={detail.data.workspace.missedTrades ?? []}
+                  columns={[
+                    "symbol",
+                    "direction",
+                    "observedAt",
+                    "entry",
+                    "stop",
+                    "target",
+                    "notes",
+                  ]}
+                />
+              )}
+
+              {detailTab === "posts" && (
+                <DataTable rows={detail.data.promos} columns={["kind", "title", "created_at"]} />
+              )}
             </div>
           )}
         </CardContent>

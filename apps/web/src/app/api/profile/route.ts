@@ -10,7 +10,7 @@ export const GET = handler(async (request: Request) => {
   requireValue(Boolean(target), "User tidak ditemukan.");
   const targetId = target!;
   const rows = await sql`
-    select p.display_name, p.bio, p.avatar_url, p.banner_url, p.updated_at,
+    select p.display_name, p.bio, p.avatar_url, p.banner_url, p.journal_name, p.updated_at,
            u.username, u.role, u.created_at
     from profiles p join users u on p.user_id = u.id
     where p.user_id = ${targetId} limit 1
@@ -26,6 +26,7 @@ export const GET = handler(async (request: Request) => {
         bio: "",
         avatar_url: null,
         banner_url: null,
+        journal_name: `Jurnal ${users[0]?.username ?? "user"}`,
         updated_at: null,
       },
     });
@@ -47,6 +48,9 @@ export const PATCH = handler(async (request: Request) => {
   const bio = String(form.get("bio") ?? "")
     .trim()
     .slice(0, 2000);
+  const journalName = String(form.get("journalName") ?? "")
+    .trim()
+    .slice(0, 80);
 
   const existing =
     await sql`select avatar_url, banner_url from profiles where user_id = ${user!.id} limit 1`;
@@ -71,11 +75,12 @@ export const PATCH = handler(async (request: Request) => {
   }
 
   await sql`insert into profiles
-    (user_id, display_name, bio, avatar_url, banner_url, updated_at)
-    values (${user!.id}, ${displayName}, ${bio}, ${avatarUrl}, ${bannerUrl}, ${nowIso()})
+    (user_id, display_name, bio, avatar_url, banner_url, journal_name, updated_at)
+    values (${user!.id}, ${displayName}, ${bio}, ${avatarUrl}, ${bannerUrl}, ${journalName}, ${nowIso()})
     on conflict (user_id) do update set
       display_name = ${displayName}, bio = ${bio},
-      avatar_url = ${avatarUrl}, banner_url = ${bannerUrl}, updated_at = ${nowIso()}`;
+      avatar_url = ${avatarUrl}, banner_url = ${bannerUrl},
+      journal_name = ${journalName}, updated_at = ${nowIso()}`;
 
   if (avatarId || bannerId) {
     const rows =

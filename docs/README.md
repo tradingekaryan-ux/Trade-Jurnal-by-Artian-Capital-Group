@@ -41,3 +41,4 @@ Konsekuensi teknis dari keputusan model: halaman **Admin → Model AI OpenRouter
 | [14 — Supabase & imgdb.io](14-supabase-imgdb.md)                    | Data di Supabase Postgres, gambar di imgdb.io, akun owner                 |
 | [15 — Penghapusan & profil](15-deletion-dan-profile.md)             | Cascade delete, halaman profil foto/banner/bio, catatan hosting           |
 | [16 — Konsistensi analytics](16-consistensi-analytics.md)           | Penyatuan daily journal/trades dengan jurnal CFD/Futures/Crypto/Stock     |
+| [17 — Ranking & data member](17-ranking-dan-admin-data.md)          | Data member di admin, leaderboard publik, sertifikat PDF, urutan sidebar  |

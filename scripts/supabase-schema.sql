@@ -146,8 +146,10 @@ CREATE TABLE IF NOT EXISTS profiles (
   avatar_id text,
   banner_url text,
   banner_id text,
+  journal_name text NOT NULL DEFAULT '',
   updated_at text NOT NULL
 );
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS journal_name text NOT NULL DEFAULT '';
 
 -- Snapshot seluruh data jurnal per user. Supabase = source of truth,
 -- SQLite lokal hanya cache yang bisa dihapus/restored kapan saja.

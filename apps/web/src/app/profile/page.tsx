@@ -38,6 +38,7 @@ interface Profile {
   created_at: string;
   display_name: string;
   bio: string;
+  journal_name: string | null;
   avatar_url: string | null;
   banner_url: string | null;
 }
@@ -46,6 +47,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
+  const [journalName, setJournalName] = useState("");
   const [avatar, setAvatar] = useState<File | null>(null);
   const [banner, setBanner] = useState<File | null>(null);
   const [myPosts, setMyPosts] = useState<OwnPost[]>([]);
@@ -69,6 +71,7 @@ export default function ProfilePage() {
         setProfile(body.profile);
         setDisplayName(body.profile?.display_name ?? "");
         setBio(body.profile?.bio ?? "");
+        setJournalName(body.profile?.journal_name ?? "");
       })
       .catch(() => setError("Gagal memuat profil."));
   };
@@ -92,6 +95,7 @@ export default function ProfilePage() {
       const form = new FormData();
       form.set("displayName", displayName);
       form.set("bio", bio);
+      form.set("journalName", journalName);
       if (avatar) form.set("avatar", avatar);
       if (banner) form.set("banner", banner);
       const response = await fetch("/api/profile", { method: "PATCH", body: form });
@@ -244,6 +248,16 @@ export default function ProfilePage() {
                 onChange={(e) => setBio(e.target.value)}
                 maxLength={2000}
                 className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="profile-journal">Nama jurnal (muncul di ranking)</Label>
+              <Input
+                id="profile-journal"
+                value={journalName}
+                onChange={(e) => setJournalName(e.target.value)}
+                maxLength={80}
+                placeholder="Jurnal Trading Saya"
               />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">

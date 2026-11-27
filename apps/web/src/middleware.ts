@@ -1,7 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 /** Navigation guard. Cryptographic verification happens in the API handlers. */
-const PUBLIC_PATHS = new Set(["/login", "/register", "/api/auth", "/api/register"]);
+const PUBLIC_PATHS = new Set([
+  "/login",
+  "/register",
+  "/ranking",
+  "/api/auth",
+  "/api/register",
+  "/api/ranking",
+  "/api/ranking/certificate",
+]);
 
 export const middleware = (request: NextRequest) => {
   const { pathname } = request.nextUrl;

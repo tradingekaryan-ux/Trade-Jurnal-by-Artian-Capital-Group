@@ -22,6 +22,7 @@ import {
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
+  Trophy,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -34,25 +35,28 @@ import { PageTransition } from "./page-transition";
 import { Button } from "./ui/button";
 import { HoverHint } from "./ui/tooltip";
 
+/** Ordered like a standard workspace: overview → journals → daily workflow →
+ * review → research → community → profile. Setup tools live in NAV_SETUP. */
 const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/journal/cfd", label: "CFD journal", icon: BarChart3 },
   { href: "/journal/futures", label: "Futures journal", icon: BarChart3 },
   { href: "/journal/crypto", label: "Crypto journal", icon: BarChart3 },
   { href: "/journal/stock", label: "US Stock journal", icon: BarChart3 },
-  { href: "/prop-sim", label: "Strategy lab", icon: BarChart3 },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/journal", label: "Daily journal", icon: NotebookPen },
   { href: "/trades", label: "Trades", icon: ListOrdered },
-  { href: "/reports", label: "Reports", icon: BarChart3 },
-  { href: "/prop-firms", label: "Prop firms", icon: Landmark },
-  { href: "/profile", label: "Profile", icon: Wallet },
-  { href: "/promo", label: "Promo", icon: BookmarkPlus },
-  { href: "/ideas", label: "Trades Idea", icon: BookmarkPlus },
   { href: "/notebook", label: "Notebook", icon: BookText },
   { href: "/playbooks", label: "Playbooks", icon: BookOpen },
   { href: "/progress", label: "Progress", icon: ListChecks },
   { href: "/missed", label: "Missed trades", icon: BookmarkPlus },
+  { href: "/reports", label: "Reports", icon: BarChart3 },
+  { href: "/prop-sim", label: "Strategy lab", icon: BarChart3 },
+  { href: "/prop-firms", label: "Prop firms", icon: Landmark },
+  { href: "/ranking", label: "Ranking", icon: Trophy },
+  { href: "/promo", label: "Promo", icon: BookmarkPlus },
+  { href: "/ideas", label: "Trades Idea", icon: BookmarkPlus },
+  { href: "/profile", label: "Profile", icon: Wallet },
 ] as const;
 
 const NAV_SETUP = [
@@ -62,6 +66,17 @@ const NAV_SETUP = [
 ] as const;
 
 const SIDEBAR_COLLAPSED_KEY = "journal-sidebar-collapsed-v1";
+
+/** Highlight exactly one section, even where routes share a prefix. */
+const isNavActive = (href: string, pathname: string): boolean => {
+  if (href === "/") return pathname === "/";
+  if (pathname === href) return true;
+  if (!pathname.startsWith(`${href}/`)) return false;
+  // /journal/[date] belongs to Daily journal; /journal/cfd|futures|... do not.
+  if (href === "/journal" && /^\/journal\/(cfd|futures|crypto|stock)(\/|$)/.test(pathname))
+    return false;
+  return true;
+};
 
 function NavLink({
   href,
@@ -171,7 +186,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           label={label}
           icon={icon}
           collapsed={collapsed}
-          active={href === "/" ? pathname === "/" : pathname.startsWith(href)}
+          active={isNavActive(href, pathname)}
         />
       ))}
       <div className="!my-3 border-t" />
@@ -182,7 +197,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           label={label}
           icon={icon}
           collapsed={collapsed}
-          active={pathname.startsWith(href)}
+          active={isNavActive(href, pathname)}
         />
       ))}
     </nav>

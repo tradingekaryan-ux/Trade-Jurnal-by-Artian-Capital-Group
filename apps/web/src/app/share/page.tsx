@@ -1,13 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FilterBar } from "@/components/filter-bar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { OptionSelect } from "@/components/ui/option-select";
-import { ShareControls, type ShareSettings } from "@/components/share-controls";
-import { downloadBlob, renderSharePng, type ShareStat } from "@/lib/share-image";
+import { SharePreview, type BgTransform } from "@/components/share-preview";
+import {
+  downloadBlob,
+  renderSharePng,
+  type ShareImageOptions,
+  type ShareSize,
+  type ShareStatEx,
+} from "@/lib/share-image";
 
 interface ShareTrade {
   id: string;
@@ -39,6 +45,7 @@ interface ShareData {
   journalName: string;
   displayName: string;
   username: string;
+  avatarUrl: string | null;
   rank: number | null;
   totalParticipants: number;
   trades: ShareTrade[];
@@ -47,25 +54,39 @@ interface ShareData {
 
 type Scope = "trade" | "day" | "week" | "month" | "year" | "all";
 type Tab = "pnl" | "journal" | "post";
+type PnlUnit = "usd" | "percent";
 
 const money = (value: number) =>
-  `${value >= 0 ? "+" : "-"}$${Math.abs(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  `${value >= 0 ? "+" : "−"}${Math.abs(value).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 
-const summarise = (trades: ShareTrade[]): ShareStat[] => {
-  const closed = trades.filter((trade) => trade.status === "closed");
-  const wins = closed.filter((trade) => (trade.pnl ?? 0) > 0);
-  const net = closed.reduce((sum, trade) => sum + (trade.pnl ?? 0), 0);
-  return [
-    { label: "Total trade", value: String(trades.length) },
-    { label: "Trade selesai", value: String(closed.length) },
-    { label: "Menang", value: String(wins.length) },
-    { label: "Kalah", value: String(closed.filter((t) => (t.pnl ?? 0) < 0).length) },
-    {
-      label: "Win rate",
-      value: closed.length ? `${((wins.length / closed.length) * 100).toFixed(1)}%` : "—",
-    },
-    { label: "Net P&L", value: money(net) },
-  ];
+const pctText = (pnl: number, equity: number) => {
+  const base = equity > 0 ? equity : 10000;
+  const pct = (pnl / base) * 100;
+  return `${pct >= 0 ? "+" : "−"}${Math.abs(pct).toFixed(2)}%`;
+};
+
+const summarise = (trades: ShareTrade[]): { net: number; stats: ShareStatEx[] } => {
+  const closed = trades.filter((t) => t.status === "closed");
+  const wins = closed.filter((t) => (t.pnl ?? 0) > 0);
+  const losses = closed.filter((t) => (t.pnl ?? 0) < 0);
+  const net = closed.reduce((s, t) => s + (t.pnl ?? 0), 0);
+  const grossG = wins.reduce((s, t) => s + (t.pnl ?? 0), 0);
+  const grossL = losses.reduce((s, t) => s + Math.abs(t.pnl ?? 0), 0);
+  const pf = closed.length > 0 ? (grossL > 0 ? (grossG / grossL).toFixed(2) : "∞") : "—";
+  const wr = closed.length ? `${((wins.length / closed.length) * 100).toFixed(2)}%` : "—";
+  return {
+    net,
+    stats: [
+      { label: "Net P&L", value: `${money(net)} USD`, type: "pnl" },
+      { label: "Win Rate", value: wr },
+      { label: "Profit Factor", value: pf },
+      { label: "Trades Won", value: `${wins.length} / ${closed.length}` },
+      { label: "Volume", value: `${closed.length} trades` },
+    ],
+  };
 };
 
 const inScope = (trade: ShareTrade, scope: Scope, now: Date): boolean => {
@@ -79,117 +100,381 @@ const inScope = (trade: ShareTrade, scope: Scope, now: Date): boolean => {
   return date.getFullYear() === now.getFullYear();
 };
 
+const scopeLabels: Record<Scope, string> = {
+  trade: "Per Trade",
+  day: "Daily PnL",
+  week: "Weekly PnL",
+  month: "Monthly PnL",
+  year: "Yearly PnL",
+  all: "All Time PnL",
+};
+
+const journalModeLabels: Record<string, string> = {
+  all: "Semua Jurnal",
+  cfd: "CFD / Forex",
+  futures: "Futures",
+  "crypto-spot": "Crypto Spot",
+  "crypto-perp": "Crypto Perp",
+  stock: "Stock",
+};
+
 export default function SharePage() {
   const [data, setData] = useState<ShareData | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<Tab>("pnl");
-  const [scope, setScope] = useState<Scope>("week");
+  const [scope, setScope] = useState<Scope>("day");
+  const [journalFilter, setJournalFilter] = useState<string>("all");
+  const [pnlUnit, setPnlUnit] = useState<PnlUnit>("usd");
+  const [equityBase, setEquityBase] = useState<string>("10000");
   const [tradeId, setTradeId] = useState("");
   const [postId, setPostId] = useState("");
-  const [settings, setSettings] = useState<ShareSettings>({
-    size: "1920x1080",
-    background: null,
-    error: "",
-  });
+  const [size, setSize] = useState<ShareSize>("1920x1080");
+  const [bgMedia, setBgMedia] = useState<HTMLImageElement | HTMLVideoElement | null>(null);
+  const [bgIsVideo, setBgIsVideo] = useState(false);
+  const [bgError, setBgError] = useState("");
+  const [overlayOpacity, setOverlayOpacity] = useState(0.85);
+  const [transform, setTransform] = useState<BgTransform>({ offsetX: 0, offsetY: 0, scale: 1 });
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [videoTime, setVideoTime] = useState(0);
+  const [videoDuration, setVideoDuration] = useState(0);
 
   useEffect(() => {
+    const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+    const qTab = params?.get("tab");
+    const qScope = params?.get("scope");
+    const qJournal = params?.get("journal");
+    const qTradeId = params?.get("tradeId");
+    if (qTab === "pnl" || qTab === "journal" || qTab === "post") setTab(qTab);
+    if (
+      qScope === "trade" ||
+      qScope === "day" ||
+      qScope === "week" ||
+      qScope === "month" ||
+      qScope === "year" ||
+      qScope === "all"
+    ) {
+      setScope(qScope);
+    }
+    if (qJournal) setJournalFilter(qJournal);
+
     fetch("/api/share/data")
-      .then((response) => (response.ok ? response.json() : Promise.reject()))
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((body: ShareData) => {
         setData(body);
-        setTradeId(body.trades[0]?.id ?? "");
+        setTradeId(
+          qTradeId && body.trades.some((t) => t.id === qTradeId)
+            ? qTradeId
+            : (body.trades[0]?.id ?? ""),
+        );
         setPostId(body.posts[0]?.id ?? "");
       })
       .catch(() => setError("Gagal memuat data share."));
   }, []);
 
+  const availableJournals = useMemo(() => {
+    if (!data) return ["all"];
+    const modes = Array.from(new Set(data.trades.map((t) => t.mode).filter(Boolean)));
+    return ["all", ...modes];
+  }, [data]);
+
+  const journalTrades = useMemo(() => {
+    if (!data) return [];
+    if (journalFilter === "all") return data.trades;
+    return data.trades.filter((t) => t.mode === journalFilter);
+  }, [data, journalFilter]);
+
   const selectedTrade = useMemo(
-    () => data?.trades.find((trade) => trade.id === tradeId) ?? data?.trades[0],
-    [data, tradeId],
+    () => journalTrades.find((t) => t.id === tradeId) ?? journalTrades[0],
+    [journalTrades, tradeId],
   );
   const scopedTrades = useMemo(() => {
-    if (!data) return [];
     if (scope === "trade") return selectedTrade ? [selectedTrade] : [];
-    return data.trades.filter((trade) => inScope(trade, scope, new Date()));
-  }, [data, scope, selectedTrade]);
-  const selectedPost = data?.posts.find((post) => post.id === postId) ?? data?.posts[0];
+    return journalTrades.filter((t) => inScope(t, scope, new Date()));
+  }, [journalTrades, scope, selectedTrade]);
+  const selectedPost = data?.posts.find((p) => p.id === postId) ?? data?.posts[0];
 
-  const generate = async () => {
-    if (!data) return;
+  useEffect(() => {
+    if (bgMedia instanceof HTMLVideoElement) {
+      setVideoDuration(bgMedia.duration || 0);
+    } else {
+      setVideoDuration(0);
+      setVideoTime(0);
+    }
+  }, [bgMedia]);
+
+  const shareOptions = useMemo<ShareImageOptions | null>(() => {
+    if (!data) return null;
+    const siteUrl = typeof window !== "undefined" ? window.location.origin : "https://artian.capital";
+    const journalLabel = journalModeLabels[journalFilter] ?? journalFilter.toUpperCase();
+    const rankText = data.rank ? `Rank #${data.rank}/${data.totalParticipants}` : "";
+
+    if (tab === "post" && selectedPost) {
+      return {
+        size,
+        mode: "post",
+        title: selectedPost.title,
+        stats: [],
+        username: `@${data.username}`,
+        journalName: data.journalName,
+        avatarUrl: data.avatarUrl,
+        postKind: selectedPost.kind === "idea" ? "idea" : "promo",
+        postDescription: selectedPost.description,
+        postPromoCode: selectedPost.promoCode,
+        postDate: new Date(selectedPost.createdAt).toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        }),
+        background: bgMedia,
+        overlayOpacity,
+        siteUrl,
+      };
+    }
+
+    const equityNum = Math.max(1, Number(equityBase) || 10000);
+    const fmtHighlight = (val: number) =>
+      pnlUnit === "percent" ? pctText(val, equityNum) : `${money(val)} USD`;
+
+    if (tab === "pnl" && scope === "trade" && selectedTrade) {
+      const pnl = selectedTrade.pnl ?? 0;
+      const secondaryPnl =
+        pnlUnit === "percent"
+          ? `${money(pnl)} USD`
+          : equityNum > 0
+            ? pctText(pnl, equityNum)
+            : selectedTrade.rMultiple != null
+              ? `${selectedTrade.rMultiple.toFixed(2)}R`
+              : "—";
+      return {
+        size,
+        mode: "pnl",
+        title: `${selectedTrade.side.toUpperCase()} — ${selectedTrade.symbol}`,
+        highlightText: fmtHighlight(pnl),
+        pnlValue: pnl,
+        stats: [
+          { label: "Size", value: `${selectedTrade.lot} LOT` },
+          { label: "PnL", value: secondaryPnl },
+          { label: "Entry", value: String(selectedTrade.entry) },
+          { label: "Exit", value: String(selectedTrade.exitPrice ?? "—") },
+        ],
+        username: `@${data.username}`,
+        journalName: `${data.journalName} · ${journalLabel}`,
+        rankText,
+        avatarUrl: data.avatarUrl,
+        background: bgMedia,
+        overlayOpacity,
+        siteUrl,
+      };
+    }
+
+    const tradesToSum = tab === "journal" ? journalTrades : scopedTrades;
+    const { net, stats } = summarise(tradesToSum);
+    return {
+      size,
+      mode: "pnl",
+      title: tab === "journal" ? journalLabel : scopeLabels[scope],
+      highlightText: fmtHighlight(net),
+      pnlValue: net,
+      stats:
+        pnlUnit === "percent"
+          ? stats.map((s) => (s.type === "pnl" ? { ...s, value: `${money(net)} USD` } : s))
+          : stats,
+      username: `@${data.username}`,
+      journalName: data.journalName,
+      rankText,
+      avatarUrl: data.avatarUrl,
+      background: bgMedia,
+      overlayOpacity,
+      siteUrl,
+    };
+  }, [
+    data,
+    tab,
+    scope,
+    journalFilter,
+    journalTrades,
+    scopedTrades,
+    selectedTrade,
+    selectedPost,
+    size,
+    bgMedia,
+    overlayOpacity,
+    pnlUnit,
+    equityBase,
+  ]);
+
+  const pickFile = useCallback(async (file: File | undefined) => {
+    if (!file) return;
+    setBgError("");
+    setTransform({ offsetX: 0, offsetY: 0, scale: 1 });
+
+    if (file.type.startsWith("image/")) {
+      const img = new Image();
+      img.src = URL.createObjectURL(file);
+      try {
+        await img.decode();
+        setBgMedia(img);
+        setBgIsVideo(false);
+      } catch {
+        setBgError("Gambar tidak bisa dibaca.");
+      }
+      return;
+    }
+    if (file.type.startsWith("video/")) {
+      const video = document.createElement("video");
+      video.src = URL.createObjectURL(file);
+      video.muted = true;
+      video.preload = "auto";
+      video.playsInline = true;
+      try {
+        await new Promise<void>((res, rej) => {
+          if (video.readyState >= 1) {
+            res();
+            return;
+          }
+          video.onloadedmetadata = () => res();
+          video.onerror = () => rej(new Error("Video tidak bisa dibaca."));
+        });
+        video.currentTime = 0;
+        await new Promise<void>((res) => {
+          video.onseeked = () => res();
+          window.setTimeout(res, 1500);
+        });
+        setBgMedia(video);
+        setBgIsVideo(true);
+      } catch (e) {
+        setBgError(e instanceof Error ? e.message : "Video tidak bisa dibaca.");
+      }
+      return;
+    }
+    setBgError("Format tidak didukung. Pilih gambar atau video.");
+  }, []);
+
+  const seekVideo = useCallback(
+    (t: number) => {
+      setVideoTime(t);
+      if (bgMedia instanceof HTMLVideoElement) bgMedia.currentTime = t;
+    },
+    [bgMedia],
+  );
+
+  const drawBgToCanvas = (
+    ctx: CanvasRenderingContext2D,
+    media: HTMLImageElement | HTMLVideoElement,
+    cW: number,
+    cH: number,
+    tf: BgTransform,
+  ) => {
+    const sw = media instanceof HTMLVideoElement ? media.videoWidth : media.naturalWidth;
+    const sh = media instanceof HTMLVideoElement ? media.videoHeight : media.naturalHeight;
+    if (!sw || !sh) return;
+    const base = Math.max(cW / sw, cH / sh);
+    const fs = base * tf.scale;
+    const dw = sw * fs;
+    const dh = sh * fs;
+    ctx.drawImage(media, (cW - dw) / 2 + tf.offsetX, (cH - dh) / 2 + tf.offsetY, dw, dh);
+  };
+
+  const exportAuto = async () => {
+    if (!shareOptions) return;
     setBusy(true);
     setError("");
     try {
-      const siteUrl = typeof window !== "undefined" ? window.location.origin : "";
-      let title = "";
-      let subtitle = "";
-      let stats: ShareStat[] = [];
-      let note = "";
-      let filename = "";
+      const [cW, cH] = size === "1920x1080" ? [1920, 1080] : [1080, 1080];
+      const baseName = `artian-${tab}-${new Date().toISOString().slice(0, 10)}`;
 
-      if (tab === "pnl") {
-        const label: Record<Scope, string> = {
-          trade: "Per Trade",
-          day: "Per Hari",
-          week: "Per Minggu",
-          month: "Per Bulan",
-          year: "Per Tahun",
-          all: "All Time",
+      if (bgIsVideo && bgMedia instanceof HTMLVideoElement) {
+        const offscreen = document.createElement("canvas");
+        offscreen.width = cW;
+        offscreen.height = cH;
+        const ctx = offscreen.getContext("2d")!;
+
+        const hudBlob = await renderSharePng({
+          ...shareOptions,
+          background: null,
+          transparentBackground: true,
+        });
+        const hudImg = new Image();
+        hudImg.src = URL.createObjectURL(hudBlob);
+        await hudImg.decode();
+
+        const mimeType = MediaRecorder.isTypeSupported("video/mp4;codecs=avc1")
+          ? "video/mp4;codecs=avc1"
+          : MediaRecorder.isTypeSupported("video/mp4")
+            ? "video/mp4"
+            : MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+              ? "video/webm;codecs=vp9"
+              : "video/webm";
+
+        const stream = offscreen.captureStream(30);
+        const rec = new MediaRecorder(stream, { mimeType });
+        const chunks: Blob[] = [];
+        rec.ondataavailable = (e) => {
+          if (e.data.size > 0) chunks.push(e.data);
         };
-        title = `PnL Share · ${label[scope]}`;
-        subtitle = `${data.journalName} · ${data.displayName}`;
-        if (scope === "trade" && selectedTrade) {
-          stats = [
-            { label: "Simbol", value: selectedTrade.symbol },
-            { label: "Mode", value: selectedTrade.mode },
-            { label: "Side", value: selectedTrade.side.toUpperCase() },
-            { label: "Entry", value: String(selectedTrade.entry) },
-            { label: "Exit", value: String(selectedTrade.exitPrice ?? "—") },
-            { label: "Pips", value: String(selectedTrade.pips ?? "—") },
-            { label: "R multiple", value: String(selectedTrade.rMultiple ?? "—") },
-            { label: "P&L", value: money(selectedTrade.pnl ?? 0) },
-          ];
-          note = new Date(selectedTrade.openedAt).toLocaleString();
-        } else {
-          stats = summarise(scopedTrades);
-          note = `${scopedTrades.length} trade dari ${data.journalName}`;
-        }
-        filename = `pnl-${scope}-${data.username}`;
-      } else if (tab === "journal") {
-        title = "Jurnal PnL Share";
-        subtitle = `${data.journalName} · ${data.displayName}`;
-        stats = [
-          ...summarise(data.trades),
-          { label: "Peringkat", value: data.rank ? `#${data.rank}` : "—" },
-          { label: "Peserta", value: String(data.totalParticipants) },
-        ];
-        note = "Seluruh jurnal CFD, Futures, Crypto, dan Stock di Supabase.";
-        filename = `jurnal-pnl-${data.username}`;
-      } else if (selectedPost) {
-        title = selectedPost.kind === "idea" ? "Trades Idea Share" : "Promo & Discount Share";
-        subtitle = `${selectedPost.title.slice(0, 70)} · ${data.displayName}`;
-        stats = [
-          { label: "Jenis", value: selectedPost.kind === "idea" ? "Trades Idea" : "Promo" },
-          { label: "Pemilik", value: `@${data.username}` },
-          { label: "Promo code", value: selectedPost.promoCode || "—" },
-          { label: "Tanggal", value: new Date(selectedPost.createdAt).toLocaleDateString() },
-        ];
-        note = selectedPost.description.slice(0, 220) || (selectedPost.url ?? "");
-        filename = `postingan-${selectedPost.kind}-${data.username}`;
-      }
 
-      const blob = await renderSharePng({
-        size: settings.size,
-        title,
-        subtitle,
-        stats,
-        note,
-        background: settings.background,
-        siteUrl,
-      });
-      downloadBlob(blob, `${filename}.png`);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Gagal membuat PNG.");
+        const video = bgMedia;
+        const duration = video.duration;
+        video.currentTime = 0;
+        await new Promise<void>((r) => {
+          video.onseeked = () => r();
+          window.setTimeout(r, 500);
+        });
+
+        await new Promise<void>((resolve, reject) => {
+          rec.start();
+          rec.onerror = () => reject(new Error("MediaRecorder error."));
+          const fps = 30;
+          const totalFrames = Math.round(duration * fps);
+          let frame = 0;
+          const draw = () => {
+            if (frame >= totalFrames) {
+              rec.stop();
+              resolve();
+              return;
+            }
+            video.currentTime = frame / fps;
+            ctx.clearRect(0, 0, cW, cH);
+            drawBgToCanvas(ctx, video, cW, cH, transform);
+            ctx.drawImage(hudImg, 0, 0, cW, cH);
+            frame++;
+            requestAnimationFrame(draw);
+          };
+          video.onseeked = null;
+          requestAnimationFrame(draw);
+        });
+
+        URL.revokeObjectURL(hudImg.src);
+        downloadBlob(new Blob(chunks, { type: mimeType }), `${baseName}.mp4`);
+      } else {
+        const canvas = document.createElement("canvas");
+        canvas.width = cW;
+        canvas.height = cH;
+        const ctx = canvas.getContext("2d")!;
+
+        if (bgMedia) {
+          drawBgToCanvas(ctx, bgMedia, cW, cH, transform);
+        }
+
+        const hud = await renderSharePng({
+          ...shareOptions,
+          background: null,
+          transparentBackground: Boolean(bgMedia),
+        });
+        const hudImg = new Image();
+        hudImg.src = URL.createObjectURL(hud);
+        await hudImg.decode();
+        ctx.drawImage(hudImg, 0, 0, cW, cH);
+        URL.revokeObjectURL(hudImg.src);
+
+        const blob = await new Promise<Blob>((res, rej) =>
+          canvas.toBlob((b) => (b ? res(b) : rej(new Error("Gagal membuat PNG."))), "image/png"),
+        );
+        downloadBlob(blob, `${baseName}.png`);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gagal mengekspor media.");
     } finally {
       setBusy(false);
     }
@@ -198,109 +483,287 @@ export default function SharePage() {
   return (
     <div>
       <FilterBar title="PnL & Post Share" />
-      <div className="mx-auto max-w-5xl space-y-4 p-4">
+      <div className="mx-auto max-w-6xl space-y-4 p-4">
         <Card>
           <CardContent className="pt-4">
             <h1 className="text-xl font-semibold">Bagikan hasil trading Anda</h1>
             <p className="text-sm text-muted-foreground">
-              Semua PNG dirender langsung di browser Anda. Gambar/video background tidak pernah
-              diunggah ke server.
+              Default menggunakan background grafik chart. Anda dapat mengganti background dengan
+              gambar (export PNG) atau video (export MP4) langsung di browser.
             </p>
           </CardContent>
         </Card>
+
         {error && <p className="text-sm text-destructive">{error}</p>}
+
         {!data ? (
           <p className="text-sm text-muted-foreground">Memuat data…</p>
         ) : (
-          <>
-            <div className="flex flex-wrap gap-2">
-              {(
-                [
-                  ["pnl", "PnL per Periode"],
-                  ["journal", "Jurnal PnL"],
-                  ["post", "Postingan"],
-                ] as const
-              ).map(([id, label]) => (
-                <Button
-                  key={id}
-                  size="sm"
-                  variant={tab === id ? "default" : "outline"}
-                  onClick={() => setTab(id)}
-                >
-                  {label}
-                </Button>
-              ))}
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Pengaturan gambar</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ShareControls value={settings} onChange={setSettings} />
-              </CardContent>
-            </Card>
-
-            {tab === "pnl" && (
+          <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
+            <div className="space-y-3">
               <Card>
                 <CardHeader>
-                  <CardTitle>Pilih periode</CardTitle>
+                  <CardTitle>Preview</CardTitle>
+                </CardHeader>
+                <CardContent className="flex justify-center overflow-x-auto pb-4">
+                  {shareOptions && (
+                    <SharePreview
+                      options={shareOptions}
+                      background={bgMedia}
+                      transform={transform}
+                      onTransformChange={setTransform}
+                      displayWidth={Math.min(680, typeof window !== "undefined" ? window.innerWidth - 48 : 680)}
+                    />
+                  )}
+                </CardContent>
+              </Card>
+
+              {bgMedia && (
+                <Card>
+                  <CardContent className="space-y-3 pt-4">
+                    <div className="space-y-1">
+                      <Label>Zoom background ({Math.round(transform.scale * 100)}%)</Label>
+                      <input
+                        type="range"
+                        min={0.5}
+                        max={5}
+                        step={0.05}
+                        value={transform.scale}
+                        onChange={(e) => setTransform({ ...transform, scale: Number(e.target.value) })}
+                        className="w-full"
+                      />
+                    </div>
+                    {bgIsVideo && videoDuration > 0 && (
+                      <div className="space-y-1">
+                        <Label>Frame video (detik ke-{videoTime.toFixed(1)})</Label>
+                        <input
+                          type="range"
+                          min={0}
+                          max={videoDuration}
+                          step={0.1}
+                          value={videoTime}
+                          onChange={(e) => seekVideo(Number(e.target.value))}
+                          className="w-full"
+                        />
+                      </div>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setTransform({ offsetX: 0, offsetY: 0, scale: 1 })}
+                    >
+                      Reset posisi
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
+              <Button disabled={busy} onClick={() => void exportAuto()}>
+                {busy
+                  ? "Memproses…"
+                  : bgIsVideo
+                    ? "⬇ Download MP4"
+                    : "⬇ Download PNG"}
+              </Button>
+            </div>
+
+            <div className="space-y-3">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Jenis share</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-2">
+                    {(["pnl", "journal", "post"] as Tab[]).map((id) => (
+                      <Button
+                        key={id}
+                        size="sm"
+                        variant={tab === id ? "default" : "outline"}
+                        onClick={() => setTab(id)}
+                      >
+                        {id === "pnl" ? "PnL per Periode" : id === "journal" ? "Jurnal PnL" : "Postingan"}
+                      </Button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Ukuran output</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <OptionSelect value={size} onValueChange={(v) => setSize(v as ShareSize)}>
+                    <option value="1920x1080">1920 × 1080 (landscape)</option>
+                    <option value="1080x1080">1080 × 1080 (square)</option>
+                  </OptionSelect>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Background (gambar / video)</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <OptionSelect value={scope} onValueChange={(value) => setScope(value as Scope)}>
-                    <option value="trade">Per Trade</option>
-                    <option value="day">Per Day</option>
-                    <option value="week">Per Week</option>
-                    <option value="month">Per Month</option>
-                    <option value="year">Per Year</option>
-                    <option value="all">All Time</option>
-                  </OptionSelect>
-                  {scope === "trade" && (
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/*,video/*"
+                    className="hidden"
+                    onChange={(e) => void pickFile(e.target.files?.[0])}
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()}>
+                      Pilih gambar / video…
+                    </Button>
+                    {bgMedia && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setBgMedia(null);
+                          setBgIsVideo(false);
+                          setTransform({ offsetX: 0, offsetY: 0, scale: 1 });
+                        }}
+                      >
+                        Gunakan Chart Default
+                      </Button>
+                    )}
+                  </div>
+                  {bgError && <p className="text-xs text-destructive">{bgError}</p>}
+                  <p className="text-xs text-muted-foreground">
+                    {bgIsVideo
+                      ? "🎬 Background video — drag untuk geser, scroll/slider untuk zoom. Export otomatis: MP4."
+                      : bgMedia
+                        ? "🖼 Background gambar — drag untuk geser, scroll/slider untuk zoom. Export otomatis: PNG."
+                        : "📈 Background default: Grafik Chart. Export otomatis: PNG."}
+                  </p>
+                  <div className="space-y-1 pt-2 border-t">
+                    <Label>Opacity overlay kanan ({Math.round(overlayOpacity * 100)}%)</Label>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      value={overlayOpacity}
+                      onChange={(e) => setOverlayOpacity(Number(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {(tab === "pnl" || tab === "journal") && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Jurnal &amp; Periode</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
                     <div className="space-y-1">
-                      <Label>Trade</Label>
-                      <OptionSelect value={tradeId} onValueChange={setTradeId}>
-                        {data.trades.slice(0, 100).map((trade) => (
-                          <option key={trade.id} value={trade.id}>
-                            {new Date(trade.openedAt).toLocaleDateString()} · {trade.symbol} ·{" "}
-                            {money(trade.pnl ?? 0)}
+                      <Label>Format PnL (Bar Merah/Hijau)</Label>
+                      <div className="flex flex-wrap gap-1.5">
+                        <Button
+                          size="sm"
+                          variant={pnlUnit === "usd" ? "default" : "outline"}
+                          onClick={() => setPnlUnit("usd")}
+                        >
+                          USD ($)
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={pnlUnit === "percent" ? "default" : "outline"}
+                          onClick={() => setPnlUnit("percent")}
+                        >
+                          % Kenaikan Equity
+                        </Button>
+                      </div>
+                    </div>
+                    {pnlUnit === "percent" && (
+                      <div className="space-y-1">
+                        <Label>Modal / Equity Awal Jurnal (USD)</Label>
+                        <input
+                          type="number"
+                          min={1}
+                          step="any"
+                          value={equityBase}
+                          onChange={(e) => setEquityBase(e.target.value)}
+                          className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+                          placeholder="10000"
+                        />
+                      </div>
+                    )}
+                    <div className="space-y-1">
+                      <Label>Pilih Jurnal</Label>
+                      <OptionSelect value={journalFilter} onValueChange={setJournalFilter}>
+                        {availableJournals.map((mode) => (
+                          <option key={mode} value={mode}>
+                            {journalModeLabels[mode] ?? mode.toUpperCase()}
                           </option>
                         ))}
                       </OptionSelect>
                     </div>
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    {scopedTrades.length} trade akan dimasukkan ke dalam statistik PNG.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
+                    {tab === "pnl" && (
+                      <>
+                        <div className="space-y-1">
+                          <Label>Periode</Label>
+                          <OptionSelect value={scope} onValueChange={(v) => setScope(v as Scope)}>
+                            <option value="trade">Per Trade</option>
+                            <option value="day">Daily (Hari Ini)</option>
+                            <option value="week">Weekly (7 Hari)</option>
+                            <option value="month">Monthly (Bulan Ini)</option>
+                            <option value="year">Yearly (Tahun Ini)</option>
+                            <option value="all">All Time</option>
+                          </OptionSelect>
+                        </div>
+                        {scope === "trade" && (
+                          <div className="space-y-1">
+                            <Label>Trade</Label>
+                            <OptionSelect value={tradeId} onValueChange={setTradeId}>
+                              {journalTrades.slice(0, 100).map((t) => (
+                                <option key={t.id} value={t.id}>
+                                  {new Date(t.openedAt).toLocaleDateString()} · {t.symbol} · {money(t.pnl ?? 0)}
+                                </option>
+                              ))}
+                            </OptionSelect>
+                          </div>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          {scopedTrades.length} trade dalam jurnal &amp; periode ini.
+                        </p>
+                      </>
+                    )}
+                    {tab === "journal" && (
+                      <p className="text-xs text-muted-foreground">
+                        {journalTrades.length} total trade pada jurnal terpilih.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
-            {tab === "post" && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Pilih postingan</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {data.posts.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Belum ada postingan.</p>
-                  ) : (
-                    <OptionSelect value={postId} onValueChange={setPostId}>
-                      {data.posts.map((post) => (
-                        <option key={post.id} value={post.id}>
-                          {post.kind === "idea" ? "[Idea] " : "[Promo] "}
-                          {post.title}
-                        </option>
-                      ))}
-                    </OptionSelect>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            <Button disabled={busy} onClick={() => void generate()}>
-              {busy ? "Membuat PNG…" : "Download PNG"}
-            </Button>
-          </>
+              {tab === "post" && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Pilih postingan</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {data.posts.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Belum ada postingan.</p>
+                    ) : (
+                      <OptionSelect value={postId} onValueChange={setPostId}>
+                        {data.posts.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.kind === "idea" ? "[Idea] " : "[Promo] "}
+                            {p.title}
+                          </option>
+                        ))}
+                      </OptionSelect>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </div>

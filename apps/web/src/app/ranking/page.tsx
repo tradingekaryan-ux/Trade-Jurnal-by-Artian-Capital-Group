@@ -1,12 +1,18 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FilterBar } from "@/components/filter-bar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { VerifiedBadge } from "@/components/verified-badge";
-import { OptionSelect } from "@/components/ui/option-select";
-import { downloadBlob, renderSharePng, type ShareSize } from "@/lib/share-image";
+import { SharePreview, type BgTransform } from "@/components/share-preview";
+import {
+  CERT_HEIGHT,
+  CERT_WIDTH,
+  downloadBlob,
+  renderCertificatePng,
+} from "@/lib/certificate-image";
 
 interface JournalSummary {
   mode: string;
@@ -27,6 +33,7 @@ interface Entry {
   username: string;
   displayName: string;
   journalName: string;
+  avatarUrl: string | null;
   role: string;
   edgeScore: number | null;
   netPnl: number;
@@ -49,9 +56,19 @@ export default function RankingPage() {
   const [rankedAt, setRankedAt] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [open, setOpen] = useState<string | null>(null);
-  const [cert, setCert] = useState<{ entry: Entry; size: ShareSize } | null>(null);
+  const [cert, setCert] = useState<{ entry: Entry } | null>(null);
   const [certBusy, setCertBusy] = useState(false);
   const [certError, setCertError] = useState("");
+
+  // Custom background (image or video) + pan/zoom + opacity for Certificate
+  const [bgMedia, setBgMedia] = useState<HTMLImageElement | HTMLVideoElement | null>(null);
+  const [bgIsVideo, setBgIsVideo] = useState(false);
+  const [bgError, setBgError] = useState("");
+  const [overlayOpacity, setOverlayOpacity] = useState(0.85);
+  const [transform, setTransform] = useState<BgTransform>({ offsetX: 0, offsetY: 0, scale: 1 });
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [videoTime, setVideoTime] = useState(0);
+  const [videoDuration, setVideoDuration] = useState(0);
 
   useEffect(() => {
     fetch("/api/ranking")
@@ -63,31 +80,232 @@ export default function RankingPage() {
       .catch(() => setError("Gagal memuat ranking."));
   }, []);
 
+  useEffect(() => {
+    if (bgMedia instanceof HTMLVideoElement) {
+      setVideoDuration(bgMedia.duration || 0);
+    } else {
+      setVideoDuration(0);
+      setVideoTime(0);
+    }
+  }, [bgMedia]);
+
+  const buildCertOptions = useCallback(
+    (entry: Entry, transparentBg = false) => {
+      // ── Real-data radar values (all normalized 0–1) ───────────────────────
+      const wr = entry.winRate ?? 0.5;                              // Win %
+      const pfNorm = Math.min(1, (entry.profitFactor ?? 1) / 4);   // Profit Factor (4 = excellent)
+      const wlRatio =                                               // Win/Loss Ratio
+        entry.wins > 0 && entry.losses > 0
+          ? Math.min(1, entry.wins / entry.losses / 2)             // 2:1 wins → 1.0
+          : entry.wins > 0
+            ? 1
+            : 0;
+      const edgeNorm = Math.min(1, (entry.edgeScore ?? 50) / 100); // Drawdown control proxy
+      const recoveryNorm = Math.min(                                // Recovery: win streak ratio
+        1,
+        entry.wins / Math.max(1, entry.closedTrades) * 1.5,
+      );
+      const consistencyNorm = Math.min(1, edgeNorm * 1.1);         // Consistency from edge score
+      return {
+        traderName: entry.displayName || entry.username,
+        username: `@${entry.username}`,
+        journalName: entry.journalName,
+        avatarUrl: entry.avatarUrl,
+        rank: `Rank #${entry.rank}/${entries.length}`,
+        rankNum: entry.rank,
+        edgeScore: score(entry.edgeScore),
+        netPnl: entry.netPnl,
+        winRate: entry.winRate,
+        profitFactor: entry.profitFactor,
+        closedTrades: entry.closedTrades,
+        downloadDate: new Date().toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        }),
+        radarValues: [wr, pfNorm, wlRatio, edgeNorm, recoveryNorm, consistencyNorm] as [
+          number,
+          number,
+          number,
+          number,
+          number,
+          number,
+        ],
+        background: bgMedia,
+        transparentBackground: transparentBg,
+        overlayOpacity,
+        siteUrl: typeof window !== "undefined" ? window.location.origin : "https://artian.capital",
+      };
+    },
+    [entries.length, bgMedia, overlayOpacity],
+  );
+
+  const renderCertHud = useMemo(() => {
+    if (!cert) return undefined;
+    return () => renderCertificatePng(buildCertOptions(cert.entry, Boolean(bgMedia)));
+  }, [cert, buildCertOptions, bgMedia]);
+
+  const pickFile = useCallback(async (file: File | undefined) => {
+    if (!file) return;
+    setBgError("");
+    setTransform({ offsetX: 0, offsetY: 0, scale: 1 });
+
+    if (file.type.startsWith("image/")) {
+      const img = new Image();
+      img.src = URL.createObjectURL(file);
+      try {
+        await img.decode();
+        setBgMedia(img);
+        setBgIsVideo(false);
+      } catch {
+        setBgError("Gambar tidak bisa dibaca.");
+      }
+      return;
+    }
+    if (file.type.startsWith("video/")) {
+      const video = document.createElement("video");
+      video.src = URL.createObjectURL(file);
+      video.muted = true;
+      video.preload = "auto";
+      video.playsInline = true;
+      try {
+        await new Promise<void>((res, rej) => {
+          if (video.readyState >= 1) {
+            res();
+            return;
+          }
+          video.onloadedmetadata = () => res();
+          video.onerror = () => rej(new Error("Video tidak bisa dibaca."));
+        });
+        video.currentTime = 0;
+        await new Promise<void>((res) => {
+          video.onseeked = () => res();
+          window.setTimeout(res, 1500);
+        });
+        setBgMedia(video);
+        setBgIsVideo(true);
+      } catch (e) {
+        setBgError(e instanceof Error ? e.message : "Video tidak bisa dibaca.");
+      }
+      return;
+    }
+    setBgError("Format tidak didukung. Pilih gambar atau video.");
+  }, []);
+
+  const seekVideo = useCallback(
+    (t: number) => {
+      setVideoTime(t);
+      if (bgMedia instanceof HTMLVideoElement) bgMedia.currentTime = t;
+    },
+    [bgMedia],
+  );
+
+  const drawBgToCanvas = (
+    ctx: CanvasRenderingContext2D,
+    media: HTMLImageElement | HTMLVideoElement,
+    cW: number,
+    cH: number,
+    tf: BgTransform,
+  ) => {
+    const sw = media instanceof HTMLVideoElement ? media.videoWidth : media.naturalWidth;
+    const sh = media instanceof HTMLVideoElement ? media.videoHeight : media.naturalHeight;
+    if (!sw || !sh) return;
+    const base = Math.max(cW / sw, cH / sh);
+    const fs = base * tf.scale;
+    const dw = sw * fs;
+    const dh = sh * fs;
+    ctx.drawImage(media, (cW - dw) / 2 + tf.offsetX, (cH - dh) / 2 + tf.offsetY, dw, dh);
+  };
+
   const downloadCertificate = async () => {
     if (!cert) return;
     setCertBusy(true);
     setCertError("");
     try {
-      const issuedAt = new Date().toISOString();
-      const blob = await renderSharePng({
-        size: cert.size,
-        title: "Sertifikat Peringkat Jurnal",
-        subtitle: `Trade Jurnal by Artian Capital Group · ${issuedAt.slice(0, 10)}`,
-        stats: [
-          { label: "Peringkat", value: `#${cert.entry.rank} dari ${entries.length}` },
-          { label: "Nama jurnal", value: cert.entry.journalName.slice(0, 28) },
-          { label: "Pemilik", value: `@${cert.entry.username}` },
-          { label: "Edge Score", value: score(cert.entry.edgeScore) },
-          { label: "Trade selesai", value: String(cert.entry.closedTrades) },
-          { label: "Win rate", value: percent(cert.entry.winRate) },
-          { label: "Net P&L", value: money(cert.entry.netPnl) },
-          { label: "Profit factor", value: score(cert.entry.profitFactor) },
-        ],
-        note: `Diterbitkan ${issuedAt.slice(0, 16).replace("T", " ")} UTC — peringkat dapat berubah.`,
-        issuedAt,
-        siteUrl: typeof window !== "undefined" ? window.location.origin : "",
-      });
-      downloadBlob(blob, `sertifikat-${cert.entry.username}-${issuedAt.slice(0, 10)}.png`);
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const baseName = `sertifikat-${cert.entry.username}-${dateStr}`;
+
+      if (bgIsVideo && bgMedia instanceof HTMLVideoElement) {
+        const offscreen = document.createElement("canvas");
+        offscreen.width = CERT_WIDTH;
+        offscreen.height = CERT_HEIGHT;
+        const ctx = offscreen.getContext("2d")!;
+
+        const hudBlob = await renderCertificatePng(buildCertOptions(cert.entry, true));
+        const hudImg = new Image();
+        hudImg.src = URL.createObjectURL(hudBlob);
+        await hudImg.decode();
+
+        const mimeType = MediaRecorder.isTypeSupported("video/mp4;codecs=avc1")
+          ? "video/mp4;codecs=avc1"
+          : MediaRecorder.isTypeSupported("video/mp4")
+            ? "video/mp4"
+            : MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+              ? "video/webm;codecs=vp9"
+              : "video/webm";
+
+        const stream = offscreen.captureStream(30);
+        const rec = new MediaRecorder(stream, { mimeType });
+        const chunks: Blob[] = [];
+        rec.ondataavailable = (e) => {
+          if (e.data.size > 0) chunks.push(e.data);
+        };
+
+        const video = bgMedia;
+        const duration = video.duration;
+        video.currentTime = 0;
+        await new Promise<void>((r) => {
+          video.onseeked = () => r();
+          window.setTimeout(r, 500);
+        });
+
+        await new Promise<void>((resolve, reject) => {
+          rec.start();
+          rec.onerror = () => reject(new Error("MediaRecorder error."));
+          const fps = 30;
+          const totalFrames = Math.round(duration * fps);
+          let frame = 0;
+          const draw = () => {
+            if (frame >= totalFrames) {
+              rec.stop();
+              resolve();
+              return;
+            }
+            video.currentTime = frame / fps;
+            ctx.clearRect(0, 0, CERT_WIDTH, CERT_HEIGHT);
+            drawBgToCanvas(ctx, video, CERT_WIDTH, CERT_HEIGHT, transform);
+            ctx.drawImage(hudImg, 0, 0, CERT_WIDTH, CERT_HEIGHT);
+            frame++;
+            requestAnimationFrame(draw);
+          };
+          video.onseeked = null;
+          requestAnimationFrame(draw);
+        });
+
+        URL.revokeObjectURL(hudImg.src);
+        downloadBlob(new Blob(chunks, { type: mimeType }), `${baseName}.mp4`);
+      } else {
+        const canvas = document.createElement("canvas");
+        canvas.width = CERT_WIDTH;
+        canvas.height = CERT_HEIGHT;
+        const ctx = canvas.getContext("2d")!;
+
+        if (bgMedia) {
+          drawBgToCanvas(ctx, bgMedia, CERT_WIDTH, CERT_HEIGHT, transform);
+        }
+
+        const hud = await renderCertificatePng(buildCertOptions(cert.entry, Boolean(bgMedia)));
+        const hudImg = new Image();
+        hudImg.src = URL.createObjectURL(hud);
+        await hudImg.decode();
+        ctx.drawImage(hudImg, 0, 0, CERT_WIDTH, CERT_HEIGHT);
+        URL.revokeObjectURL(hudImg.src);
+
+        const blob = await new Promise<Blob>((res, rej) =>
+          canvas.toBlob((b) => (b ? res(b) : rej(new Error("Gagal membuat PNG."))), "image/png"),
+        );
+        downloadBlob(blob, `${baseName}.png`);
+      }
     } catch (cause) {
       setCertError(cause instanceof Error ? cause.message : "Gagal membuat sertifikat.");
     } finally {
@@ -119,28 +337,120 @@ export default function RankingPage() {
         {cert && (
           <Card>
             <CardHeader className="flex flex-wrap items-center justify-between gap-2">
-              <CardTitle>Sertifikat · {cert.entry.journalName}</CardTitle>
+              <CardTitle>Certificate of Rank · {cert.entry.journalName}</CardTitle>
               <Button size="sm" variant="ghost" onClick={() => setCert(null)}>
                 Tutup
               </Button>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-xs text-muted-foreground">
-                Sertifikat PNG dirender di browser, lengkap dengan tanggal unduhan, tanda tangan Pt.
-                Eka Ryan M., dan barcode ke website ini.
-              </p>
-              <OptionSelect
-                value={cert.size}
-                onValueChange={(value) => setCert({ ...cert, size: value as ShareSize })}
-                className="w-64"
-              >
-                <option value="1920x1080">1920 × 1080 (landscape)</option>
-                <option value="1080x1080">1080 × 1080 (square)</option>
-              </OptionSelect>
-              {certError && <p className="text-sm text-destructive">{certError}</p>}
-              <Button disabled={certBusy} onClick={() => void downloadCertificate()}>
-                {certBusy ? "Membuat sertifikat…" : "Unduh sertifikat PNG"}
-              </Button>
+            <CardContent className="grid gap-4 lg:grid-cols-[1fr_340px]">
+              <div className="space-y-3">
+                <div className="flex justify-center overflow-x-auto">
+                  <SharePreview
+                    customRender={renderCertHud}
+                    dimensions={[CERT_WIDTH, CERT_HEIGHT]}
+                    background={bgMedia}
+                    transform={transform}
+                    onTransformChange={setTransform}
+                    displayWidth={Math.min(640, typeof window !== "undefined" ? window.innerWidth - 64 : 640)}
+                  />
+                </div>
+                {certError && <p className="text-sm text-destructive">{certError}</p>}
+                <Button disabled={certBusy} onClick={() => void downloadCertificate()}>
+                  {certBusy
+                    ? "Memproses…"
+                    : bgIsVideo
+                      ? "⬇ Unduh sertifikat MP4"
+                      : "⬇ Unduh sertifikat PNG"}
+                </Button>
+              </div>
+
+              <div className="space-y-3 rounded-md border p-3">
+                <p className="text-sm font-medium">Background Certificate (gambar / video)</p>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*,video/*"
+                  className="hidden"
+                  onChange={(e) => void pickFile(e.target.files?.[0])}
+                />
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()}>
+                    Pilih gambar / video…
+                  </Button>
+                  {bgMedia && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setBgMedia(null);
+                        setBgIsVideo(false);
+                        setTransform({ offsetX: 0, offsetY: 0, scale: 1 });
+                      }}
+                    >
+                      Gunakan Chart Default
+                    </Button>
+                  )}
+                </div>
+                {bgError && <p className="text-xs text-destructive">{bgError}</p>}
+                <p className="text-xs text-muted-foreground">
+                  {bgIsVideo
+                    ? "🎬 Background video — drag untuk geser, scroll/slider untuk zoom. Export otomatis: MP4."
+                    : bgMedia
+                      ? "🖼 Background gambar — drag untuk geser, scroll/slider untuk zoom. Export otomatis: PNG."
+                      : "📈 Background default: Grafik Chart. Export otomatis: PNG."}
+                </p>
+
+                {bgMedia && (
+                  <div className="space-y-2 border-t pt-2">
+                    <div className="space-y-1">
+                      <Label>Zoom background ({Math.round(transform.scale * 100)}%)</Label>
+                      <input
+                        type="range"
+                        min={0.5}
+                        max={5}
+                        step={0.05}
+                        value={transform.scale}
+                        onChange={(e) => setTransform({ ...transform, scale: Number(e.target.value) })}
+                        className="w-full"
+                      />
+                    </div>
+                    {bgIsVideo && videoDuration > 0 && (
+                      <div className="space-y-1">
+                        <Label>Frame video (detik ke-{videoTime.toFixed(1)})</Label>
+                        <input
+                          type="range"
+                          min={0}
+                          max={videoDuration}
+                          step={0.1}
+                          value={videoTime}
+                          onChange={(e) => seekVideo(Number(e.target.value))}
+                          className="w-full"
+                        />
+                      </div>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setTransform({ offsetX: 0, offsetY: 0, scale: 1 })}
+                    >
+                      Reset posisi
+                    </Button>
+                  </div>
+                )}
+
+                <div className="space-y-1 border-t pt-2">
+                  <Label>Opacity overlay kanan ({Math.round(overlayOpacity * 100)}%)</Label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={overlayOpacity}
+                    onChange={(e) => setOverlayOpacity(Number(e.target.value))}
+                    className="w-full"
+                  />
+                </div>
+              </div>
             </CardContent>
           </Card>
         )}
@@ -193,7 +503,7 @@ export default function RankingPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => setCert({ entry, size: cert?.size ?? "1920x1080" })}
+                            onClick={() => setCert({ entry })}
                           >
                             Sertifikat
                           </Button>

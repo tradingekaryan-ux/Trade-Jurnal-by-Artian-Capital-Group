@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { FilterBar } from "@/components/filter-bar";
 import { ImageUploader } from "@/components/image-uploader";
@@ -615,29 +616,38 @@ export function JournalPage({
                           </td>
                           <td className="p-2">{trade.status}</td>
                           <td className="p-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={reviewBusy !== null}
-                              onClick={() => void reviewTrade(trade)}
-                            >
-                              {reviewBusy === trade.id ? "AI…" : "AI review"}
-                            </Button>
-                            {trade.status === "running" && (
+                            <div className="flex flex-wrap gap-1.5">
+                              <Link
+                                href={`/share?tab=pnl&scope=trade&journal=${encodeURIComponent(trade.mode)}&tradeId=${encodeURIComponent(trade.id)}`}
+                              >
+                                <Button size="sm" variant="outline">
+                                  PnL Share
+                                </Button>
+                              </Link>
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => {
-                                  const value = window.prompt(
-                                    "Hasil akhir (USD), atau 0 untuk breakeven:",
-                                  );
-                                  if (value !== null && value.trim() !== "")
-                                    void closeTrade(trade, Number(value));
-                                }}
+                                disabled={reviewBusy !== null}
+                                onClick={() => void reviewTrade(trade)}
                               >
-                                Tutup
+                                {reviewBusy === trade.id ? "AI…" : "AI review"}
                               </Button>
-                            )}
+                              {trade.status === "running" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    const value = window.prompt(
+                                      "Hasil akhir (USD), atau 0 untuk breakeven:",
+                                    );
+                                    if (value !== null && value.trim() !== "")
+                                      void closeTrade(trade, Number(value));
+                                  }}
+                                >
+                                  Tutup
+                                </Button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}

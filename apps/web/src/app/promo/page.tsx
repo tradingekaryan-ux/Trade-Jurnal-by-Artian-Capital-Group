@@ -6,9 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { canEditPromo, canModeratePromos, isUserRole, type UserRole } from "@/lib/roles";
 import { VerifiedBadge } from "@/components/verified-badge";
-import { postJson } from "@/lib/use-api";
 import { VoteBar } from "@/components/vote-bar";
 
 interface Promo {
@@ -31,7 +29,6 @@ interface Session {
   id: string | null;
   authenticated: boolean;
   username: string | null;
-  role: UserRole;
 }
 
 interface VoteSummary {
@@ -83,9 +80,6 @@ export default function PromoPage() {
       .catch(() => setSession(null));
   }, []);
 
-  const role = session && isUserRole(session.role) ? session.role : "member";
-  const mayModerate = canModeratePromos(role);
-
   const submit = async () => {
     setBusy(true);
     setError("");
@@ -115,43 +109,6 @@ export default function PromoPage() {
       setError(cause instanceof Error ? cause.message : "Gagal membuat promo.");
     } finally {
       setBusy(false);
-    }
-  };
-
-  const patch = async (promo: Promo, data: Partial<Promo>) => {
-    try {
-      const response = await fetch("/api/promos", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: promo.id, ...data }),
-      });
-      if (!response.ok) {
-        const body = await response.json();
-        throw new Error(body.error ?? "Gagal memperbarui promo.");
-      }
-      load();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Gagal memperbarui promo.");
-    }
-  };
-
-  const remove = async (promo: Promo) => {
-    if (
-      !window.confirm(
-        `Hapus promo "${promo.title}"? Semua voting pada postingan ini juga akan dihapus permanen.`,
-      )
-    )
-      return;
-    try {
-      const result = await postJson<{ votesDeleted: number }>(
-        `/api/promos?id=${encodeURIComponent(promo.id)}`,
-        undefined,
-        "DELETE",
-      );
-      setMessage(`Promo dihapus beserta ${result.votesDeleted} vote.`);
-      load();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Gagal menghapus promo.");
     }
   };
 
@@ -186,9 +143,13 @@ export default function PromoPage() {
       <FilterBar title="Promo & Discount" />
       <div className="mx-auto max-w-5xl space-y-4 p-4">
         <p className="text-sm text-muted-foreground">
-          Bagikan promo, diskon, atau penawaran. Siapa pun yang punya akun bisa memposting. Promo
-          code bisa disalin dengan sekali klik dan URL bisa langsung membuka situs tujuan — keduanya
-          bisa diaktifkan atau dinonaktifkan.
+          Bagikan promo, diskon, atau penawaran. Promo code bisa disalin sekali klik dan URL
+          langsung membuka situs tujuan. Untuk mengedit atau menghapus postingan Anda sendiri, buka
+          halaman{" "}
+          <a href="/profile" className="underline">
+            Profile
+          </a>
+          .
         </p>
 
         <Card>
@@ -280,113 +241,78 @@ export default function PromoPage() {
         </Card>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          {promos.map((promo) => {
-            const editable = canEditPromo(role, promo.userId, session?.id ?? "");
-            return (
-              <Card key={promo.id}>
-                <CardContent className="space-y-2 pt-4">
-                  {promo.hasImage && (
-                    <img
-                      src={`/api/promos/${encodeURIComponent(promo.id)}/image`}
-                      alt={promo.title}
-                      className="h-36 w-full rounded-md object-cover"
-                    />
-                  )}
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-semibold">{promo.title}</h3>
-                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                      {promo.author}
-                      <VerifiedBadge role={promo.authorRole} />
-                    </span>
-                  </div>
-                  <p className="whitespace-pre-wrap text-sm text-muted-foreground">
-                    {promo.description}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {promo.codeEnabled && promo.promoCode && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => void copy(promo.promoCode!)}
-                      >
-                        Salin: {promo.promoCode}
-                      </Button>
-                    )}
-                    {promo.urlEnabled && promo.url && (
-                      <a
-                        href={promo.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm underline"
-                      >
-                        Kunjungi situs ↗
-                      </a>
-                    )}
-                  </div>
-                  <VoteBar
-                    sides={[
-                      { label: "Working", count: votes[promo.id]?.working ?? 0, tone: "profit" },
-                      {
-                        label: "Not Working",
-                        count: votes[promo.id]?.notWorking ?? 0,
-                        tone: "loss",
-                      },
-                    ]}
+          {promos.map((promo) => (
+            <Card key={promo.id}>
+              <CardContent className="space-y-2 pt-4">
+                {promo.hasImage && (
+                  <img
+                    src={`/api/promos/${encodeURIComponent(promo.id)}/image`}
+                    alt={promo.title}
+                    className="h-36 w-full rounded-md object-cover"
                   />
-                  <div className="flex flex-wrap items-center gap-2 border-t pt-2">
-                    <span className="text-xs text-muted-foreground">Testimoni:</span>
-                    <Button
-                      size="sm"
-                      variant={votes[promo.id]?.mine === "working" ? "default" : "outline"}
-                      disabled={!session?.authenticated}
-                      onClick={() => void vote(promo, "working")}
-                    >
-                      ✓ Working · {votes[promo.id]?.working ?? 0}
+                )}
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="font-semibold">{promo.title}</h3>
+                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    {promo.author}
+                    <VerifiedBadge role={promo.authorRole} />
+                  </span>
+                </div>
+                <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+                  {promo.description}
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  {promo.codeEnabled && promo.promoCode && (
+                    <Button size="sm" variant="outline" onClick={() => void copy(promo.promoCode!)}>
+                      Salin: {promo.promoCode}
                     </Button>
-                    <Button
-                      size="sm"
-                      variant={votes[promo.id]?.mine === "not_working" ? "destructive" : "outline"}
-                      disabled={!session?.authenticated}
-                      onClick={() => void vote(promo, "not_working")}
+                  )}
+                  {promo.urlEnabled && promo.url && (
+                    <a
+                      href={promo.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm underline"
                     >
-                      ✕ Not Working · {votes[promo.id]?.notWorking ?? 0}
-                    </Button>
-                    {!session?.authenticated && (
-                      <span className="text-xs text-muted-foreground">
-                        Login untuk memberi vote.
-                      </span>
-                    )}
-                  </div>
-                  {editable && (
-                    <div className="flex flex-wrap gap-3 border-t pt-2 text-xs">
-                      <label className="flex items-center gap-1">
-                        <input
-                          type="checkbox"
-                          checked={promo.codeEnabled}
-                          onChange={(e) => void patch(promo, { codeEnabled: e.target.checked })}
-                        />{" "}
-                        Code aktif
-                      </label>
-                      <label className="flex items-center gap-1">
-                        <input
-                          type="checkbox"
-                          checked={promo.urlEnabled}
-                          onChange={(e) => void patch(promo, { urlEnabled: e.target.checked })}
-                        />{" "}
-                        URL aktif
-                      </label>
-                      <Button size="sm" variant="ghost" onClick={() => void remove(promo)}>
-                        Hapus
-                      </Button>
-                    </div>
+                      Kunjungi situs ↗
+                    </a>
                   )}
-                  {mayModerate && !editable && (
-                    <p className="text-xs text-muted-foreground">Moderator</p>
+                </div>
+                <VoteBar
+                  sides={[
+                    { label: "Working", count: votes[promo.id]?.working ?? 0, tone: "profit" },
+                    {
+                      label: "Not Working",
+                      count: votes[promo.id]?.notWorking ?? 0,
+                      tone: "loss",
+                    },
+                  ]}
+                />
+                <div className="flex flex-wrap items-center gap-2 border-t pt-2">
+                  <span className="text-xs text-muted-foreground">Testimoni:</span>
+                  <Button
+                    size="sm"
+                    variant={votes[promo.id]?.mine === "working" ? "default" : "outline"}
+                    disabled={!session?.authenticated}
+                    onClick={() => void vote(promo, "working")}
+                  >
+                    ✓ Working · {votes[promo.id]?.working ?? 0}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={votes[promo.id]?.mine === "not_working" ? "destructive" : "outline"}
+                    disabled={!session?.authenticated}
+                    onClick={() => void vote(promo, "not_working")}
+                  >
+                    ✕ Not Working · {votes[promo.id]?.notWorking ?? 0}
+                  </Button>
+                  {!session?.authenticated && (
+                    <span className="text-xs text-muted-foreground">Login untuk memberi vote.</span>
                   )}
-                </CardContent>
-              </Card>
-            );
-          })}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
           {promos.length === 0 && <p className="text-sm text-muted-foreground">Belum ada promo.</p>}
         </div>
       </div>

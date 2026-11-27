@@ -8,8 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { VoteBar } from "@/components/vote-bar";
 import { VerifiedBadge } from "@/components/verified-badge";
-import { postJson } from "@/lib/use-api";
-import { canEditPromo, isUserRole, type UserRole } from "@/lib/roles";
+
 import type { Post } from "@/lib/posts";
 
 interface IdeaVote {
@@ -21,7 +20,6 @@ interface Session {
   id: string | null;
   authenticated: boolean;
   username: string | null;
-  role: UserRole;
 }
 
 export default function IdeasPage() {
@@ -61,8 +59,6 @@ export default function IdeasPage() {
       .then((body: Session) => setSession(body))
       .catch(() => setSession(null));
   }, []);
-
-  const role = session && isUserRole(session.role) ? session.role : "member";
 
   const submit = async () => {
     setBusy(true);
@@ -105,33 +101,18 @@ export default function IdeasPage() {
     }
   };
 
-  const remove = async (idea: Post) => {
-    if (
-      !window.confirm(
-        `Hapus idea "${idea.title}"? Semua voting Stop Loss / Take Profit pada postingan ini juga akan dihapus permanen.`,
-      )
-    )
-      return;
-    try {
-      const result = await postJson<{ votesDeleted: number }>(
-        `/api/promos?id=${encodeURIComponent(idea.id)}`,
-        undefined,
-        "DELETE",
-      );
-      setMessage(`Trade idea dihapus beserta ${result.votesDeleted} vote.`);
-      load();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Gagal menghapus idea.");
-    }
-  };
-
   return (
     <div>
       <FilterBar title="Trades Idea" />
       <div className="mx-auto max-w-5xl space-y-4 p-4">
         <p className="text-sm text-muted-foreground">
           Bagikan ide trading Anda. **Gambar wajib** diunggah. Komunitas bisa memberi testimoni
-          apakah ide tersebut akhirnya kena **Stop Loss** atau **Take Profit**.
+          apakah ide tersebut akhirnya kena **Stop Loss** atau **Take Profit**. Untuk mengedit atau
+          menghapus idea Anda sendiri, buka halaman{" "}
+          <a href="/profile" className="underline">
+            Profile
+          </a>
+          .
         </p>
 
         <Card>
@@ -182,63 +163,55 @@ export default function IdeasPage() {
         </Card>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          {ideas.map((idea) => {
-            const editable = canEditPromo(role, idea.userId, session?.id ?? "");
-            return (
-              <Card key={idea.id}>
-                <CardContent className="space-y-2 pt-4">
-                  {idea.hasImage && (
-                    <img
-                      src={`/api/promos/${encodeURIComponent(idea.id)}/image`}
-                      alt={idea.title}
-                      className="h-40 w-full rounded-md object-cover"
-                    />
-                  )}
-                  <h3 className="font-semibold">{idea.title}</h3>
-                  <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                    oleh {idea.author}
-                    <VerifiedBadge role={idea.authorRole} />
-                  </p>
-                  <p className="whitespace-pre-wrap text-sm text-muted-foreground">
-                    {idea.description}
-                  </p>
-                  <VoteBar
-                    sides={[
-                      { label: "Stop Loss", count: votes[idea.id]?.stopLoss ?? 0, tone: "loss" },
-                      {
-                        label: "Take Profit",
-                        count: votes[idea.id]?.takeProfit ?? 0,
-                        tone: "profit",
-                      },
-                    ]}
+          {ideas.map((idea) => (
+            <Card key={idea.id}>
+              <CardContent className="space-y-2 pt-4">
+                {idea.hasImage && (
+                  <img
+                    src={`/api/promos/${encodeURIComponent(idea.id)}/image`}
+                    alt={idea.title}
+                    className="h-40 w-full rounded-md object-cover"
                   />
-                  <div className="flex flex-wrap items-center gap-2 border-t pt-2">
-                    <Button
-                      size="sm"
-                      variant={votes[idea.id]?.mine === "stop_loss" ? "destructive" : "outline"}
-                      disabled={!session?.authenticated}
-                      onClick={() => void vote(idea, "stop_loss")}
-                    >
-                      Stop Loss · {votes[idea.id]?.stopLoss ?? 0}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={votes[idea.id]?.mine === "take_profit" ? "default" : "outline"}
-                      disabled={!session?.authenticated}
-                      onClick={() => void vote(idea, "take_profit")}
-                    >
-                      Take Profit · {votes[idea.id]?.takeProfit ?? 0}
-                    </Button>
-                  </div>
-                  {editable && (
-                    <Button size="sm" variant="ghost" onClick={() => void remove(idea)}>
-                      Hapus
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
+                )}
+                <h3 className="font-semibold">{idea.title}</h3>
+                <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                  oleh {idea.author}
+                  <VerifiedBadge role={idea.authorRole} />
+                </p>
+                <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+                  {idea.description}
+                </p>
+                <VoteBar
+                  sides={[
+                    { label: "Stop Loss", count: votes[idea.id]?.stopLoss ?? 0, tone: "loss" },
+                    {
+                      label: "Take Profit",
+                      count: votes[idea.id]?.takeProfit ?? 0,
+                      tone: "profit",
+                    },
+                  ]}
+                />
+                <div className="flex flex-wrap items-center gap-2 border-t pt-2">
+                  <Button
+                    size="sm"
+                    variant={votes[idea.id]?.mine === "stop_loss" ? "destructive" : "outline"}
+                    disabled={!session?.authenticated}
+                    onClick={() => void vote(idea, "stop_loss")}
+                  >
+                    Stop Loss · {votes[idea.id]?.stopLoss ?? 0}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={votes[idea.id]?.mine === "take_profit" ? "default" : "outline"}
+                    disabled={!session?.authenticated}
+                    onClick={() => void vote(idea, "take_profit")}
+                  >
+                    Take Profit · {votes[idea.id]?.takeProfit ?? 0}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
           {ideas.length === 0 && (
             <p className="text-sm text-muted-foreground">Belum ada trade idea.</p>
           )}

@@ -10,7 +10,8 @@ export interface Post {
   kind: PostKind;
   title: string;
   description: string;
-  imageMime: string | null;
+  imageUrl: string | null;
+  imageName: string | null;
   hasImage: boolean;
   promoCode?: string | null;
   codeEnabled?: boolean;

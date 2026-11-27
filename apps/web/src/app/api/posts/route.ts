@@ -11,11 +11,21 @@ export const GET = handler(async () => {
     order by p.created_at desc
   `;
   return ok({
-    posts: rows.map(({ user_id, author_role, ...row }) => ({
-      ...row,
-      userId: user_id,
-      authorRole: author_role ?? "member",
+    posts: rows.map((row) => ({
+      id: row.id,
+      userId: row.user_id,
+      author: row.author ?? "",
+      authorRole: row.author_role ?? "member",
       kind: row.kind === "idea" ? "idea" : "promo",
+      title: row.title,
+      description: row.description,
+      imageUrl: row.image_url,
+      imageName: row.image_name,
+      promoCode: row.promo_code,
+      codeEnabled: Boolean(row.code_enabled),
+      url: row.url,
+      urlEnabled: Boolean(row.url_enabled),
+      createdAt: row.created_at,
       hasImage: Boolean(row.image_url),
     })),
   });

@@ -7,14 +7,29 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { VerifiedBadge, RoleName } from "@/components/verified-badge";
+import { postJson } from "@/lib/use-api";
 
 interface OwnPost {
   id: string;
   userId: string;
   title: string;
+  description: string;
   kind: "promo" | "idea";
+  promoCode: string | null;
+  codeEnabled: boolean;
+  url: string | null;
+  urlEnabled: boolean;
   hasImage: boolean;
   createdAt: string;
+}
+
+interface PostForm {
+  title: string;
+  description: string;
+  promoCode: string;
+  codeEnabled: boolean;
+  url: string;
+  urlEnabled: boolean;
 }
 
 interface Profile {
@@ -34,6 +49,15 @@ export default function ProfilePage() {
   const [avatar, setAvatar] = useState<File | null>(null);
   const [banner, setBanner] = useState<File | null>(null);
   const [myPosts, setMyPosts] = useState<OwnPost[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<PostForm>({
+    title: "",
+    description: "",
+    promoCode: "",
+    codeEnabled: false,
+    url: "",
+    urlEnabled: false,
+  });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -81,6 +105,74 @@ export default function ProfilePage() {
       setError(cause instanceof Error ? cause.message : "Gagal menyimpan profil.");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const startEdit = (post: OwnPost) => {
+    setEditingId(post.id);
+    setEditForm({
+      title: post.title,
+      description: post.description ?? "",
+      promoCode: post.promoCode ?? "",
+      codeEnabled: post.codeEnabled,
+      url: post.url ?? "",
+      urlEnabled: post.urlEnabled,
+    });
+    setError("");
+    setMessage("");
+  };
+
+  const savePost = async (post: OwnPost) => {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const payload: Record<string, unknown> = {
+        id: post.id,
+        title: editForm.title,
+        description: editForm.description,
+      };
+      if (post.kind === "promo") {
+        payload.promoCode = editForm.promoCode;
+        payload.codeEnabled = editForm.codeEnabled;
+        payload.url = editForm.url;
+        payload.urlEnabled = editForm.urlEnabled;
+      }
+      await postJson("/api/promos", payload, "PATCH");
+      setEditingId(null);
+      setMessage("Postingan diperbarui.");
+      Promise.all([
+        fetch("/api/auth").then((r) => r.json()),
+        fetch("/api/posts").then((r) => r.json()),
+      ]).then(([session, body]: [{ id: string | null }, { posts: OwnPost[] }]) => {
+        setMyPosts(body.posts.filter((item) => item.userId === session.id));
+      });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Gagal memperbarui postingan.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removePost = async (post: OwnPost) => {
+    const label = post.kind === "idea" ? "trade idea" : "promo";
+    if (!window.confirm(`Hapus ${label} "${post.title}" beserta semua votingnya?`)) return;
+    try {
+      await postJson(`/api/promos?id=${encodeURIComponent(post.id)}`, undefined, "DELETE");
+      setMessage(`${label.charAt(0).toUpperCase()}${label.slice(1)} dihapus beserta votingnya.`);
+      setMyPosts((current) => current.filter((item) => item.id !== post.id));
+      if (editingId === post.id) setEditingId(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Gagal menghapus postingan.");
+    }
+  };
+
+  const copy = async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setMessage(`Promo code ${value} disalin.`);
+    } catch {
+      setError("Gagal menyalin. Salin manual saja.");
     }
   };
 
@@ -189,29 +281,143 @@ export default function ProfilePage() {
           <CardHeader>
             <CardTitle>Postingan saya</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Kelola promo dan trade idea Anda di sini. Perubahan pada voting tidak mengubah
+              postingan orang lain.
+            </p>
             {myPosts.length === 0 ? (
               <p className="text-sm text-muted-foreground">Belum ada postingan.</p>
             ) : (
               <ul className="divide-y">
                 {myPosts.map((post) => (
-                  <li key={post.id} className="flex items-center justify-between gap-3 py-2">
-                    <div className="min-w-0">
-                      <p className="inline-flex max-w-full items-center gap-1 truncate text-sm font-medium">
-                        {post.title}
-                        <VerifiedBadge role={profile?.role} />
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(post.createdAt).toLocaleDateString()}
-                      </p>
+                  <li key={post.id} className="space-y-2 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="inline-flex max-w-full items-center gap-1 truncate text-sm font-medium">
+                          {post.title}
+                          <VerifiedBadge role={profile?.role} />
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(post.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-1 text-xs ${
+                          post.kind === "idea" ? "bg-loss/15 text-loss" : "bg-profit/15 text-profit"
+                        }`}
+                      >
+                        {post.kind === "idea" ? "Trades Idea" : "Promo & Discount"}
+                      </span>
                     </div>
-                    <span
-                      className={`shrink-0 rounded-full px-2 py-1 text-xs ${
-                        post.kind === "idea" ? "bg-loss/15 text-loss" : "bg-profit/15 text-profit"
-                      }`}
-                    >
-                      {post.kind === "idea" ? "Trades Idea" : "Promo & Discount"}
-                    </span>
+
+                    {editingId === post.id ? (
+                      <div className="space-y-2 rounded-md border p-3">
+                        <div className="space-y-1">
+                          <Label>Judul</Label>
+                          <Input
+                            value={editForm.title}
+                            maxLength={160}
+                            onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Deskripsi</Label>
+                          <textarea
+                            rows={3}
+                            value={editForm.description}
+                            maxLength={4000}
+                            onChange={(e) =>
+                              setEditForm({ ...editForm, description: e.target.value })
+                            }
+                            className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+                          />
+                        </div>
+                        {post.kind === "promo" && (
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <div className="space-y-1">
+                              <Label>Promo code</Label>
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  value={editForm.promoCode}
+                                  onChange={(e) =>
+                                    setEditForm({ ...editForm, promoCode: e.target.value })
+                                  }
+                                />
+                                <label className="flex items-center gap-1 text-xs">
+                                  <input
+                                    type="checkbox"
+                                    checked={editForm.codeEnabled}
+                                    onChange={(e) =>
+                                      setEditForm({ ...editForm, codeEnabled: e.target.checked })
+                                    }
+                                  />
+                                  Aktif
+                                </label>
+                              </div>
+                            </div>
+                            <div className="space-y-1">
+                              <Label>URL</Label>
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="url"
+                                  value={editForm.url}
+                                  onChange={(e) =>
+                                    setEditForm({ ...editForm, url: e.target.value })
+                                  }
+                                />
+                                <label className="flex items-center gap-1 text-xs">
+                                  <input
+                                    type="checkbox"
+                                    checked={editForm.urlEnabled}
+                                    onChange={(e) =>
+                                      setEditForm({ ...editForm, urlEnabled: e.target.checked })
+                                    }
+                                  />
+                                  Aktif
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex gap-2">
+                          <Button size="sm" disabled={busy} onClick={() => void savePost(post)}>
+                            Simpan postingan
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
+                            Batal
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {post.kind === "promo" && post.codeEnabled && post.promoCode && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => void copy(post.promoCode!)}
+                          >
+                            Salin: {post.promoCode}
+                          </Button>
+                        )}
+                        {post.kind === "promo" && post.urlEnabled && post.url && (
+                          <a
+                            href={post.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm underline"
+                          >
+                            Kunjungi situs ↗
+                          </a>
+                        )}
+                        <Button size="sm" variant="ghost" onClick={() => startEdit(post)}>
+                          Edit
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => void removePost(post)}>
+                          Hapus
+                        </Button>
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>

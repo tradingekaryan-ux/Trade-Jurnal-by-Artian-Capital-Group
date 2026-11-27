@@ -7,18 +7,21 @@ export const dynamic = "force-dynamic";
 
 const DEFAULT = process.env.NEXT_PUBLIC_DISCORD_URL?.trim() || "https://discord.com/";
 
-export const GET = handler(async () => {
-  let url = DEFAULT;
-  let enabled = true;
-  try {
-    const [savedUrl, savedEnabled] = await Promise.all([
-      getGlobalSetting("discordUrl"),
-      getGlobalSetting("showFloatingDiscord"),
-    ]);
-    if (savedUrl) url = savedUrl;
-    if (savedEnabled === "false") enabled = false;
-  } catch {
-    // DB tidak tersedia — gunakan default.
-  }
-  return ok({ url, enabled });
-});
+export const GET = handler(
+  async () => {
+    let url = DEFAULT;
+    let enabled = true;
+    try {
+      const [savedUrl, savedEnabled] = await Promise.all([
+        getGlobalSetting("discordUrl"),
+        getGlobalSetting("showFloatingDiscord"),
+      ]);
+      if (savedUrl) url = savedUrl;
+      if (savedEnabled === "false") enabled = false;
+    } catch {
+      // DB tidak tersedia — gunakan default.
+    }
+    return ok({ url, enabled });
+  },
+  { public: true },
+);

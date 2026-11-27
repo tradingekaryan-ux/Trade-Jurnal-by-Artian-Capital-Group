@@ -148,7 +148,8 @@ const parseInitialBalance = (payload: unknown): number => {
   const accounts = Array.isArray(p["accounts"]) ? p["accounts"] : [];
   return accounts.reduce((sum: number, acc: unknown) => {
     if (acc && typeof acc === "object") {
-      const balance = Number((acc as Record<string, unknown>)["initialBalance"] ?? 0);
+      const rec = acc as Record<string, unknown>;
+      const balance = Number(rec["initial_balance"] ?? rec["initialBalance"] ?? 0);
       return sum + (Number.isFinite(balance) ? balance : 0);
     }
     return sum;

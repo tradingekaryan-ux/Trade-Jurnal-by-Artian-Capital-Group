@@ -9,6 +9,7 @@ const PUBLIC_PATHS = new Set([
   "/api/register",
   "/api/ranking",
   "/api/quotes",
+  "/api/discord-url",
 ]);
 
 export const middleware = (request: NextRequest) => {

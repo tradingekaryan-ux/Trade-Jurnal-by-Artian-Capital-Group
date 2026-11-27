@@ -82,7 +82,36 @@ export const GET = handler(async (request: Request) => {
   const rows = modes?.length
     ? await sql`select * from cfd_trades where owner_id = ${user!.id} and mode = any(${modes}::text[]) order by opened_at desc`
     : await sql`select * from cfd_trades where owner_id = ${user!.id} order by opened_at desc`;
-  return ok({ trades: rows });
+  // The client expects camelCase; DB columns are snake_case.
+  return ok({
+    trades: rows.map((row) => ({
+      id: row.id,
+      category: row.category,
+      symbol: row.symbol,
+      mode: row.mode,
+      side: row.side,
+      lot: row.lot,
+      entry: row.entry,
+      takeProfit: row.take_profit,
+      stopLoss: row.stop_loss,
+      exitPrice: row.exit_price,
+      resultMode: row.result_mode,
+      manualPnl: row.manual_pnl,
+      usdPerPip: row.usd_per_pip,
+      leverage: row.leverage,
+      pips: row.pips,
+      pnl: row.pnl,
+      riskReward: row.risk_reward,
+      rMultiple: row.r_multiple,
+      status: row.status,
+      openedAt: row.opened_at,
+      closedAt: row.closed_at,
+      notes: row.notes,
+      imageUrls: row.image_urls,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    })),
+  });
 });
 
 export const POST = handler(async (request: Request) => {

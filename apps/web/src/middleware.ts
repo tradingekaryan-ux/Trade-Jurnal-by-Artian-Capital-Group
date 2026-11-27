@@ -8,7 +8,7 @@ const PUBLIC_PATHS = new Set([
   "/api/auth",
   "/api/register",
   "/api/ranking",
-  "/api/ranking/certificate",
+  "/api/quotes",
 ]);
 
 export const middleware = (request: NextRequest) => {

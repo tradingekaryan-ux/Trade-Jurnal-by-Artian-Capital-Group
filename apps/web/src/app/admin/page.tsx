@@ -173,6 +173,7 @@ export default function AdminPage() {
   const [modelInput, setModelInput] = useState("");
   const [newModelCaps, setNewModelCaps] = useState({ supportsPdf: false, supportsVision: false });
   const [keyDrafts, setKeyDrafts] = useState<Record<number, string>>({});
+  const [quotesText, setQuotesText] = useState("");
   const [newUser, setNewUser] = useState({
     username: "",
     password: "",
@@ -231,6 +232,10 @@ export default function AdminPage() {
       .then((body: SiteConfig) => setSite(body))
       .catch(() => setError("Gagal memuat konfigurasi situs."));
     loadKeys();
+    fetch("/api/quotes")
+      .then((response) => (response.ok ? response.json() : Promise.reject()))
+      .then((body: { quotes: string[] }) => setQuotesText(body.quotes.join("\n")))
+      .catch(() => setError("Gagal memuat quote."));
   }, [role]);
 
   const createUser = async () => {
@@ -314,6 +319,23 @@ export default function AdminPage() {
       setError(cause instanceof Error ? cause.message : "Gagal menyimpan konfigurasi.");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const saveQuotes = async () => {
+    const quotes = quotesText
+      .split("\n")
+      .map((item) => item.trim())
+      .filter(Boolean);
+    if (quotes.length === 0) {
+      setError("Isi minimal satu quote.");
+      return;
+    }
+    try {
+      await postJson("/api/admin/quotes", { quotes });
+      setMessage(`${quotes.length} quote disimpan. Slide berganti setiap 3 detik.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Gagal menyimpan quote.");
     }
   };
 
@@ -817,6 +839,21 @@ export default function AdminPage() {
                   placeholder="https://discord.gg/…"
                 />
               </div>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="dashboard-quotes">
+                Quote dashboard (satu per baris, berganti tiap 3 detik)
+              </Label>
+              <textarea
+                id="dashboard-quotes"
+                rows={6}
+                value={quotesText}
+                onChange={(e) => setQuotesText(e.target.value)}
+                className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+              />
+              <Button size="sm" variant="outline" onClick={() => void saveQuotes()}>
+                Simpan quote
+              </Button>
             </div>
             <label className="flex items-center gap-2 text-sm">
               <input

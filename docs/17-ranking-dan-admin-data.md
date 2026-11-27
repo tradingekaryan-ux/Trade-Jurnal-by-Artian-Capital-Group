@@ -23,15 +23,17 @@ Sumbernya Supabase: `cfd_trades`, `promos`, `journal_snapshots.payload`. Edge Sc
 
 Peringkat dihitung ulang dari Supabase pada setiap permintaan, sehingga berubah ketika ada trade baru.
 
-## Sertifikat ranking
+## Sertifikat ranking (PNG)
 
-Tombol **Sertifikat** mengunduh PDF dari `GET /api/ranking/certificate?userId=<id>`:
+Tombol **Sertifikat** membuka panel pilihan ukuran (**1920×1080** atau **1080×1080**) lalu mengunduh **PNG** yang dirender di browser:
 
 - Peringkat saat unduhan, total peserta, nama jurnal, pemilik, dan Edge Score.
-- Statistik: total jurnal, total trade, trade selesai, menang/kalah, win rate, net P&L, profit factor, expectancy.
-- **Tanggal dan jam unduhan (UTC) dicetak di sertifikat**, lengkap dengan catatan bahwa peringkat dapat berubah.
+- Statistik: trade selesai, win rate, net P&L, profit factor.
+- **Tanggal dan jam unduhan (UTC) dicetak**, lengkap dengan catatan bahwa peringkat dapat berubah.
+- Di kiri bawah: tanda tangan **Eka Ryan** memakai font `Allura` + nama cetak **Pt. Eka Ryan M.**
+- Di kanan bawah: barcode Code128 yang mengarah ke alamat website, disertai teks URL.
 
-PDF dibuat di server dengan `pdf-lib` dan font `public/fonts/NotoSans-Regular.ttf`, dikirim dengan `Cache-Control: no-store` agar tanggal selalu segar.
+Tidak ada lagi endpoint PDF untuk sertifikat ranking — semua berjalan offline di browser.
 
 ## Urutan navigasi sidebar
 

@@ -5,6 +5,8 @@ import { FilterBar } from "@/components/filter-bar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { VerifiedBadge } from "@/components/verified-badge";
+import { OptionSelect } from "@/components/ui/option-select";
+import { downloadBlob, renderSharePng, type ShareSize } from "@/lib/share-image";
 
 interface JournalSummary {
   mode: string;
@@ -47,6 +49,9 @@ export default function RankingPage() {
   const [rankedAt, setRankedAt] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [open, setOpen] = useState<string | null>(null);
+  const [cert, setCert] = useState<{ entry: Entry; size: ShareSize } | null>(null);
+  const [certBusy, setCertBusy] = useState(false);
+  const [certError, setCertError] = useState("");
 
   useEffect(() => {
     fetch("/api/ranking")
@@ -57,6 +62,38 @@ export default function RankingPage() {
       })
       .catch(() => setError("Gagal memuat ranking."));
   }, []);
+
+  const downloadCertificate = async () => {
+    if (!cert) return;
+    setCertBusy(true);
+    setCertError("");
+    try {
+      const issuedAt = new Date().toISOString();
+      const blob = await renderSharePng({
+        size: cert.size,
+        title: "Sertifikat Peringkat Jurnal",
+        subtitle: `Trade Jurnal by Artian Capital Group · ${issuedAt.slice(0, 10)}`,
+        stats: [
+          { label: "Peringkat", value: `#${cert.entry.rank} dari ${entries.length}` },
+          { label: "Nama jurnal", value: cert.entry.journalName.slice(0, 28) },
+          { label: "Pemilik", value: `@${cert.entry.username}` },
+          { label: "Edge Score", value: score(cert.entry.edgeScore) },
+          { label: "Trade selesai", value: String(cert.entry.closedTrades) },
+          { label: "Win rate", value: percent(cert.entry.winRate) },
+          { label: "Net P&L", value: money(cert.entry.netPnl) },
+          { label: "Profit factor", value: score(cert.entry.profitFactor) },
+        ],
+        note: `Diterbitkan ${issuedAt.slice(0, 16).replace("T", " ")} UTC — peringkat dapat berubah.`,
+        issuedAt,
+        siteUrl: typeof window !== "undefined" ? window.location.origin : "",
+      });
+      downloadBlob(blob, `sertifikat-${cert.entry.username}-${issuedAt.slice(0, 10)}.png`);
+    } catch (cause) {
+      setCertError(cause instanceof Error ? cause.message : "Gagal membuat sertifikat.");
+    } finally {
+      setCertBusy(false);
+    }
+  };
 
   return (
     <div>
@@ -78,6 +115,35 @@ export default function RankingPage() {
             {error && <p className="text-sm text-destructive">{error}</p>}
           </CardContent>
         </Card>
+
+        {cert && (
+          <Card>
+            <CardHeader className="flex flex-wrap items-center justify-between gap-2">
+              <CardTitle>Sertifikat · {cert.entry.journalName}</CardTitle>
+              <Button size="sm" variant="ghost" onClick={() => setCert(null)}>
+                Tutup
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Sertifikat PNG dirender di browser, lengkap dengan tanggal unduhan, tanda tangan Pt.
+                Eka Ryan M., dan barcode ke website ini.
+              </p>
+              <OptionSelect
+                value={cert.size}
+                onValueChange={(value) => setCert({ ...cert, size: value as ShareSize })}
+                className="w-64"
+              >
+                <option value="1920x1080">1920 × 1080 (landscape)</option>
+                <option value="1080x1080">1080 × 1080 (square)</option>
+              </OptionSelect>
+              {certError && <p className="text-sm text-destructive">{certError}</p>}
+              <Button disabled={certBusy} onClick={() => void downloadCertificate()}>
+                {certBusy ? "Membuat sertifikat…" : "Unduh sertifikat PNG"}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardContent className="overflow-x-auto pt-4">
@@ -127,12 +193,7 @@ export default function RankingPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() =>
-                              window.open(
-                                `/api/ranking/certificate?userId=${encodeURIComponent(entry.userId)}`,
-                                "_blank",
-                              )
-                            }
+                            onClick={() => setCert({ entry, size: cert?.size ?? "1920x1080" })}
                           >
                             Sertifikat
                           </Button>

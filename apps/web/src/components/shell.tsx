@@ -22,6 +22,7 @@ import {
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
+  Share2,
   Trophy,
   X,
 } from "lucide-react";
@@ -54,6 +55,7 @@ const NAV = [
   { href: "/prop-sim", label: "Strategy lab", icon: BarChart3 },
   { href: "/prop-firms", label: "Prop firms", icon: Landmark },
   { href: "/ranking", label: "Ranking", icon: Trophy },
+  { href: "/share", label: "PnL & Post Share", icon: Share2 },
   { href: "/promo", label: "Promo", icon: BookmarkPlus },
   { href: "/ideas", label: "Trades Idea", icon: BookmarkPlus },
   { href: "/profile", label: "Profile", icon: Wallet },

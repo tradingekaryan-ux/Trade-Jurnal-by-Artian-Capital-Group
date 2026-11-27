@@ -1436,3 +1436,50 @@ body.dashboard-is-dragging * {
   max-width: 100%;
   border-radius: 6px;
 }
+
+/* Dashboard motivational quotes */
+.quote-slideshow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklab, var(--brand, #0b6b4a) 35%, transparent);
+  background: color-mix(in oklab, var(--brand, #0b6b4a) 8%, transparent);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+}
+.quote-mark {
+  font-size: 2rem;
+  line-height: 1;
+  color: var(--brand, #0b6b4a);
+}
+.quote-slide {
+  flex: 1;
+  font-size: 0.9rem;
+  font-style: italic;
+  animation: quote-fade 0.5s ease-in-out;
+}
+.quote-dots {
+  display: flex;
+  gap: 0.25rem;
+}
+.quote-dots span {
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 9999px;
+  background: color-mix(in oklab, currentColor 35%, transparent);
+}
+.quote-dots span.active {
+  background: var(--brand, #0b6b4a);
+}
+@keyframes quote-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

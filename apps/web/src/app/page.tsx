@@ -32,6 +32,7 @@ import {
   Trophy,
 } from "lucide-react";
 import { FilterBar, useFilters } from "@/components/filter-bar";
+import { QuoteSlideshow } from "@/components/quote-slideshow";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { MonetaryValue } from "@/components/privacy";
 import { Pnl } from "@/components/pnl";
@@ -98,6 +99,9 @@ function Dashboard() {
   return (
     <>
       <FilterBar title="Dashboard" />
+      <div className="px-4 pt-3">
+        <QuoteSlideshow />
+      </div>
       <DashboardContent
         data={data}
         loading={loading}

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { VerifiedBadge } from "@/components/verified-badge";
 import { SharePreview, type BgTransform } from "@/components/share-preview";
+import { BackgroundControls } from "@/components/background-controls";
 import {
   CERT_HEIGHT,
   CERT_WIDTH,
@@ -70,6 +71,18 @@ export default function RankingPage() {
   const [bgError, setBgError] = useState("");
   const [overlayOpacity, setOverlayOpacity] = useState(0.85);
   const [transform, setTransform] = useState<BgTransform>({ offsetX: 0, offsetY: 0, scale: 1 });
+  const [bgVersion, setBgVersion] = useState(0);
+  const resetTransform = useCallback(() => setTransform({ offsetX: 0, offsetY: 0, scale: 1 }), []);
+  const applyBackground = useCallback(
+    (media: HTMLImageElement | HTMLVideoElement, video: boolean) => {
+      setBgMedia(media);
+      setBgIsVideo(video);
+      setOverlayOpacity(0.65);
+      resetTransform();
+      setBgVersion((v) => v + 1);
+    },
+    [resetTransform],
+  );
   const fileRef = useRef<HTMLInputElement>(null);
   const [videoTime, setVideoTime] = useState(0);
   const [videoDuration, setVideoDuration] = useState(0);
@@ -126,52 +139,52 @@ export default function RankingPage() {
     return () => renderCertificatePng(buildCertOptions(cert.entry, Boolean(bgMedia)));
   }, [cert, buildCertOptions, bgMedia]);
 
-  const pickFile = useCallback(async (file: File | undefined) => {
-    if (!file) return;
-    setBgError("");
-    setTransform({ offsetX: 0, offsetY: 0, scale: 1 });
+  const pickFile = useCallback(
+    async (file: File | undefined) => {
+      if (!file) return;
+      setBgError("");
 
-    if (file.type.startsWith("image/")) {
-      const img = new Image();
-      img.src = URL.createObjectURL(file);
-      try {
-        await img.decode();
-        setBgMedia(img);
-        setBgIsVideo(false);
-      } catch {
-        setBgError("Gambar tidak bisa dibaca.");
+      if (file.type.startsWith("image/")) {
+        const img = new Image();
+        img.src = URL.createObjectURL(file);
+        try {
+          await img.decode();
+          applyBackground(img, false);
+        } catch {
+          setBgError("Gambar tidak bisa dibaca.");
+        }
+        return;
       }
-      return;
-    }
-    if (file.type.startsWith("video/")) {
-      const video = document.createElement("video");
-      video.src = URL.createObjectURL(file);
-      video.muted = true;
-      video.preload = "auto";
-      video.playsInline = true;
-      try {
-        await new Promise<void>((res, rej) => {
-          if (video.readyState >= 1) {
-            res();
-            return;
-          }
-          video.onloadedmetadata = () => res();
-          video.onerror = () => rej(new Error("Video tidak bisa dibaca."));
-        });
-        video.currentTime = 0;
-        await new Promise<void>((res) => {
-          video.onseeked = () => res();
-          window.setTimeout(res, 1500);
-        });
-        setBgMedia(video);
-        setBgIsVideo(true);
-      } catch (e) {
-        setBgError(e instanceof Error ? e.message : "Video tidak bisa dibaca.");
+      if (file.type.startsWith("video/")) {
+        const video = document.createElement("video");
+        video.src = URL.createObjectURL(file);
+        video.muted = true;
+        video.preload = "auto";
+        video.playsInline = true;
+        try {
+          await new Promise<void>((res, rej) => {
+            if (video.readyState >= 1) {
+              res();
+              return;
+            }
+            video.onloadedmetadata = () => res();
+            video.onerror = () => rej(new Error("Video tidak bisa dibaca."));
+          });
+          video.currentTime = 0;
+          await new Promise<void>((res) => {
+            video.onseeked = () => res();
+            window.setTimeout(res, 1500);
+          });
+          applyBackground(video, true);
+        } catch (e) {
+          setBgError(e instanceof Error ? e.message : "Video tidak bisa dibaca.");
+        }
+        return;
       }
-      return;
-    }
-    setBgError("Format tidak didukung. Pilih gambar atau video.");
-  }, []);
+      setBgError("Format tidak didukung. Pilih gambar atau video.");
+    },
+    [applyBackground],
+  );
 
   const seekVideo = useCallback(
     (t: number) => {
@@ -278,6 +291,7 @@ export default function RankingPage() {
               <div className="space-y-3">
                 <div className="flex justify-center overflow-x-auto">
                   <SharePreview
+                    key={`cert-bg-${bgVersion}`}
                     customRender={renderCertHud}
                     dimensions={[CERT_WIDTH, CERT_HEIGHT]}
                     background={bgMedia}
@@ -319,7 +333,9 @@ export default function RankingPage() {
                       onClick={() => {
                         setBgMedia(null);
                         setBgIsVideo(false);
-                        setTransform({ offsetX: 0, offsetY: 0, scale: 1 });
+                        setOverlayOpacity(0.85);
+                        resetTransform();
+                        setBgVersion((v) => v + 1);
                       }}
                     >
                       Gunakan Chart Default
@@ -329,28 +345,15 @@ export default function RankingPage() {
                 {bgError && <p className="text-xs text-destructive">{bgError}</p>}
                 <p className="text-xs text-muted-foreground">
                   {bgIsVideo
-                    ? "🎬 Background video — drag untuk geser, scroll/slider untuk zoom. Export otomatis: MP4."
+                    ? "Background video ≤15 detik. Geser dengan tombol atau drag di preview, zoom dengan tombol. Export: MP4."
                     : bgMedia
-                      ? "🖼 Background gambar — drag untuk geser, scroll/slider untuk zoom. Export otomatis: PNG."
-                      : "📈 Background default: Grafik Chart. Export otomatis: PNG."}
+                      ? "Background gambar. Geser dengan tombol atau drag di preview, zoom dengan tombol. Export: PNG."
+                      : "Background default: grafik chart. Export otomatis: PNG."}
                 </p>
 
                 {bgMedia && (
-                  <div className="space-y-2 border-t pt-2">
-                    <div className="space-y-1">
-                      <Label>Zoom background ({Math.round(transform.scale * 100)}%)</Label>
-                      <input
-                        type="range"
-                        min={0.5}
-                        max={5}
-                        step={0.05}
-                        value={transform.scale}
-                        onChange={(e) =>
-                          setTransform({ ...transform, scale: Number(e.target.value) })
-                        }
-                        className="w-full"
-                      />
-                    </div>
+                  <div className="space-y-4 border-t pt-3">
+                    <BackgroundControls transform={transform} onChange={setTransform} />
                     {bgIsVideo && videoDuration > 0 && (
                       <div className="space-y-1">
                         <Label>Frame video (detik ke-{videoTime.toFixed(1)})</Label>
@@ -365,13 +368,6 @@ export default function RankingPage() {
                         />
                       </div>
                     )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setTransform({ offsetX: 0, offsetY: 0, scale: 1 })}
-                    >
-                      Reset posisi
-                    </Button>
                   </div>
                 )}
 

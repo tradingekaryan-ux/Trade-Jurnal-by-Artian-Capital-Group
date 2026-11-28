@@ -93,7 +93,16 @@ export const renderCertificatePng = async (opt: CertificateOptions): Promise<Blo
       drawDefaultChartBackground(ctx, W, H, lime);
     }
   }
-  drawBlackLeftGradient(ctx, W, H, opt.overlayOpacity ?? 0.85);
+  if (opt.transparentBackground) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, W * 0.72, H);
+    ctx.clip();
+    drawBlackLeftGradient(ctx, W, H, opt.overlayOpacity ?? 0.85);
+    ctx.restore();
+  } else {
+    drawBlackLeftGradient(ctx, W, H, opt.overlayOpacity ?? 0.85);
+  }
 
   // ── 2. ARTIAN Capital Group logo (top-left) ───────────────────────────────
   drawArtianWordmark(ctx, pad, 52, 88);

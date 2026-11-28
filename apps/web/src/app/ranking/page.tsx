@@ -69,7 +69,7 @@ export default function RankingPage() {
   const [bgMedia, setBgMedia] = useState<HTMLImageElement | HTMLVideoElement | null>(null);
   const [bgIsVideo, setBgIsVideo] = useState(false);
   const [bgError, setBgError] = useState("");
-  const [overlayOpacity, setOverlayOpacity] = useState(0.85);
+  const [overlayOpacity, setOverlayOpacity] = useState(0);
   const [transform, setTransform] = useState<BgTransform>({ offsetX: 0, offsetY: 0, scale: 1 });
   const [bgVersion, setBgVersion] = useState(0);
   const resetTransform = useCallback(() => setTransform({ offsetX: 0, offsetY: 0, scale: 1 }), []);
@@ -77,7 +77,7 @@ export default function RankingPage() {
     (media: HTMLImageElement | HTMLVideoElement, video: boolean) => {
       setBgMedia(media);
       setBgIsVideo(video);
-      setOverlayOpacity(0.65);
+      setOverlayOpacity(0);
       resetTransform();
       setBgVersion((v) => v + 1);
     },
@@ -296,7 +296,6 @@ export default function RankingPage() {
                     dimensions={[CERT_WIDTH, CERT_HEIGHT]}
                     background={bgMedia}
                     transform={transform}
-                    onTransformChange={setTransform}
                     displayWidth={Math.min(
                       640,
                       typeof window !== "undefined" ? window.innerWidth - 64 : 640,
@@ -333,7 +332,7 @@ export default function RankingPage() {
                       onClick={() => {
                         setBgMedia(null);
                         setBgIsVideo(false);
-                        setOverlayOpacity(0.85);
+                        setOverlayOpacity(0);
                         resetTransform();
                         setBgVersion((v) => v + 1);
                       }}
@@ -345,44 +344,34 @@ export default function RankingPage() {
                 {bgError && <p className="text-xs text-destructive">{bgError}</p>}
                 <p className="text-xs text-muted-foreground">
                   {bgIsVideo
-                    ? "Background video ≤15 detik. Geser dengan tombol atau drag di preview, zoom dengan tombol. Export: MP4."
+                    ? "Background video ≤15 detik. Atur posisi, zoom, dan opacity lewat panel kontrol. Export: MP4."
                     : bgMedia
-                      ? "Background gambar. Geser dengan tombol atau drag di preview, zoom dengan tombol. Export: PNG."
-                      : "Background default: grafik chart. Export otomatis: PNG."}
+                      ? "Background gambar. Atur posisi, zoom, dan opacity lewat panel kontrol. Export: PNG."
+                      : "Background default: grafik chart. Panel kontrol tersedia setelah gambar/video dipilih."}
                 </p>
 
-                {bgMedia && (
-                  <div className="space-y-4 border-t pt-3">
-                    <BackgroundControls transform={transform} onChange={setTransform} />
-                    {bgIsVideo && videoDuration > 0 && (
-                      <div className="space-y-1">
-                        <Label>Frame video (detik ke-{videoTime.toFixed(1)})</Label>
-                        <input
-                          type="range"
-                          min={0}
-                          max={videoDuration}
-                          step={0.1}
-                          value={videoTime}
-                          onChange={(e) => seekVideo(Number(e.target.value))}
-                          className="w-full"
-                        />
-                      </div>
-                    )}
+                <BackgroundControls
+                  transform={transform}
+                  onChange={setTransform}
+                  opacity={overlayOpacity}
+                  onOpacityChange={setOverlayOpacity}
+                  disabled={!bgMedia}
+                />
+
+                {bgIsVideo && bgMedia instanceof HTMLVideoElement && videoDuration > 0 && (
+                  <div className="space-y-1 border-t pt-3">
+                    <Label>Frame video (detik ke-{videoTime.toFixed(1)})</Label>
+                    <input
+                      type="range"
+                      min={0}
+                      max={videoDuration}
+                      step={0.1}
+                      value={videoTime}
+                      onChange={(e) => seekVideo(Number(e.target.value))}
+                      className="w-full"
+                    />
                   </div>
                 )}
-
-                <div className="space-y-1 border-t pt-2">
-                  <Label>Opacity overlay kanan ({Math.round(overlayOpacity * 100)}%)</Label>
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    value={overlayOpacity}
-                    onChange={(e) => setOverlayOpacity(Number(e.target.value))}
-                    className="w-full"
-                  />
-                </div>
               </div>
             </CardContent>
           </Card>

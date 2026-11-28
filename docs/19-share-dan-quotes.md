@@ -20,9 +20,9 @@ Sumber data: `GET /api/share/data` (hanya akun sendiri). Render memakai `<canvas
 
 - Ukuran: **1920×1080** atau **1080×1080**.
 - Background: gambar apa pun, atau video **maksimal 15 detik**; user bisa memilih frame lewat slider.
-- Kontrol background: tombol **atas / kiri / kanan / bawah**, **zoom in / zoom out**, dan **reset posisi** (`components/background-controls.tsx`). Drag di preview juga tetap didukung.
-- Saat background diimpor, overlay otomatis diset **65%** dan preview di-render ulang (`bgVersion`) agar gambar langsung tampil tanpa harus menggeser slider opacity.
-- Gradient gelap hanya menutup **72% sisi kiri** ketika background custom dipakai, sehingga gambar tidak tertutup seluruhnya. Tombol "Gunakan Chart Default" mengembalikan overlay ke 85%.
+- Satu **panel kontrol bergaya console** (`components/background-controls.tsx`) berisi: D-pad **atas / kiri / kanan / bawah**, **reset**, **zoom in / zoom out**, dan opacity **− / + / input angka 0–100%**. Preview bersifat read-only — drag dan scroll dihapus.
+- Default opacity **0%**. Gambar diimpor langsung tampil tanpa menggeser kontrol apa pun; `bgVersion` memaksa preview render ulang dengan state terbaru.
+- Gradient gelap hanya menutup **72% sisi kiri** saat background custom dipakai, sehingga gambar tidak tertutup seluruhnya. Panel kiri tetap gelap agar teks terbaca.
 - Footer wajib pada semua PNG share (jurnal PnL, trade PnL, sertifikat):
   - kiri bawah: tanda tangan **Eka Ryan** (font `public/fonts/Allura-Regular.ttf`, OFL) + nama cetak **Pt. Eka Ryan M.**
   - kanan bawah: barcode Code128 (`lib/barcode.ts`) yang meng encodes alamat website + label URL.

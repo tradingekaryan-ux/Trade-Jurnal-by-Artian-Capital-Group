@@ -5,144 +5,185 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  Minus,
+  Plus,
   RotateCcw,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import { Button } from "./ui/button";
 import type { BgTransform } from "./share-preview";
 
-/** D-pad + zoom controls for positioning a share/certificate background. */
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+/** Single console-style panel for positioning, zooming and fading the background. */
 export function BackgroundControls({
   transform,
   onChange,
+  opacity,
+  onOpacityChange,
   disabled = false,
   step = 48,
   zoomStep = 0.15,
+  opacityStep = 5,
 }: {
   transform: BgTransform;
   onChange: (next: BgTransform) => void;
+  /** 0–1 (0% = no extra overlay). */
+  opacity: number;
+  onOpacityChange: (next: number) => void;
   disabled?: boolean;
-  /** Canvas pixels moved per arrow press. */
   step?: number;
   zoomStep?: number;
+  opacityStep?: number;
 }) {
+  const percent = Math.round(opacity * 100);
   const nudge = (dx: number, dy: number) =>
-    onChange({ ...transform, offsetX: transform.offsetX + dx, offsetY: transform.offsetY + dy });
-
+    onChange({
+      ...transform,
+      offsetX: Math.round(transform.offsetX + dx),
+      offsetY: Math.round(transform.offsetY + dy),
+    });
   const zoom = (factor: number) =>
     onChange({
       ...transform,
-      scale: Math.min(5, Math.max(0.5, Number((transform.scale * factor).toFixed(3)))),
+      scale: Number(clamp(transform.scale * factor, 0.5, 5).toFixed(3)),
     });
-
-  const reset = () => onChange({ offsetX: 0, offsetY: 0, scale: 1 });
-  const iconBtn = "h-8 w-8 sm:h-9 sm:w-9";
+  const setPercent = (next: number) => onOpacityChange(clamp(next, 0, 100) / 100);
+  const reset = () => {
+    onChange({ offsetX: 0, offsetY: 0, scale: 1 });
+    setPercent(0);
+  };
+  const screen = `X ${transform.offsetX >= 0 ? "+" : ""}${transform.offsetX}  Y ${
+    transform.offsetY >= 0 ? "+" : ""
+  }${transform.offsetY}  Z ${Math.round(transform.scale * 100)}%  OP ${percent}%`;
 
   return (
-    <div className="flex flex-wrap items-end gap-4 sm:gap-6">
-      <div className="space-y-1.5">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-          Posisi background
-        </p>
-        <div className="grid w-fit grid-cols-3 gap-1">
-          <span />
-          <Button
-            type="button"
-            size="icon"
-            variant="outline"
-            className={iconBtn}
-            disabled={disabled}
-            aria-label="Geser background ke atas"
-            title="Atas"
-            onClick={() => nudge(0, -step)}
-          >
-            <ArrowUp />
-          </Button>
-          <span />
-          <Button
-            type="button"
-            size="icon"
-            variant="outline"
-            className={iconBtn}
-            disabled={disabled}
-            aria-label="Geser background ke kiri"
-            title="Kiri"
-            onClick={() => nudge(-step, 0)}
-          >
-            <ArrowLeft />
-          </Button>
-          <Button
-            type="button"
-            size="icon"
-            variant="outline"
-            className={iconBtn}
-            disabled={disabled}
-            aria-label="Reset posisi background"
-            title="Reset posisi"
-            onClick={reset}
-          >
-            <RotateCcw />
-          </Button>
-          <Button
-            type="button"
-            size="icon"
-            variant="outline"
-            className={iconBtn}
-            disabled={disabled}
-            aria-label="Geser background ke kanan"
-            title="Kanan"
-            onClick={() => nudge(step, 0)}
-          >
-            <ArrowRight />
-          </Button>
-          <span />
-          <Button
-            type="button"
-            size="icon"
-            variant="outline"
-            className={iconBtn}
-            disabled={disabled}
-            aria-label="Geser background ke bawah"
-            title="Bawah"
-            onClick={() => nudge(0, step)}
-          >
-            <ArrowDown />
-          </Button>
-          <span />
-        </div>
+    <div className="edit-console">
+      <div className="edit-console-head">
+        <span className="edit-console-led" data-on={!disabled} />
+        <span>BACKGROUND CONTROL</span>
+        <span className="edit-console-head-right">ED·01 / OFFLINE</span>
       </div>
 
-      <div className="space-y-1.5">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-          Zoom · {Math.round(transform.scale * 100)}%
-        </p>
-        <div className="flex items-center gap-1">
-          <Button
-            type="button"
-            size="icon"
-            variant="outline"
-            className={iconBtn}
-            disabled={disabled || transform.scale <= 0.5}
-            aria-label="Zoom out background"
-            title="Zoom out"
-            onClick={() => zoom(1 / (1 + zoomStep))}
-          >
-            <ZoomOut />
-          </Button>
-          <Button
-            type="button"
-            size="icon"
-            variant="outline"
-            className={iconBtn}
-            disabled={disabled || transform.scale >= 5}
-            aria-label="Zoom in background"
-            title="Zoom in"
-            onClick={() => zoom(1 + zoomStep)}
-          >
-            <ZoomIn />
-          </Button>
-        </div>
+      <div className="edit-console-screen" aria-label="Posisi background saat ini">
+        {screen}
+      </div>
+
+      <div className="edit-console-grid">
+        <section className="edit-console-section">
+          <p className="edit-console-label">POSITION · {step}px</p>
+          <div className="edit-console-dpad">
+            <span />
+            <button
+              className="edit-key"
+              disabled={disabled}
+              onClick={() => nudge(0, -step)}
+              aria-label="Geser background ke atas"
+              title="Atas"
+            >
+              <ArrowUp />
+            </button>
+            <span />
+            <button
+              className="edit-key"
+              disabled={disabled}
+              onClick={() => nudge(-step, 0)}
+              aria-label="Geser background ke kiri"
+              title="Kiri"
+            >
+              <ArrowLeft />
+            </button>
+            <button
+              className="edit-key"
+              disabled={disabled}
+              onClick={reset}
+              aria-label="Reset posisi dan opacity"
+              title="Reset"
+            >
+              <RotateCcw />
+            </button>
+            <button
+              className="edit-key"
+              disabled={disabled}
+              onClick={() => nudge(step, 0)}
+              aria-label="Geser background ke kanan"
+              title="Kanan"
+            >
+              <ArrowRight />
+            </button>
+            <span />
+            <button
+              className="edit-key"
+              disabled={disabled}
+              onClick={() => nudge(0, step)}
+              aria-label="Geser background ke bawah"
+              title="Bawah"
+            >
+              <ArrowDown />
+            </button>
+            <span />
+          </div>
+        </section>
+
+        <section className="edit-console-section">
+          <p className="edit-console-label">ZOOM · {Math.round(transform.scale * 100)}%</p>
+          <div className="edit-console-row">
+            <button
+              className="edit-key edit-key-wide"
+              disabled={disabled || transform.scale <= 0.5}
+              onClick={() => zoom(1 / (1 + zoomStep))}
+              aria-label="Zoom out background"
+              title="Zoom out"
+            >
+              <ZoomOut /> <span>−</span>
+            </button>
+            <button
+              className="edit-key edit-key-wide"
+              disabled={disabled || transform.scale >= 5}
+              onClick={() => zoom(1 + zoomStep)}
+              aria-label="Zoom in background"
+              title="Zoom in"
+            >
+              <ZoomIn /> <span>+</span>
+            </button>
+          </div>
+          <p className="edit-console-hint">Perbesar / perkecil gambar.</p>
+        </section>
+
+        <section className="edit-console-section">
+          <p className="edit-console-label">OVERLAY OPACITY</p>
+          <div className="edit-console-row">
+            <button
+              className="edit-key"
+              onClick={() => setPercent(percent - opacityStep)}
+              aria-label="Turunkan opacity"
+              title="Turunkan"
+            >
+              <Minus />
+            </button>
+            <label className="edit-console-input">
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={1}
+                value={percent}
+                onChange={(event) => setPercent(Number(event.target.value))}
+                aria-label="Opacity overlay dalam persen"
+              />
+              <span>%</span>
+            </label>
+            <button
+              className="edit-key"
+              onClick={() => setPercent(percent + opacityStep)}
+              aria-label="Naikkan opacity"
+              title="Naikkan"
+            >
+              <Plus />
+            </button>
+          </div>
+          <p className="edit-console-hint">0% = background tanpa overlay tambahan.</p>
+        </section>
       </div>
     </div>
   );

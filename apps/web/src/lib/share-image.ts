@@ -296,7 +296,7 @@ export const drawBlackLeftGradient = (
   ctx: CanvasRenderingContext2D,
   W: number,
   H: number,
-  overlayOpacity = 0.85,
+  overlayOpacity = 0,
 ): void => {
   const op = Math.max(0, Math.min(1, overlayOpacity));
   const g = ctx.createLinearGradient(0, 0, W, 0);
@@ -486,10 +486,10 @@ export const renderSharePng = async (options: ShareImageOptions): Promise<Blob> 
     ctx.beginPath();
     ctx.rect(0, 0, W * 0.72, H);
     ctx.clip();
-    drawBlackLeftGradient(ctx, W, H, options.overlayOpacity ?? 0.85);
+    drawBlackLeftGradient(ctx, W, H, options.overlayOpacity ?? 0);
     ctx.restore();
   } else {
-    drawBlackLeftGradient(ctx, W, H, options.overlayOpacity ?? 0.85);
+    drawBlackLeftGradient(ctx, W, H, options.overlayOpacity ?? 0);
   }
 
   // ── 2. ARTIAN Capital Group logo (top-left) ───────────────────────────────

@@ -1,13 +1,12 @@
 "use client";
 
 /**
- * SharePreview — interactive canvas preview with:
- *   - pan (drag background image/video)
- *   - zoom (slider + mouse wheel)
- *   - works for both PnL/Post Shares and Certificate of Rank
+ * SharePreview — read-only canvas preview.
+ * Background positioning is done exclusively through the console control panel,
+ * never by dragging/scrolling on the preview itself.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ShareImageOptions } from "@/lib/share-image";
 import { renderSharePng } from "@/lib/share-image";
 
@@ -24,10 +23,9 @@ interface Props {
   customRender?: () => Promise<Blob>;
   /** Canvas dimensions override (defaults to options.size or 1920×1080). */
   dimensions?: [number, number];
-  /** Background image/video element; transform applies to this element. */
+  /** Background image/video element. */
   background: HTMLImageElement | HTMLVideoElement | null;
   transform: BgTransform;
-  onTransformChange: (t: BgTransform) => void;
   /** Preview display width in CSS pixels (height auto from aspect ratio). */
   displayWidth?: number;
 }
@@ -78,11 +76,9 @@ export function SharePreview({
   dimensions,
   background,
   transform,
-  onTransformChange,
   displayWidth = 760,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const dragStart = useRef<{ mx: number; my: number; ox: number; oy: number } | null>(null);
   const [rendering, setRendering] = useState(false);
 
   const [w, h] = dimensions ?? (options?.size === "1080x1080" ? [1080, 1080] : [1920, 1080]);
@@ -107,88 +103,6 @@ export function SharePreview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [options, customRender, background, transform]);
 
-  const onWheel = useCallback(
-    (e: React.WheelEvent) => {
-      if (!background) return;
-      e.preventDefault();
-      const delta = -e.deltaY / 500;
-      const next = Math.min(5, Math.max(0.5, transform.scale + delta));
-      onTransformChange({ ...transform, scale: next });
-    },
-    [background, transform, onTransformChange],
-  );
-
-  const onMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      if (!background) return;
-      dragStart.current = {
-        mx: e.clientX,
-        my: e.clientY,
-        ox: transform.offsetX,
-        oy: transform.offsetY,
-      };
-    },
-    [background, transform],
-  );
-
-  const onMouseMove = useCallback(
-    (e: React.MouseEvent) => {
-      if (!dragStart.current) return;
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const displayScale = canvas.width / displayWidth;
-      const dx = (e.clientX - dragStart.current.mx) * displayScale;
-      const dy = (e.clientY - dragStart.current.my) * displayScale;
-      onTransformChange({
-        ...transform,
-        offsetX: dragStart.current.ox + dx,
-        offsetY: dragStart.current.oy + dy,
-      });
-    },
-    [transform, onTransformChange, displayWidth],
-  );
-
-  const onMouseUp = useCallback(() => {
-    dragStart.current = null;
-  }, []);
-
-  const touchStart = useRef<{ tx: number; ty: number; ox: number; oy: number } | null>(null);
-  const onTouchStart = useCallback(
-    (e: React.TouchEvent) => {
-      if (!background) return;
-      const t = e.touches[0];
-      if (!t) return;
-      touchStart.current = {
-        tx: t.clientX,
-        ty: t.clientY,
-        ox: transform.offsetX,
-        oy: transform.offsetY,
-      };
-    },
-    [background, transform],
-  );
-  const onTouchMove = useCallback(
-    (e: React.TouchEvent) => {
-      if (!touchStart.current) return;
-      const t = e.touches[0];
-      if (!t) return;
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const displayScale = canvas.width / displayWidth;
-      const dx = (t.clientX - touchStart.current.tx) * displayScale;
-      const dy = (t.clientY - touchStart.current.ty) * displayScale;
-      onTransformChange({
-        ...transform,
-        offsetX: touchStart.current.ox + dx,
-        offsetY: touchStart.current.oy + dy,
-      });
-    },
-    [transform, onTransformChange, displayWidth],
-  );
-  const onTouchEnd = useCallback(() => {
-    touchStart.current = null;
-  }, []);
-
   return (
     <div className="space-y-2">
       <div
@@ -199,29 +113,11 @@ export function SharePreview({
           ref={canvasRef}
           width={w}
           height={h}
-          style={{
-            width: displayWidth,
-            height: displayH,
-            cursor: background ? "grab" : "default",
-            display: "block",
-          }}
-          onWheel={onWheel}
-          onMouseDown={onMouseDown}
-          onMouseMove={onMouseMove}
-          onMouseUp={onMouseUp}
-          onMouseLeave={onMouseUp}
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
+          style={{ width: displayWidth, height: displayH, display: "block" }}
         />
         {rendering && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/40">
             <span className="text-xs text-white/70">Rendering…</span>
-          </div>
-        )}
-        {background && (
-          <div className="absolute bottom-2 left-2 rounded bg-black/60 px-2 py-0.5 text-[10px] text-white/70">
-            Drag to pan · scroll to zoom
           </div>
         )}
       </div>

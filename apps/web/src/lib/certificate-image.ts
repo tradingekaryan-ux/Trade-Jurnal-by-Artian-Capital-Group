@@ -98,10 +98,10 @@ export const renderCertificatePng = async (opt: CertificateOptions): Promise<Blo
     ctx.beginPath();
     ctx.rect(0, 0, W * 0.72, H);
     ctx.clip();
-    drawBlackLeftGradient(ctx, W, H, opt.overlayOpacity ?? 0.85);
+    drawBlackLeftGradient(ctx, W, H, opt.overlayOpacity ?? 0);
     ctx.restore();
   } else {
-    drawBlackLeftGradient(ctx, W, H, opt.overlayOpacity ?? 0.85);
+    drawBlackLeftGradient(ctx, W, H, opt.overlayOpacity ?? 0);
   }
 
   // ── 2. ARTIAN Capital Group logo (top-left) ───────────────────────────────

@@ -53,6 +53,7 @@ export default function PropSimPage() {
   const [paths, setPaths] = useState("10000");
   const [seed, setSeed] = useState("42");
   const [busy, setBusy] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState("");
   const [result, setResult] = useState<Result | null>(null);
 
@@ -74,8 +75,10 @@ export default function PropSimPage() {
 
   const run = async () => {
     setBusy(true);
+    setElapsed(0);
     setError("");
     setResult(null);
+    const timer = window.setInterval(() => setElapsed((value) => value + 1), 1000);
     try {
       const body = await postJson<Result>("/api/prop-sim/simulate", {
         key,
@@ -90,6 +93,7 @@ export default function PropSimPage() {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Simulasi gagal.");
     } finally {
+      window.clearInterval(timer);
       setBusy(false);
     }
   };
@@ -192,6 +196,15 @@ export default function PropSimPage() {
               </div>
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
+            {busy && (
+              <div className="space-y-2" role="status" aria-live="polite">
+                <div className="sim-progress" />
+                <p className="text-xs text-muted-foreground">
+                  Menjalankan {Number(paths).toLocaleString()} paths · {elapsed} detik · mohon
+                  tunggu, simulasi berjalan di server.
+                </p>
+              </div>
+            )}
             <Button onClick={run} disabled={busy || !key || firms.length === 0}>
               {busy ? "Menjalankan…" : "Jalankan simulasi"}
             </Button>

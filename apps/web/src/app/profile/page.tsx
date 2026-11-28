@@ -61,6 +61,7 @@ export default function ProfilePage() {
     urlEnabled: false,
   });
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -73,7 +74,8 @@ export default function ProfilePage() {
         setBio(body.profile?.bio ?? "");
         setJournalName(body.profile?.journal_name ?? "");
       })
-      .catch(() => setError("Gagal memuat profil."));
+      .catch(() => setError("Gagal memuat profil."))
+      .finally(() => setLoading(false));
   };
   useEffect(() => {
     load();
@@ -187,7 +189,7 @@ export default function ProfilePage() {
         <Card>
           <CardContent className="space-y-4 pt-4">
             <div className="h-36 w-full overflow-hidden rounded-md bg-muted">
-              {profile?.banner_url && (
+              {!loading && profile?.banner_url && (
                 <img
                   src={profile.banner_url}
                   alt="Banner profil"
@@ -195,33 +197,50 @@ export default function ProfilePage() {
                 />
               )}
             </div>
-            <div className="flex items-center gap-3">
-              <div className="h-16 w-16 overflow-hidden rounded-full bg-muted">
-                {profile?.avatar_url ? (
-                  <img
-                    src={profile.avatar_url}
-                    alt="Foto profil"
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-xl">
-                    {(profile?.display_name || profile?.username || "?").slice(0, 1).toUpperCase()}
+            {loading ? (
+              <div className="animate-pulse space-y-3" aria-label="Memuat profil">
+                <div className="flex items-center gap-3">
+                  <div className="h-16 w-16 rounded-full bg-muted" />
+                  <div className="space-y-2">
+                    <div className="h-4 w-32 rounded bg-muted" />
+                    <div className="h-3 w-24 rounded bg-muted" />
                   </div>
-                )}
+                </div>
+                <div className="h-3 w-48 rounded bg-muted" />
               </div>
-              <div>
-                <p className="inline-flex items-center gap-1 font-semibold">
-                  {profile?.display_name || profile?.username || "Profil"}
-                  <VerifiedBadge role={profile?.role} />
+            ) : (
+              <>
+                <div className="flex items-center gap-3">
+                  <div className="h-16 w-16 overflow-hidden rounded-full bg-muted">
+                    {profile?.avatar_url ? (
+                      <img
+                        src={profile.avatar_url}
+                        alt="Foto profil"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-xl">
+                        {(profile?.display_name || profile?.username || "?")
+                          .slice(0, 1)
+                          .toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <p className="inline-flex items-center gap-1 font-semibold">
+                      {profile?.display_name || profile?.username || "Profil"}
+                      <VerifiedBadge role={profile?.role} />
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      @{profile?.username} · <RoleName role={profile?.role ?? "member"} />
+                    </p>
+                  </div>
+                </div>
+                <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+                  {profile?.bio || "Belum ada bio."}
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  @{profile?.username} · <RoleName role={profile?.role ?? "member"} />
-                </p>
-              </div>
-            </div>
-            <p className="whitespace-pre-wrap text-sm text-muted-foreground">
-              {profile?.bio || "Belum ada bio."}
-            </p>
+              </>
+            )}
           </CardContent>
         </Card>
 

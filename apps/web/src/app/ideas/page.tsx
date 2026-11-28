@@ -122,9 +122,10 @@ export default function IdeasPage() {
       <FilterBar title="Trades Idea" />
       <div className="mx-auto max-w-5xl space-y-4 p-4">
         <p className="text-sm text-muted-foreground">
-          Bagikan ide trading Anda. **Gambar wajib** diunggah. Komunitas bisa memberi testimoni
-          apakah ide tersebut akhirnya kena **Stop Loss** atau **Take Profit**. Untuk mengedit atau
-          menghapus idea Anda sendiri, buka halaman{" "}
+          Bagikan ide trading Anda. <strong>Gambar wajib</strong> diunggah. Komunitas bisa memberi
+          testimoni apakah ide tersebut akhirnya kena <strong>Stop Loss</strong> atau{" "}
+          <strong>Take Profit</strong>. Untuk mengedit atau menghapus idea Anda sendiri, buka
+          halaman{" "}
           <a href="/profile" className="underline">
             Profile
           </a>

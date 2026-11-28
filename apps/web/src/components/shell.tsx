@@ -172,7 +172,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
     if (value) filterQuery.set(key, value);
   }
   if (search.get("range")) filterQuery.set("range", search.get("range")!);
-  if (pathname === "/login") return <>{children}</>;
+  // Halaman publik memakai guest shell — tanpa navigasi, logout, atau toggle internal.
+  if (pathname === "/login" || pathname === "/register") return <>{children}</>;
   const navigation = (collapsed = false) => (
     <nav
       aria-label="Journal navigation"

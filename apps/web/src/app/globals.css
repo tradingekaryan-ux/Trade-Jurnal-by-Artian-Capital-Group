@@ -2144,3 +2144,33 @@ body.dashboard-is-dragging * {
   min-width: 0;
   max-width: 100%;
 }
+
+.sim-progress {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand) 16%, var(--muted));
+}
+.sim-progress::after {
+  content: "";
+  display: block;
+  width: 40%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, var(--brand), transparent);
+  animation: sim-progress-slide 1.2s ease-in-out infinite;
+}
+@keyframes sim-progress-slide {
+  from {
+    transform: translateX(-110%);
+  }
+  to {
+    transform: translateX(360%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sim-progress::after {
+    animation: none;
+    width: 100%;
+  }
+}

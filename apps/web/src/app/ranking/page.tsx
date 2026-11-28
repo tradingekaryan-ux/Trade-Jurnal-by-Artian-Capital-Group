@@ -310,6 +310,18 @@ export default function RankingPage() {
                     opacity={overlayOpacity}
                     onOpacityChange={setOverlayOpacity}
                     disabled={!bgMedia}
+                    hasBackground={Boolean(bgMedia)}
+                    busy={certBusy}
+                    downloadLabel={bgIsVideo ? "Unduh MP4" : "Unduh PNG"}
+                    onImport={() => fileRef.current?.click()}
+                    onDownload={() => void downloadCertificate()}
+                    onClear={() => {
+                      setBgMedia(null);
+                      setBgIsVideo(false);
+                      setOverlayOpacity(0);
+                      setTransform({ offsetX: 0, offsetY: 0, scale: 1 });
+                      setBgVersion((v) => v + 1);
+                    }}
                   />
                   {bgIsVideo && bgMedia instanceof HTMLVideoElement && videoDuration > 0 && (
                     <div className="space-y-1 border-t pt-3">
@@ -325,13 +337,6 @@ export default function RankingPage() {
                       />
                     </div>
                   )}
-                  <Button disabled={certBusy} onClick={() => void downloadCertificate()}>
-                    {certBusy
-                      ? "Memproses…"
-                      : bgIsVideo
-                        ? "⬇ Unduh sertifikat MP4"
-                        : "⬇ Unduh sertifikat PNG"}
-                  </Button>
                 </div>
 
                 <div className="space-y-3 rounded-md border p-3">
@@ -343,26 +348,6 @@ export default function RankingPage() {
                     className="hidden"
                     onChange={(e) => void pickFile(e.target.files?.[0])}
                   />
-                  <div className="flex flex-wrap gap-2">
-                    <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()}>
-                      Pilih gambar / video…
-                    </Button>
-                    {bgMedia && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setBgMedia(null);
-                          setBgIsVideo(false);
-                          setOverlayOpacity(0);
-                          resetTransform();
-                          setBgVersion((v) => v + 1);
-                        }}
-                      >
-                        Gunakan Chart Default
-                      </Button>
-                    )}
-                  </div>
                   {bgError && <p className="text-xs text-destructive">{bgError}</p>}
                   <p className="text-xs text-muted-foreground">
                     {bgIsVideo

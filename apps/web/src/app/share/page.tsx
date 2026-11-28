@@ -493,6 +493,18 @@ export default function SharePage() {
                 opacity={overlayOpacity}
                 onOpacityChange={setOverlayOpacity}
                 disabled={!bgMedia}
+                hasBackground={Boolean(bgMedia)}
+                busy={busy}
+                downloadLabel={bgIsVideo ? "Download MP4" : "Download PNG"}
+                onImport={() => fileRef.current?.click()}
+                onDownload={() => void exportAuto()}
+                onClear={() => {
+                  setBgMedia(null);
+                  setBgIsVideo(false);
+                  setOverlayOpacity(0);
+                  setTransform({ offsetX: 0, offsetY: 0, scale: 1 });
+                  setBgVersion((v) => v + 1);
+                }}
               />
               {bgIsVideo && bgMedia instanceof HTMLVideoElement && videoDuration > 0 && (
                 <Card>
@@ -510,10 +522,6 @@ export default function SharePage() {
                   </CardContent>
                 </Card>
               )}
-
-              <Button disabled={busy} onClick={() => void exportAuto()}>
-                {busy ? "Memproses…" : bgIsVideo ? "⬇ Download MP4" : "⬇ Download PNG"}
-              </Button>
             </div>
 
             <div className="space-y-3">
@@ -565,26 +573,6 @@ export default function SharePage() {
                     className="hidden"
                     onChange={(e) => void pickFile(e.target.files?.[0])}
                   />
-                  <div className="flex flex-wrap gap-2">
-                    <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()}>
-                      Pilih gambar / video…
-                    </Button>
-                    {bgMedia && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setBgMedia(null);
-                          setBgIsVideo(false);
-                          setOverlayOpacity(0);
-                          resetTransform();
-                          setBgVersion((v) => v + 1);
-                        }}
-                      >
-                        Gunakan Chart Default
-                      </Button>
-                    )}
-                  </div>
                   {bgError && <p className="text-xs text-destructive">{bgError}</p>}
                   <p className="text-xs text-muted-foreground">
                     {bgIsVideo

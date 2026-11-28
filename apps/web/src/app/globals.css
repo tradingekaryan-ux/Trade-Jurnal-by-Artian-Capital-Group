@@ -2174,3 +2174,39 @@ body.dashboard-is-dragging * {
     width: 100%;
   }
 }
+
+/* Background control — three explicit rows. */
+.edit-console-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.edit-console-row-block {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.edit-console-row-top {
+  align-items: center;
+}
+.edit-console-top-right {
+  margin-left: auto;
+}
+.edit-key-action {
+  width: auto;
+  min-width: 0;
+  padding-inline: 10px;
+  gap: 6px;
+  font-family: inherit;
+  font-size: 11px;
+}
+@media (min-width: 560px) {
+  .edit-console-row-mid > .edit-console-section:first-child {
+    flex: 0 0 auto;
+  }
+  .edit-console-row-mid > .edit-console-section:last-child {
+    margin-left: auto;
+  }
+}

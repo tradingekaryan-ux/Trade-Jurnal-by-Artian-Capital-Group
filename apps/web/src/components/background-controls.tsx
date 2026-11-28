@@ -5,6 +5,8 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  Download,
+  ImagePlus,
   Minus,
   Plus,
   RotateCcw,
@@ -15,12 +17,18 @@ import type { BgTransform } from "./share-preview";
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-/** Single console-style panel for positioning, zooming and fading the background. */
+/** Single console-style panel for importing, exporting and adjusting the background. */
 export function BackgroundControls({
   transform,
   onChange,
   opacity,
   onOpacityChange,
+  onImport,
+  onDownload,
+  onClear,
+  downloadLabel = "Download PNG",
+  hasBackground = false,
+  busy = false,
   disabled = false,
   step = 48,
   zoomStep = 0.15,
@@ -31,6 +39,12 @@ export function BackgroundControls({
   /** 0–1 (0% = no extra overlay). */
   opacity: number;
   onOpacityChange: (next: number) => void;
+  onImport: () => void;
+  onDownload: () => void;
+  onClear: () => void;
+  downloadLabel?: string;
+  hasBackground?: boolean;
+  busy?: boolean;
   disabled?: boolean;
   step?: number;
   zoomStep?: number;
@@ -60,7 +74,7 @@ export function BackgroundControls({
   return (
     <div className="edit-console">
       <div className="edit-console-head">
-        <span className="edit-console-led" data-on={!disabled} />
+        <span className="edit-console-led" data-on={hasBackground} />
         <span>BACKGROUND CONTROL</span>
         <span className="edit-console-head-right">ED·01 / OFFLINE</span>
       </div>
@@ -69,121 +83,153 @@ export function BackgroundControls({
         {screen}
       </div>
 
-      <div className="edit-console-grid">
-        <section className="edit-console-section">
-          <p className="edit-console-label">POSITION · {step}px</p>
-          <div className="edit-console-dpad">
-            <span />
+      <div className="edit-console-rows">
+        {/* Baris 1 — kiri: download, kanan: import & reset */}
+        <div className="edit-console-row-block edit-console-row-top">
+          <button
+            className="edit-key edit-key-action"
+            onClick={onDownload}
+            disabled={busy}
+            title="Download"
+          >
+            <Download /> <span>{busy ? "Memproses…" : downloadLabel}</span>
+          </button>
+          <div className="edit-console-row edit-console-top-right">
+            {hasBackground && (
+              <button className="edit-key" onClick={onClear} title="Gunakan chart default">
+                <RotateCcw />
+              </button>
+            )}
             <button
-              className="edit-key"
-              disabled={disabled}
-              onClick={() => nudge(0, -step)}
-              aria-label="Geser background ke atas"
-              title="Atas"
+              className="edit-key edit-key-action"
+              onClick={onImport}
+              title="Impor background"
             >
-              <ArrowUp />
+              <ImagePlus /> <span>Import background</span>
             </button>
-            <span />
-            <button
-              className="edit-key"
-              disabled={disabled}
-              onClick={() => nudge(-step, 0)}
-              aria-label="Geser background ke kiri"
-              title="Kiri"
-            >
-              <ArrowLeft />
-            </button>
-            <button
-              className="edit-key"
-              disabled={disabled}
-              onClick={reset}
-              aria-label="Reset posisi dan opacity"
-              title="Reset"
-            >
-              <RotateCcw />
-            </button>
-            <button
-              className="edit-key"
-              disabled={disabled}
-              onClick={() => nudge(step, 0)}
-              aria-label="Geser background ke kanan"
-              title="Kanan"
-            >
-              <ArrowRight />
-            </button>
-            <span />
-            <button
-              className="edit-key"
-              disabled={disabled}
-              onClick={() => nudge(0, step)}
-              aria-label="Geser background ke bawah"
-              title="Bawah"
-            >
-              <ArrowDown />
-            </button>
-            <span />
           </div>
-        </section>
+        </div>
 
-        <section className="edit-console-section">
-          <p className="edit-console-label">ZOOM · {Math.round(transform.scale * 100)}%</p>
-          <div className="edit-console-row">
-            <button
-              className="edit-key edit-key-wide"
-              disabled={disabled || transform.scale <= 0.5}
-              onClick={() => zoom(1 / (1 + zoomStep))}
-              aria-label="Zoom out background"
-              title="Zoom out"
-            >
-              <ZoomOut /> <span>−</span>
-            </button>
-            <button
-              className="edit-key edit-key-wide"
-              disabled={disabled || transform.scale >= 5}
-              onClick={() => zoom(1 + zoomStep)}
-              aria-label="Zoom in background"
-              title="Zoom in"
-            >
-              <ZoomIn /> <span>+</span>
-            </button>
-          </div>
-          <p className="edit-console-hint">Perbesar / perkecil gambar.</p>
-        </section>
+        {/* Baris 2 — kiri: D-pad, kanan: zoom */}
+        <div className="edit-console-row-block edit-console-row-mid">
+          <section className="edit-console-section">
+            <p className="edit-console-label">POSITION · {step}px</p>
+            <div className="edit-console-dpad">
+              <span />
+              <button
+                className="edit-key"
+                disabled={disabled}
+                onClick={() => nudge(0, -step)}
+                aria-label="Geser background ke atas"
+                title="Atas"
+              >
+                <ArrowUp />
+              </button>
+              <span />
+              <button
+                className="edit-key"
+                disabled={disabled}
+                onClick={() => nudge(-step, 0)}
+                aria-label="Geser background ke kiri"
+                title="Kiri"
+              >
+                <ArrowLeft />
+              </button>
+              <button
+                className="edit-key"
+                disabled={disabled}
+                onClick={reset}
+                aria-label="Reset posisi dan opacity"
+                title="Reset"
+              >
+                <RotateCcw />
+              </button>
+              <button
+                className="edit-key"
+                disabled={disabled}
+                onClick={() => nudge(step, 0)}
+                aria-label="Geser background ke kanan"
+                title="Kanan"
+              >
+                <ArrowRight />
+              </button>
+              <span />
+              <button
+                className="edit-key"
+                disabled={disabled}
+                onClick={() => nudge(0, step)}
+                aria-label="Geser background ke bawah"
+                title="Bawah"
+              >
+                <ArrowDown />
+              </button>
+              <span />
+            </div>
+          </section>
 
-        <section className="edit-console-section">
-          <p className="edit-console-label">OVERLAY OPACITY</p>
-          <div className="edit-console-row">
-            <button
-              className="edit-key"
-              onClick={() => setPercent(percent - opacityStep)}
-              aria-label="Turunkan opacity"
-              title="Turunkan"
-            >
-              <Minus />
-            </button>
-            <label className="edit-console-input">
-              <input
-                type="number"
-                min={0}
-                max={100}
-                step={1}
-                value={percent}
-                onChange={(event) => setPercent(Number(event.target.value))}
-                aria-label="Opacity overlay dalam persen"
-              />
-              <span>%</span>
-            </label>
-            <button
-              className="edit-key"
-              onClick={() => setPercent(percent + opacityStep)}
-              aria-label="Naikkan opacity"
-              title="Naikkan"
-            >
-              <Plus />
-            </button>
-          </div>
-          <p className="edit-console-hint">0% = background tanpa overlay tambahan.</p>
-        </section>
+          <section className="edit-console-section">
+            <p className="edit-console-label">ZOOM · {Math.round(transform.scale * 100)}%</p>
+            <div className="edit-console-row">
+              <button
+                className="edit-key edit-key-wide"
+                disabled={disabled || transform.scale <= 0.5}
+                onClick={() => zoom(1 / (1 + zoomStep))}
+                aria-label="Zoom out background"
+                title="Zoom out"
+              >
+                <ZoomOut /> <span>−</span>
+              </button>
+              <button
+                className="edit-key edit-key-wide"
+                disabled={disabled || transform.scale >= 5}
+                onClick={() => zoom(1 + zoomStep)}
+                aria-label="Zoom in background"
+                title="Zoom in"
+              >
+                <ZoomIn /> <span>+</span>
+              </button>
+            </div>
+            <p className="edit-console-hint">Perbesar / perkecil gambar.</p>
+          </section>
+        </div>
+
+        {/* Baris 3 — opacity */}
+        <div className="edit-console-row-block">
+          <section className="edit-console-section">
+            <p className="edit-console-label">OVERLAY OPACITY</p>
+            <div className="edit-console-row">
+              <button
+                className="edit-key"
+                onClick={() => setPercent(percent - opacityStep)}
+                aria-label="Turunkan opacity"
+                title="Turunkan"
+              >
+                <Minus />
+              </button>
+              <label className="edit-console-input">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={percent}
+                  onChange={(event) => setPercent(Number(event.target.value))}
+                  aria-label="Opacity overlay dalam persen"
+                />
+                <span>%</span>
+              </label>
+              <button
+                className="edit-key"
+                onClick={() => setPercent(percent + opacityStep)}
+                aria-label="Naikkan opacity"
+                title="Naikkan"
+              >
+                <Plus />
+              </button>
+            </div>
+            <p className="edit-console-hint">0% = background tanpa overlay tambahan.</p>
+          </section>
+        </div>
       </div>
     </div>
   );

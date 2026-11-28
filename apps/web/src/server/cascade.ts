@@ -22,28 +22,29 @@ const value = (row: Record<string, unknown> | undefined, key: string): number =>
 
 /** Delete one journal mode with every image reference attached to its trades. */
 export async function deleteJournalCascade(userId: string, mode: string): Promise<DeletionCounts> {
-  const ids = await sql`select id from cfd_trades where owner_id = ${userId} and mode = ${mode}`;
-  let images = 0;
-  for (const row of ids) {
-    images += count(
-      await sql`delete from image_attachments
-        where owner_id = ${userId} and owner_type = 'cfd-trade' and owner_ref = ${row.id}`,
-    );
-  }
-  const trades = count(
-    await sql`delete from cfd_trades where owner_id = ${userId} and mode = ${mode}`,
-  );
-  return { trades, images };
+  return sql.begin(async (tx) => {
+    const ids = await tx`select id from cfd_trades where owner_id = ${userId} and mode = ${mode}`;
+    const tradeIds = ids.map((row) => String(row.id));
+    let images = 0;
+    if (tradeIds.length) {
+      const removed = await tx`delete from image_attachments
+        where owner_id = ${userId} and owner_type = 'cfd-trade' and owner_ref = any(${tradeIds}::text[])`;
+      images = removed.length;
+    }
+    const removedTrades = await tx`delete from cfd_trades
+      where owner_id = ${userId} and mode = ${mode}`;
+    return { trades: removedTrades.length, images };
+  });
 }
 
 /** Delete a single trade together with its image references. */
 export async function deleteTradeCascade(userId: string, id: string): Promise<DeletionCounts> {
-  const images = count(
-    await sql`delete from image_attachments
-      where owner_id = ${userId} and owner_type = 'cfd-trade' and owner_ref = ${id}`,
-  );
-  const trades = count(await sql`delete from cfd_trades where id = ${id} and owner_id = ${userId}`);
-  return { trades, images };
+  return sql.begin(async (tx) => {
+    const images = await tx`delete from image_attachments
+      where owner_id = ${userId} and owner_type = 'cfd-trade' and owner_ref = ${id}`;
+    const trades = await tx`delete from cfd_trades where id = ${id} and owner_id = ${userId}`;
+    return { trades: trades.length, images: images.length };
+  });
 }
 
 /** Delete a promo/trade idea with all votes cast on it. */

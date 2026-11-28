@@ -6,6 +6,9 @@ import { deleteExecutionsForTrades, listExecutions } from "@/server/executions";
 import { nowIso } from "@/server/ids";
 import { getTradeByKey, rowToTrade } from "@/server/trades-query";
 import { getTimeZone } from "@/server/settings";
+import { currentUser } from "@/server/auth";
+import { deleteTradeCascade } from "@/server/cascade";
+import { syncJournalsToLegacy } from "@/server/legacy-sync";
 
 type Params = { params: Promise<{ key: string }> };
 
@@ -97,7 +100,18 @@ export const DELETE = handler(async (_request: Request, { params }: Params) => {
   const { key } = await params;
   const row = getTradeByKey(key);
   if (!row) return bad("Trade not found", 404);
-  // Deleting a trade means deleting its executions; the rebuild removes the row.
+
+  // Mirror trade (来源于 Supabase cfd_trades): hapus dari source of truth.
+  if (key.startsWith("cfd:")) {
+    const user = await currentUser();
+    requireValue(Boolean(user), "Unauthorized.");
+    const result = await deleteTradeCascade(user!.id, key.slice(4));
+    await syncJournalsToLegacy(user!.id);
+    return ok({ deleted: true, ...result });
+  }
+
+  // Trade lokal (import/broker): hapus executions lalu rebuild.
   deleteExecutionsForTrades(row.accountId, JSON.parse(row.executionIdsJson) as string[]);
+  db.delete(trades).where(eq(trades.key, key)).run();
   return ok({ deleted: true });
 });

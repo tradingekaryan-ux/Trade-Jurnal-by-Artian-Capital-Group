@@ -1,8 +1,11 @@
 import { eq, inArray } from "drizzle-orm";
 import { db, trades } from "@/db";
-import { bad, handler, ok } from "@/server/api";
+import { bad, handler, ok, requireValue } from "@/server/api";
 import { deleteExecutionsForTrades } from "@/server/executions";
 import { nowIso } from "@/server/ids";
+import { currentUser } from "@/server/auth";
+import { deleteTradeCascade } from "@/server/cascade";
+import { syncJournalsToLegacy } from "@/server/legacy-sync";
 
 interface BulkBody {
   keys: string[];
@@ -45,14 +48,31 @@ export const POST = handler(async (request: Request) => {
         .run();
       return ok({ updated: rows.length });
     case "delete": {
+      const mirrorKeys = rows.filter((row) => row.key.startsWith("cfd:")).map((row) => row.key);
+      const localRows = rows.filter((row) => !row.key.startsWith("cfd:"));
+      if (mirrorKeys.length) {
+        const user = await currentUser();
+        requireValue(Boolean(user), "Unauthorized.");
+        for (const key of mirrorKeys) await deleteTradeCascade(user!.id, key.slice(4));
+        await syncJournalsToLegacy(user!.id);
+      }
       const byAccount = new Map<string, string[]>();
-      for (const row of rows) {
+      for (const row of localRows) {
         const ids = JSON.parse(row.executionIdsJson) as string[];
         byAccount.set(row.accountId, [...(byAccount.get(row.accountId) ?? []), ...ids]);
       }
       for (const [accountId, executionIds] of byAccount) {
         deleteExecutionsForTrades(accountId, executionIds);
       }
+      if (localRows.length)
+        db.delete(trades)
+          .where(
+            inArray(
+              trades.key,
+              localRows.map((r) => r.key),
+            ),
+          )
+          .run();
       return ok({ deleted: rows.length });
     }
     default:

@@ -377,7 +377,9 @@ export function JournalPage({
                     <Input
                       id="journal-lot"
                       inputMode="decimal"
-                      placeholder={form.mode === "cfd" ? "0.10" : form.mode === "futures" ? "1" : "1000"}
+                      placeholder={
+                        form.mode === "cfd" ? "0.10" : form.mode === "futures" ? "1" : "1000"
+                      }
                       value={form.lot}
                       onChange={(e) => set("lot", e.target.value)}
                     />
@@ -563,7 +565,11 @@ export function JournalPage({
                         const result = await postJson<{
                           trades: number;
                           images: number;
-                        }>(`/api/cfd-journal?mode=${modes[0]}`, undefined, "DELETE");
+                        }>(
+                          `/api/cfd-journal?mode=${encodeURIComponent(modes.join(","))}`,
+                          undefined,
+                          "DELETE",
+                        );
                         setMessage(
                           `Jurnal dihapus: ${result.trades} trade dan ${result.images} lampiran gambar.`,
                         );

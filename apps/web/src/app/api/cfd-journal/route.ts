@@ -71,6 +71,26 @@ const validateDate = (value: unknown, name: string): string => {
   return new Date(value as string).toISOString();
 };
 
+/** DB columns are snake_case; parseInput() only reads camelCase. */
+const rowToInput = (row: Record<string, unknown>): Record<string, unknown> => ({
+  id: row.id,
+  mode: row.mode,
+  side: row.side,
+  symbol: row.symbol,
+  lot: row.lot,
+  entry: row.entry,
+  takeProfit: row.take_profit,
+  stopLoss: row.stop_loss,
+  exit: row.exit_price,
+  resultMode: row.result_mode,
+  manualPnl: row.manual_pnl,
+  leverage: row.leverage,
+  usdPerPip: row.usd_per_pip,
+  openedAt: row.opened_at,
+  closedAt: row.closed_at,
+  notes: row.notes,
+});
+
 export const GET = handler(async (request: Request) => {
   const user = await currentUser();
   requireValue(Boolean(user), "Unauthorized.");
@@ -150,16 +170,14 @@ export const PATCH = handler(async (request: Request) => {
     await sql`select * from cfd_trades where id = ${body.id} and owner_id = ${user!.id} limit 1`;
   requireValue(found.length > 0, "Trade not found.");
   const current = found[0]!;
-  const merged = {
-    ...current,
-    ...body,
-    exit: body.exit !== undefined ? body.exit : current.exit_price,
-    manualPnl: body.manualPnl !== undefined ? body.manualPnl : current.manual_pnl,
-    resultMode: body.resultMode !== undefined ? body.resultMode : current.result_mode,
-  };
+  const currentInput = rowToInput(current);
+  const merged = { ...currentInput, ...body };
   const input = parseInput(merged);
   const calc = calculateJournal(input);
   await sql`update cfd_trades set
+    symbol = ${input.symbol}, side = ${input.side}, mode = ${input.mode},
+    lot = ${input.lot}, entry = ${input.entry},
+    take_profit = ${input.takeProfit ?? null}, stop_loss = ${input.stopLoss ?? null},
     exit_price = ${calc.exitPrice}, result_mode = ${input.resultMode},
     manual_pnl = ${input.manualPnl ?? null}, usd_per_pip = ${input.usdPerPip ?? null},
     leverage = ${input.leverage ?? null}, pips = ${calc.pips}, pnl = ${calc.pnl},
@@ -184,7 +202,8 @@ Tulis: (1) apakah aturan playbook diikuti, (2) satu kesalahan spesifik, (3) satu
         1500,
       );
       await sql`update cfd_trades set
-        notes = coalesce(nullif(notes, ''), '') || ${`\n\n## AI debrief (${nowIso().slice(0, 10)})\n${debrief}`}
+        notes = coalesce(nullif(notes, ''), '') || ${`\n\n## AI debrief (${nowIso().slice(0, 10)})\n${debrief}`},
+        updated_at = ${nowIso()}
         where id = ${body.id} and owner_id = ${user!.id}`;
     } catch {
       // AI unavailable/quota exhausted — the trade itself is already saved.

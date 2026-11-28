@@ -43,14 +43,26 @@ export const handler =
       if (!userId) return work();
       await runAsUser(userId, async () => {
         const { ensureRestored } = await import("./snapshot");
-        await ensureRestored(userId).catch(() => {});
-      }).catch(() => {});
+        const { syncJournalsToLegacy } = await import("./legacy-sync");
+        try {
+          await ensureRestored(userId);
+        } catch (error) {
+          console.error("[snapshot] restore failed:", error);
+        }
+        // Supabase cfd_trades adalah source of truth: selalu rebuild mirror
+        // setelah restore agar trade baru/hapus tidak kalah oleh snapshot lama.
+        try {
+          await syncJournalsToLegacy(userId);
+        } catch (error) {
+          console.error("[journal] mirror sync failed:", error);
+        }
+      });
       const result = await runAsUser(userId, work);
       if (requestIsMutation(args[0])) {
         await runAsUser(userId, async () => {
           const { snapshotUser } = await import("./snapshot");
           await snapshotUser(userId);
-        }).catch(() => {});
+        }).catch((error) => console.error("[snapshot] save failed:", error));
       }
       return result;
     } catch (error) {

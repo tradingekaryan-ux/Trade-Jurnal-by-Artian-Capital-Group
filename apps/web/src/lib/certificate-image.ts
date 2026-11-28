@@ -29,7 +29,7 @@ import {
 
 export { downloadBlob };
 
-export const CERT_WIDTH  = 1920;
+export const CERT_WIDTH = 1920;
 export const CERT_HEIGHT = 1080;
 
 export interface CertificateOptions {
@@ -56,9 +56,10 @@ export interface CertificateOptions {
 const coverMedia = (
   ctx: CanvasRenderingContext2D,
   media: HTMLImageElement | HTMLVideoElement,
-  W: number, H: number,
+  W: number,
+  H: number,
 ): void => {
-  const sw = media instanceof HTMLVideoElement ? media.videoWidth  : (media.naturalWidth  ?? 0);
+  const sw = media instanceof HTMLVideoElement ? media.videoWidth : (media.naturalWidth ?? 0);
   const sh = media instanceof HTMLVideoElement ? media.videoHeight : (media.naturalHeight ?? 0);
   if (!sw || !sh) return;
   const sc = Math.max(W / sw, H / sh);
@@ -72,9 +73,11 @@ export const renderCertificatePng = async (opt: CertificateOptions): Promise<Blo
     loadAvatarImage(opt.avatarUrl),
   ]);
 
-  const W = CERT_WIDTH, H = CERT_HEIGHT;
+  const W = CERT_WIDTH,
+    H = CERT_HEIGHT;
   const canvas = document.createElement("canvas");
-  canvas.width = W; canvas.height = H;
+  canvas.width = W;
+  canvas.height = H;
   const ctx = canvas.getContext("2d")!;
 
   const pad = 68;
@@ -102,7 +105,9 @@ export const renderCertificatePng = async (opt: CertificateOptions): Promise<Blo
   ctx.font = `500 50px ${SANS_FONT}`;
   ctx.fillText("Certificate of Rank", pad, 238);
 
-  const barY = 262, barW = 468, barH = 76;
+  const barY = 262,
+    barW = 468,
+    barH = 76;
   ctx.fillStyle = lime;
   ctx.fillRect(pad, barY, barW, barH);
   ctx.fillStyle = "#050608";
@@ -155,8 +160,10 @@ export const renderCertificatePng = async (opt: CertificateOptions): Promise<Blo
   ctx.fillText("Pt. Eka Ryan M..", pad + 98, H - 46);
 
   // ── 6. Top-Right User Glass Card ──────────────────────────────────────────
-  const ucW = 420, ucH = 148;
-  const ucX = W - pad - ucW, ucY = 42;
+  const ucW = 420,
+    ucH = 148;
+  const ucX = W - pad - ucW,
+    ucY = 42;
   ctx.fillStyle = "rgba(12, 15, 20, 0.72)";
   roundRect(ctx, ucX, ucY, ucW, ucH, 24);
   ctx.fill();
@@ -179,7 +186,8 @@ export const renderCertificatePng = async (opt: CertificateOptions): Promise<Blo
 
   // ── 7. Bottom-Right Crisp QR Code ─────────────────────────────────────────
   const qrSize = 230;
-  const siteUrl = opt.siteUrl ??
+  const siteUrl =
+    opt.siteUrl ??
     (typeof window !== "undefined" ? window.location.origin : "https://artian.capital");
   drawQrTile(ctx, siteUrl, W - pad - qrSize, H - pad - qrSize, qrSize);
 

@@ -44,3 +44,4 @@ Konsekuensi teknis dari keputusan model: halaman **Admin → Model AI OpenRouter
 | [17 — Ranking & data member](17-ranking-dan-admin-data.md)          | Data member di admin, leaderboard publik, sertifikat PDF, urutan sidebar     |
 | [18 — Fitur AI](18-fitur-ai.md)                                     | Ask, recap, review + Vision, debrief, performance, import, asisten komunitas |
 | [19 — Quote & PNG Share](19-share-dan-quotes.md)                    | Slideshow quote, sertifikat/PnL/post share PNG, tanda tangan & barcode       |
+| [20 — Audit Mendalam](20-audit-mendalam.md)                         | Temuan & perbaikan auth, API, AI, database, dan frontend                     |

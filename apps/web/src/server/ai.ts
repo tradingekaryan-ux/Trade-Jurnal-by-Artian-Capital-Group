@@ -38,19 +38,30 @@ const openrouter = (apiKey: string) =>
     },
   });
 
+interface PreparedAi {
+  modelId: string;
+  /** Paid model diizinkan hanya karena BYOK → jangan fallback ke kunci owner. */
+  keys?: string[];
+}
+
 /** Validate model permissions and consume one daily quota request. */
-const prepareAi = async (requestedModel?: string): Promise<string> => {
+const prepareAi = async (requestedModel?: string): Promise<PreparedAi> => {
+  const savedKey = getSetting("openrouterKeyEnc");
   if ((await getAiKeys()).length === 0)
     throw new Error("AI belum dikonfigurasi — tambahkan kunci OpenRouter di Settings.");
   const modelId = requestedModel ?? (await getAiModel());
-  const found = await sql`select tier from models where id = ${modelId} limit 1`;
-  const hasOwnKey = Boolean(getSetting("openrouterKeyEnc"));
-  if (found[0]?.tier === "paid" && !(await isPaidAllowed()) && !hasOwnKey)
+  const found = await sql`select tier, enabled from models where id = ${modelId} limit 1`;
+  if (found.length === 0 || found[0]!.enabled === false)
+    throw new Error("AI model unavailable: model tidak tersedia atau dinonaktifkan.");
+  const paidAllowed = await isPaidAllowed();
+  if (found[0]?.tier === "paid" && !paidAllowed && !savedKey)
     throw new Error(
       "Model berbayar tidak diizinkan dengan kunci global. Pilih model Free atau tambahkan kunci OpenRouter Anda sendiri di Settings.",
     );
   await consumeQuota();
-  return modelId;
+  // Paid via BYOK saja: batasi kunci agar tidak menagih kunci global milik owner.
+  const keys = found[0]?.tier === "paid" && !paidAllowed && savedKey ? [savedKey] : undefined;
+  return { modelId, keys };
 };
 
 const translateError = (error: unknown): never => {
@@ -85,17 +96,17 @@ export const runAi = async (
   maxOutputTokens = 2000,
   modelId?: string,
 ): Promise<string> => {
-  const model = await prepareAi(modelId);
+  const prepared = await prepareAi(modelId);
   try {
     return await withKeyFallback(async (key) => {
       const result = await generateText({
-        model: openrouter(key)(model),
+        model: openrouter(key)(prepared.modelId),
         system: SYSTEM,
         prompt,
-        maxOutputTokens,
+        maxOutputTokens: Math.max(2000, maxOutputTokens),
       });
       return await finish(result.text);
-    });
+    }, prepared.keys);
   } catch (error) {
     return translateError(error);
   }
@@ -114,11 +125,11 @@ export const runAiWithImages = async (
   maxOutputTokens = 2000,
   modelId?: string,
 ): Promise<string> => {
-  const model = await prepareAi(modelId);
+  const prepared = await prepareAi(modelId);
   try {
     return await withKeyFallback(async (key) => {
       const result = await generateText({
-        model: openrouter(key)(model),
+        model: openrouter(key)(prepared.modelId),
         system: SYSTEM,
         messages: [
           {
@@ -133,10 +144,10 @@ export const runAiWithImages = async (
             ],
           },
         ],
-        maxOutputTokens,
+        maxOutputTokens: Math.max(2000, maxOutputTokens),
       });
       return await finish(result.text);
-    });
+    }, prepared.keys);
   } catch (error) {
     return translateError(error);
   }

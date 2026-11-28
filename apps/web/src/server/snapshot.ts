@@ -1,6 +1,7 @@
 import { tenantDb } from "@/db";
 import { nowIso } from "./ids";
 import { sql } from "./pg";
+import { invalidateSyncCache } from "./legacy-sync";
 
 /** Tables copied between the local SQLite cache and Supabase. */
 const TABLES = [
@@ -100,6 +101,8 @@ export async function ensureRestored(userId: string): Promise<void> {
     }
     client.exec("commit");
     if (updatedAt) restored.set(userId, updatedAt);
+    // SQLite baru saja diisi ulang dari snapshot → paksa mirror sync berikutnya.
+    invalidateSyncCache(userId);
   } catch (error) {
     client.exec("rollback");
     throw error;

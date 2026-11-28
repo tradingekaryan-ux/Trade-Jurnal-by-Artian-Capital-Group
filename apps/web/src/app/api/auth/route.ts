@@ -26,16 +26,19 @@ const clientKey = (request: Request) => {
   );
 };
 
-export const GET = handler(async () => {
-  const user = await currentUser();
-  return ok({
-    id: user?.id ?? null,
-    authenticated: Boolean(user),
-    username: user?.username ?? null,
-    isAdmin: user?.isAdmin ?? false,
-    role: user?.role ?? "member",
-  });
-});
+export const GET = handler(
+  async () => {
+    const user = await currentUser();
+    return ok({
+      id: user?.id ?? null,
+      authenticated: Boolean(user),
+      username: user?.username ?? null,
+      isAdmin: user?.isAdmin ?? false,
+      role: user?.role ?? "member",
+    });
+  },
+  { public: true },
+);
 
 export const POST = handler(
   async (request: Request) => {
@@ -64,7 +67,7 @@ export const POST = handler(
     jar.set(AUTH_COOKIE, token, {
       httpOnly: true,
       sameSite: "lax",
-      secure: new URL(request.url).protocol === "https:",
+      secure: process.env.NODE_ENV === "production" || new URL(request.url).protocol === "https:",
       path: "/",
       maxAge: SESSION_MAX_AGE,
     });
@@ -78,9 +81,12 @@ export const POST = handler(
   { public: true },
 );
 
-export const DELETE = handler(async (request: Request) => {
-  const jar = await cookies();
-  await deleteSession(jar.get(AUTH_COOKIE)?.value);
-  jar.set(AUTH_COOKIE, "", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 0 });
-  return ok({ authenticated: false });
-});
+export const DELETE = handler(
+  async (request: Request) => {
+    const jar = await cookies();
+    await deleteSession(jar.get(AUTH_COOKIE)?.value);
+    jar.set(AUTH_COOKIE, "", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 0 });
+    return ok({ authenticated: false });
+  },
+  { public: true },
+);

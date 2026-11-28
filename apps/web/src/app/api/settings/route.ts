@@ -1,15 +1,15 @@
-import { eq } from "drizzle-orm";
-import { db, systemDb } from "@/db";
+import { db } from "@/db";
 import { accounts } from "@/db/schema";
-import { models } from "@/db/system-schema";
 import { rebuildAccount } from "@/server/rebuild";
 import { handler, ok, requireValue } from "@/server/api";
+import { sql } from "@/server/pg";
 import {
   getCurrencyConversion,
   getImportTimeZone,
   getMultipliers,
   getTimeZone,
   getAiSettings,
+  getSetting,
   isPaidAllowed,
   setAiKey,
   setAiModel,
@@ -74,10 +74,15 @@ export const PATCH = handler(async (request: Request) => {
         /^[a-zA-Z0-9][a-zA-Z0-9._:/-]{0,199}$/.test(body.aiModel.trim()),
       "Enter a valid OpenRouter model ID.",
     );
-    const model = systemDb.select().from(models).where(eq(models.id, body.aiModel.trim())).get();
-    const ownKey = body.openrouterKey !== undefined ? Boolean(body.openrouterKey) : undefined;
+    // Katalog model ada di Supabase (bukan system.db SQLite).
+    const found =
+      await sql`select tier, enabled from models where id = ${body.aiModel.trim()} limit 1`;
+    requireValue(found.length > 0, "Model tidak ditemukan.");
+    const model = found[0]!;
+    requireValue(model.enabled !== false, "Model dinonaktifkan.");
+    const ownKey = Boolean(body.openrouterKey) || Boolean(getSetting("openrouterKeyEnc"));
     requireValue(
-      model?.tier !== "paid" || isPaidAllowed() || Boolean(ownKey),
+      model.tier !== "paid" || (await isPaidAllowed()) || ownKey,
       "Model berbayar tidak diizinkan. Pilih model Free atau tambahkan kunci OpenRouter Anda.",
     );
   }

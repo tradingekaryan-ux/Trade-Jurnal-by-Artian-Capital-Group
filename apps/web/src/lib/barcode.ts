@@ -40,16 +40,16 @@ const rsBlock = (data: number[], eccCount: number): number[] => {
 
 // Version capacity table (byte mode, ECC level M): [totalDcw, ecwPerBlock, totalBlocks]
 const QR_CAP: [number, number, number][] = [
-  [16, 10, 1],   // v1: max 14 bytes
-  [28, 16, 1],   // v2: max 26 bytes
-  [44, 26, 1],   // v3: max 42 bytes
-  [64, 18, 2],   // v4: max 62 bytes
-  [86, 24, 2],   // v5: max 84 bytes
-  [108, 16, 4],  // v6: max 106 bytes
-  [124, 18, 4],  // v7: max 122 bytes
-  [154, 22, 4],  // v8: max 152 bytes
-  [182, 22, 5],  // v9: max 180 bytes
-  [216, 26, 5],  // v10: max 213 bytes
+  [16, 10, 1], // v1: max 14 bytes
+  [28, 16, 1], // v2: max 26 bytes
+  [44, 26, 1], // v3: max 42 bytes
+  [64, 18, 2], // v4: max 62 bytes
+  [86, 24, 2], // v5: max 84 bytes
+  [108, 16, 4], // v6: max 106 bytes
+  [124, 18, 4], // v7: max 122 bytes
+  [154, 22, 4], // v8: max 152 bytes
+  [182, 22, 5], // v9: max 180 bytes
+  [216, 26, 5], // v10: max 213 bytes
 ];
 
 type Matrix = boolean[][];
@@ -93,8 +93,7 @@ const addAlignment = (m: Matrix, reserved: Matrix, centers: number[]): void => {
       }
       for (let dr = -2; dr <= 2; dr++) {
         for (let dc = -2; dc <= 2; dc++) {
-          m[r + dr]![c + dc] =
-            Math.abs(dr) === 2 || Math.abs(dc) === 2 || (dr === 0 && dc === 0);
+          m[r + dr]![c + dc] = Math.abs(dr) === 2 || Math.abs(dc) === 2 || (dr === 0 && dc === 0);
           reserved[r + dr]![c + dc] = true;
         }
       }
@@ -132,8 +131,40 @@ const writeFormat = (m: Matrix, maskPattern: number, size: number): void => {
   const bits = fmt.toString(2).padStart(15, "0");
   const b = (i: number) => bits[i] === "1";
 
-  const hCols = [0, 1, 2, 3, 4, 5, 7, 8, size - 7, size - 6, size - 5, size - 4, size - 3, size - 2, size - 1];
-  const vRows = [size - 1, size - 2, size - 3, size - 4, size - 5, size - 6, size - 7, 8, 7, 5, 4, 3, 2, 1, 0];
+  const hCols = [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    7,
+    8,
+    size - 7,
+    size - 6,
+    size - 5,
+    size - 4,
+    size - 3,
+    size - 2,
+    size - 1,
+  ];
+  const vRows = [
+    size - 1,
+    size - 2,
+    size - 3,
+    size - 4,
+    size - 5,
+    size - 6,
+    size - 7,
+    8,
+    7,
+    5,
+    4,
+    3,
+    2,
+    1,
+    0,
+  ];
 
   for (let i = 0; i < 15; i++) {
     setModule(m, 8, hCols[i]!, b(i));
@@ -204,8 +235,14 @@ const encodeQr = (text: string): Matrix | null => {
   // Interleave data then EC codewords
   const maxDc = Math.max(...dcBlocks.map((b) => b.length));
   const finalBytes: number[] = [];
-  for (let i = 0; i < maxDc; i++) dcBlocks.forEach((b) => { if (i < b.length) finalBytes.push(b[i]!); });
-  for (let i = 0; i < ecw; i++) ecBlocks.forEach((b) => { if (i < b.length) finalBytes.push(b[i]!); });
+  for (let i = 0; i < maxDc; i++)
+    dcBlocks.forEach((b) => {
+      if (i < b.length) finalBytes.push(b[i]!);
+    });
+  for (let i = 0; i < ecw; i++)
+    ecBlocks.forEach((b) => {
+      if (i < b.length) finalBytes.push(b[i]!);
+    });
 
   const finalBits: number[] = [];
   finalBytes.forEach((byte) => {

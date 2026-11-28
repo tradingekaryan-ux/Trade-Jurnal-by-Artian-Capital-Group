@@ -116,7 +116,7 @@ export function AiSettings() {
             id="ai-api-key"
             type="password"
             value={apiKey}
-            disabled={busy || loading || data?.keySource === "environment"}
+            disabled={busy || loading}
             placeholder={ownKey ? "Kunci tersimpan — kosongkan untuk mengganti" : "sk-or-…"}
             onChange={(event) => {
               setApiKey(event.target.value);

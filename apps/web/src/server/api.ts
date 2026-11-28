@@ -32,6 +32,8 @@ export const handler =
   ) =>
   async (...args: A): Promise<Response> => {
     try {
+      if (process.env.NODE_ENV === "production" && process.env.AUTH_DISABLED === "1")
+        return bad("AUTH_DISABLED tidak diizinkan di produksi.", 503);
       const authDisabled = process.env.AUTH_DISABLED === "1";
       const user = await currentUser();
       // Legacy password-gate assertions still apply in tests that set JOURNAL_PASSWORD.

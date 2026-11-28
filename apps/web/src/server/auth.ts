@@ -7,7 +7,15 @@ import { isUserRole, type UserRole } from "@/lib/roles";
 export const AUTH_COOKIE = "tj_session";
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 30;
 
-const secret = () => process.env.AUTH_SECRET ?? process.env.JOURNAL_SECRET ?? "dev-only-change-me";
+const secret = (): string => {
+  const value = process.env.AUTH_SECRET ?? process.env.JOURNAL_SECRET;
+  if (!value) {
+    if (process.env.NODE_ENV === "production" && process.env.AUTH_DISABLED !== "1")
+      throw new Error("AUTH_SECRET wajib diset di produksi.");
+    return "dev-only-change-me";
+  }
+  return value;
+};
 
 export interface AuthUser {
   id: string;

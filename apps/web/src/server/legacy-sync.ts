@@ -20,6 +20,7 @@ interface CfdRow {
   opened_at: string;
   closed_at: string | null;
   notes: string | null;
+  updated_at: string | null;
 }
 
 /**
@@ -30,9 +31,22 @@ interface CfdRow {
  * Hanya baris mirror (`key like 'cfd:%'`) yang disentuh. Trade hasil import /
  * broker sync dan semua anotasi (notes, tags, playbook, rating) dibiarkan utuh.
  */
+/** Fingerprint Supabase rows per user supaya tidak rebuild SQLite tiap request. */
+const syncFingerprint = new Map<string, string>();
+export const invalidateSyncCache = (userId: string): void => {
+  syncFingerprint.delete(userId);
+};
+
 export async function syncJournalsToLegacy(userId: string): Promise<number> {
   const rows = await sql`select * from cfd_trades where owner_id = ${userId}`;
   const list = rows as unknown as CfdRow[];
+  const fingerprint = list
+    .map((row) => `${row.id}:${row.updated_at ?? ""}`)
+    .sort()
+    .join("|");
+  if (syncFingerprint.get(userId) === fingerprint) return list.length;
+  syncFingerprint.set(userId, fingerprint);
+
   const defaultAccountId = `journal-${userId}`;
   const timestamp = nowIso();
   const mirrorKeys = new Set(list.map((row) => `cfd:${row.id}`));

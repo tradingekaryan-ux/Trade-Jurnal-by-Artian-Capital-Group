@@ -46,8 +46,14 @@ export const POST = handler(
       await sql`select id from users where username_normalized = ${normalized} limit 1`;
     if (existing.length) return bad("Username sudah dipakai.", 409);
 
-    const countRows = await sql`select count(*)::int as n from users`;
-    const role: UserRole = Number(countRows[0]?.n ?? 0) === 0 ? "owner" : "member";
+    // Owner tidak boleh ditentukan dari "user pertama" di deployment dengan
+    // Supabase — siapa pun bisa mendaftar lebih dulu. Provision owner memakai
+    // scripts/setup-owner.mjs (OWNER_USERNAME / OWNER_PASSWORD) atau Admin panel.
+    const allowBootstrapOwner =
+      !process.env.DATABASE_URL || process.env.ALLOW_FIRST_USER_OWNER === "1";
+    const countRows = allowBootstrapOwner ? await sql`select count(*)::int as n from users` : [];
+    const role: UserRole =
+      allowBootstrapOwner && Number(countRows[0]?.n ?? 0) === 0 ? "owner" : "member";
     const id = newId();
     const now = new Date().toISOString();
     await sql`insert into users (id, username, username_normalized, password_hash, is_admin, role, created_at)
@@ -71,7 +77,7 @@ export const POST = handler(
     jar.set(AUTH_COOKIE, token, {
       httpOnly: true,
       sameSite: "lax",
-      secure: new URL(request.url).protocol === "https:",
+      secure: process.env.NODE_ENV === "production" || new URL(request.url).protocol === "https:",
       path: "/",
       maxAge: SESSION_MAX_AGE,
     });

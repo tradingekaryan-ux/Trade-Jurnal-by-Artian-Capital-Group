@@ -8,5 +8,13 @@ export const GET = async (_request: Request, { params }: Context) => {
   const rows = await sql`select image_url from promos where id = ${id} limit 1`;
   const url = rows[0]?.image_url;
   if (!url) return new Response("Not found", { status: 404 });
-  return Response.redirect(String(url), 302);
+  let target: URL;
+  try {
+    target = new URL(String(url));
+  } catch {
+    return new Response("Not found", { status: 404 });
+  }
+  if (target.protocol !== "https:" || target.hostname !== "imgdb.io")
+    return new Response("Not found", { status: 404 });
+  return Response.redirect(target.toString(), 302);
 };

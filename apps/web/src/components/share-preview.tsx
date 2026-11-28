@@ -14,7 +14,7 @@ import { renderSharePng } from "@/lib/share-image";
 export interface BgTransform {
   offsetX: number; // pixels (canvas space)
   offsetY: number;
-  scale: number;   // 1 = fit, >1 zoom in
+  scale: number; // 1 = fit, >1 zoom in
 }
 
 interface Props {
@@ -85,9 +85,7 @@ export function SharePreview({
   const dragStart = useRef<{ mx: number; my: number; ox: number; oy: number } | null>(null);
   const [rendering, setRendering] = useState(false);
 
-  const [w, h] =
-    dimensions ??
-    (options?.size === "1080x1080" ? [1080, 1080] : [1920, 1080]);
+  const [w, h] = dimensions ?? (options?.size === "1080x1080" ? [1080, 1080] : [1920, 1080]);
   const displayH = Math.round((displayWidth / w) * h);
 
   useEffect(() => {
@@ -96,7 +94,12 @@ export function SharePreview({
     const renderFn = customRender
       ? customRender
       : options
-        ? () => renderSharePng({ ...options, background: null, transparentBackground: Boolean(background) })
+        ? () =>
+            renderSharePng({
+              ...options,
+              background: null,
+              transparentBackground: Boolean(background),
+            })
         : null;
     if (!renderFn) return;
     setRendering(true);
@@ -118,7 +121,12 @@ export function SharePreview({
   const onMouseDown = useCallback(
     (e: React.MouseEvent) => {
       if (!background) return;
-      dragStart.current = { mx: e.clientX, my: e.clientY, ox: transform.offsetX, oy: transform.offsetY };
+      dragStart.current = {
+        mx: e.clientX,
+        my: e.clientY,
+        ox: transform.offsetX,
+        oy: transform.offsetY,
+      };
     },
     [background, transform],
   );
@@ -150,7 +158,12 @@ export function SharePreview({
       if (!background) return;
       const t = e.touches[0];
       if (!t) return;
-      touchStart.current = { tx: t.clientX, ty: t.clientY, ox: transform.offsetX, oy: transform.offsetY };
+      touchStart.current = {
+        tx: t.clientX,
+        ty: t.clientY,
+        ox: transform.offsetX,
+        oy: transform.offsetY,
+      };
     },
     [background, transform],
   );

@@ -225,22 +225,26 @@ export const getQuota = async () => {
 
 export const consumeQuota = async (): Promise<void> => {
   const userId = currentUserId();
-  if (userId === SYSTEM_USER || process.env.AUTH_DISABLED === "1") return;
+  if (
+    userId === SYSTEM_USER ||
+    (process.env.AUTH_DISABLED === "1" && process.env.NODE_ENV !== "production")
+  )
+    return;
   const day = nowIso().slice(0, 10);
   const limit = await getAiQuotaLimit();
-  const rows =
-    await sql`select id, requests from ai_usage where user_id = ${userId} and day = ${day} limit 1`;
-  const row = rows[0];
-  if (!row) {
-    await sql`insert into ai_usage (id, user_id, day, requests, updated_at)
-      values (${newId()}, ${userId}, ${day}, 1, ${nowIso()})`;
-    return;
-  }
-  if (Number(row.requests) >= limit)
+  // Atomic upsert — mencegah dua request paralel sama-sama lolos pemeriksaan kuota.
+  const rows = await sql`
+    insert into ai_usage (id, user_id, day, requests, updated_at)
+    values (${newId()}, ${userId}, ${day}, 1, ${nowIso()})
+    on conflict (user_id, day) do update
+      set requests = ai_usage.requests + 1, updated_at = ${nowIso()}
+      where ai_usage.requests < ${limit}
+    returning requests
+  `;
+  if (rows.length === 0)
     throw new Error(
       `Kuota AI harian habis (${limit} permintaan per hari). Coba lagi besok atau gunakan kunci OpenRouter Anda sendiri di Settings.`,
     );
-  await sql`update ai_usage set requests = ${Number(row.requests) + 1}, updated_at = ${nowIso()} where id = ${row.id}`;
 };
 
 export const aiConfigured = async (): Promise<boolean> => (await getAiKey()) !== null;

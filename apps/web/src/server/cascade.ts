@@ -29,11 +29,11 @@ export async function deleteJournalCascade(userId: string, mode: string): Promis
     if (tradeIds.length) {
       const removed = await tx`delete from image_attachments
         where owner_id = ${userId} and owner_type = 'cfd-trade' and owner_ref = any(${tradeIds}::text[])`;
-      images = removed.length;
+      images = count(removed);
     }
     const removedTrades = await tx`delete from cfd_trades
       where owner_id = ${userId} and mode = ${mode}`;
-    return { trades: removedTrades.length, images };
+    return { trades: count(removedTrades), images };
   });
 }
 
@@ -43,7 +43,7 @@ export async function deleteTradeCascade(userId: string, id: string): Promise<De
     const images = await tx`delete from image_attachments
       where owner_id = ${userId} and owner_type = 'cfd-trade' and owner_ref = ${id}`;
     const trades = await tx`delete from cfd_trades where id = ${id} and owner_id = ${userId}`;
-    return { trades: trades.length, images: images.length };
+    return { trades: count(trades), images: count(images) };
   });
 }
 

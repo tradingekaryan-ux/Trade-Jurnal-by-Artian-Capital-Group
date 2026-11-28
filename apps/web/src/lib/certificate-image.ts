@@ -17,6 +17,7 @@ import {
   SANS_FONT,
   SHARE_SITE_URL,
   drawArtianWordmark,
+  loadBrandIcon,
   drawBlackLeftGradient,
   drawDefaultChartBackground,
   drawQrTile,
@@ -68,10 +69,11 @@ const coverMedia = (
 };
 
 export const renderCertificatePng = async (opt: CertificateOptions): Promise<Blob> => {
-  const [, , avatarImg] = await Promise.all([
+  const [, , avatarImg, brandIcon] = await Promise.all([
     loadArtianFonts(),
     loadSignatureFont(),
     loadAvatarImage(opt.avatarUrl),
+    loadBrandIcon(),
   ]);
 
   const W = CERT_WIDTH,
@@ -106,7 +108,7 @@ export const renderCertificatePng = async (opt: CertificateOptions): Promise<Blo
   }
 
   // ── 2. ARTIAN Capital Group logo (top-left) ───────────────────────────────
-  drawArtianWordmark(ctx, pad, 52, 88);
+  drawArtianWordmark(ctx, pad, 52, 88, brandIcon);
 
   // ── 3. Certificate of Rank + Green Rank Bar + Edge Score ──────────────────
   ctx.textAlign = "left";

@@ -54,7 +54,6 @@ export const loadBrandIcon = (): Promise<HTMLImageElement | null> => {
     brandIconPromise = (async () => {
       try {
         const img = new Image();
-        img.crossOrigin = "anonymous";
         img.src = "/brand/artian-icon.png";
         await img.decode();
         return img;
@@ -175,39 +174,23 @@ export const drawArtianWordmark = (
   x: number,
   y: number,
   h: number,
+  icon?: HTMLImageElement | null,
 ): void => {
   ctx.save();
-  const w = h * 1.0;
-  ctx.fillStyle = "#ffffff";
-  ctx.beginPath();
-  ctx.moveTo(x + w * 0.5, y);
-  ctx.lineTo(x + w * 0.96, y + h);
-  ctx.lineTo(x + w * 0.72, y + h);
-  ctx.lineTo(x + w * 0.5, y + h * 0.44);
-  ctx.lineTo(x + w * 0.24, y + h);
-  ctx.lineTo(x, y + h);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.fillStyle = "#7CE810";
-  ctx.beginPath();
-  ctx.moveTo(x + w * 0.54, y + h * 0.58);
-  ctx.lineTo(x + w * 0.86, y + h);
-  ctx.lineTo(x + w * 0.68, y + h);
-  ctx.lineTo(x + w * 0.48, y + h * 0.68);
-  ctx.closePath();
-  ctx.fill();
-
-  const tx = x + w + h * 0.26;
+  // Official Artian Capital Group icon (black circle + white A + green foot).
+  if (icon && icon.naturalWidth > 0) {
+    ctx.drawImage(icon, x, y, h, h);
+  }
+  const tx = x + h + h * 0.18;
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
   ctx.fillStyle = "#ffffff";
-  ctx.font = `700 ${Math.round(h * 0.62)}px ${WORDMARK_FONT}`;
-  ctx.fillText("ARTIAN", tx, y - h * 0.03);
+  ctx.font = `700 ${Math.round(h * 0.5)}px ${WORDMARK_FONT}`;
+  ctx.fillText("ARTIAN", tx, y + h * 0.04);
 
   ctx.fillStyle = "#7CE810";
-  ctx.font = `400 ${Math.round(h * 0.34)}px ${WORDMARK_FONT}`;
-  ctx.fillText("Capital Group", tx, y + h * 0.63);
+  ctx.font = `400 ${Math.round(h * 0.27)}px ${WORDMARK_FONT}`;
+  ctx.fillText("Capital Group", tx, y + h * 0.66);
   ctx.restore();
 };
 
@@ -452,7 +435,11 @@ const wrapText = (
 // ─── Main renderers ───────────────────────────────────────────────────────────
 
 export const renderSharePng = async (options: ShareImageOptions): Promise<Blob> => {
-  const [, avatarImg] = await Promise.all([loadArtianFonts(), loadAvatarImage(options.avatarUrl)]);
+  const [, avatarImg, brandIcon] = await Promise.all([
+    loadArtianFonts(),
+    loadAvatarImage(options.avatarUrl),
+    loadBrandIcon(),
+  ]);
 
   const [W, H] = options.size === "1920x1080" ? [1920, 1080] : [1080, 1080];
   const canvas = document.createElement("canvas");
@@ -498,7 +485,7 @@ export const renderSharePng = async (options: ShareImageOptions): Promise<Blob> 
   // ── 2. ARTIAN Capital Group logo (top-left) ───────────────────────────────
   const logoH = Math.round(H * (isLandscape ? 0.082 : 0.07));
   const logoY = Math.round(H * 0.048);
-  drawArtianWordmark(ctx, pad, logoY, logoH);
+  drawArtianWordmark(ctx, pad, logoY, logoH, brandIcon);
 
   if (options.mode === "post") {
     // ── POST / REPOST card — matching PDF font, colors & black/lime identity ─

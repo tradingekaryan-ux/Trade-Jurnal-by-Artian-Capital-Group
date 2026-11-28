@@ -28,11 +28,11 @@
   --destructive-foreground: #fafafa;
   --border: #e1e0d9;
   --input: #e1e0d9;
-  --ring: #0b7cbd;
+  --ring: #7c3aed;
   --radius: 0.5rem;
 
-  /* Brand accent (LuxAlgo blue): never the sole carrier of information. */
-  --brand: #0b7cbd;
+  /* Brand accent (violet): never the sole carrier of information. */
+  --brand: #7c3aed;
 
   /* viz tokens (validated: see docs/design.md) */
   --viz-surface: #fcfcfb;
@@ -55,45 +55,45 @@
 
 .dark {
   color-scheme: dark;
-  /* Match the supplied Artian logo background (#000) exactly. */
-  --background: #000000;
-  --foreground: #f4f4f4;
-  --card: #050505;
-  --card-foreground: #f4f4f4;
-  --popover: #080808;
-  --popover-foreground: #f4f4f4;
-  --primary: #ececec;
-  --primary-foreground: #131316;
-  --secondary: #0e0e0e;
-  --secondary-foreground: #f4f4f4;
-  --muted: #0a0a0a;
-  --muted-foreground: #9c9ca6;
-  --accent: #111111;
-  --accent-foreground: #f4f4f4;
-  --destructive: #d03b3b;
-  --destructive-foreground: #fafafa;
-  --border: #1a1a1a;
-  --input: #1f1f1f;
-  --ring: #1197e2;
+  /* Violet-ink analytics theme (see docs/22-desain-referensi.md). */
+  --background: #08070d;
+  --foreground: #edeaf6;
+  --card: #100e18;
+  --card-foreground: #edeaf6;
+  --popover: #151224;
+  --popover-foreground: #edeaf6;
+  --primary: #a855f7;
+  --primary-foreground: #ffffff;
+  --secondary: #1a1629;
+  --secondary-foreground: #e9e4f6;
+  --muted: #151221;
+  --muted-foreground: #9a93b0;
+  --accent: #1e1933;
+  --accent-foreground: #f2eefc;
+  --destructive: #fb7185;
+  --destructive-foreground: #ffffff;
+  --border: #282139;
+  --input: #2c2440;
+  --ring: #a855f7;
 
-  --brand: #1197e2;
+  --brand: #a855f7;
 
-  --viz-surface: #050505;
-  --ink-muted: #8b8b95;
-  --gridline: #161616;
-  --baseline: #2a2a2a;
-  --profit: #0ca30c;
-  --profit-fill: #0ca30c;
-  --loss: #d03b3b;
-  --neutral-mid: #383835;
-  --series-1: #3987e5;
-  --series-2: #d95926;
-  --series-3: #199e70;
-  --series-4: #c98500;
-  --series-5: #d55181;
-  --series-6: #008300;
-  --series-7: #9085e9;
-  --series-8: #e66767;
+  --viz-surface: #100e18;
+  --ink-muted: #9a93b0;
+  --gridline: #221c32;
+  --baseline: #352c4c;
+  --profit: #34d399;
+  --profit-fill: #10b981;
+  --loss: #fb7185;
+  --neutral-mid: #2b2440;
+  --series-1: #a855f7;
+  --series-2: #ec4899;
+  --series-3: #34d399;
+  --series-4: #f59e0b;
+  --series-5: #60a5fa;
+  --series-6: #22d3ee;
+  --series-7: #c084fc;
+  --series-8: #fb7185;
 }
 
 @theme inline {
@@ -1848,4 +1848,111 @@ body.dashboard-is-dragging * {
   width: 4px;
   height: 4px;
   border-radius: 0;
+}
+
+/* ─── Violet analytics shell (reference design, 28 Nov 2026) ──────────────────
+   Token-level theming above reaches every page and every chart automatically.
+   These rules add the glass panels, ambient glow and pill controls. Styling
+   only — no component structure or behaviour is changed. */
+.dark body {
+  background-image:
+    radial-gradient(1100px 620px at 8% -12%, rgb(124 58 237 / 0.16), transparent 62%),
+    radial-gradient(900px 520px at 100% -4%, rgb(217 70 239 / 0.1), transparent 58%),
+    radial-gradient(1000px 700px at 48% 116%, rgb(45 212 191 / 0.07), transparent 62%);
+  background-attachment: fixed;
+}
+.dark ::selection {
+  background: rgb(168 85 247 / 0.32);
+}
+.dark .card-sheen {
+  border-color: transparent;
+  border-radius: 14px;
+  background:
+    linear-gradient(var(--card), var(--card)) padding-box,
+    linear-gradient(
+        135deg,
+        rgb(168 85 247 / 0.55),
+        rgb(217 70 239 / 0.16) 52%,
+        rgb(45 212 191 / 0.34)
+      )
+      border-box;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.045),
+    0 12px 34px rgb(0 0 0 / 0.26),
+    0 0 32px rgb(124 58 237 / 0.07);
+}
+.dark .journal-menu-surface {
+  border-color: rgb(168 85 247 / 0.28);
+  background: linear-gradient(160deg, #171329, #100e18);
+  box-shadow:
+    0 20px 60px rgb(0 0 0 / 0.5),
+    0 0 0 1px rgb(168 85 247 / 0.08),
+    inset 0 1px 0 rgb(255 255 255 / 0.04);
+}
+.dark .journal-sidebar-nav-link[aria-current="page"] {
+  background: linear-gradient(100deg, rgb(168 85 247 / 0.34), rgb(236 72 153 / 0.12));
+  color: #fff;
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px rgb(168 85 247 / 0.4);
+}
+.dark .journal-sidebar-nav-link[aria-current="page"] svg {
+  color: #d8b4fe !important;
+}
+.dark button.bg-primary,
+.dark .execution-submit {
+  border-color: transparent !important;
+  background: linear-gradient(100deg, #8b5cf6, #d946ef) !important;
+  color: #fff !important;
+  box-shadow:
+    0 8px 24px rgb(139 92 246 / 0.32),
+    inset 0 1px 0 rgb(255 255 255 / 0.16);
+}
+.dark button.bg-primary:hover:not(:disabled),
+.dark .execution-submit:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.dark button.bg-destructive {
+  border-color: transparent !important;
+  background: linear-gradient(100deg, #f43f5e, #fb7185) !important;
+  color: #fff !important;
+}
+.dark input,
+.dark textarea {
+  color-scheme: dark;
+}
+.dark input:focus-visible,
+.dark textarea:focus-visible,
+.dark [role="combobox"]:focus-visible {
+  border-color: rgb(168 85 247 / 0.7);
+  box-shadow: 0 0 0 3px rgb(168 85 247 / 0.16);
+}
+.dark table tbody tr:hover {
+  background: rgb(168 85 247 / 0.05);
+}
+.dark * {
+  scrollbar-width: thin;
+  scrollbar-color: #3b2f57 transparent;
+}
+.dark *::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.dark *::-webkit-scrollbar-thumb {
+  background: #3b2f57;
+  border-radius: 8px;
+}
+.dark *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dark [role="tab"][data-state="active"] {
+  background: linear-gradient(100deg, #8b5cf6, #d946ef);
+  color: #fff;
+  box-shadow:
+    0 4px 14px rgb(139 92 246 / 0.3),
+    inset 0 1px 0 rgb(255 255 255 / 0.16);
+}
+.dark [role="tab"]:not([data-state="active"]):hover {
+  background: rgb(168 85 247 / 0.12);
+  color: var(--foreground);
 }

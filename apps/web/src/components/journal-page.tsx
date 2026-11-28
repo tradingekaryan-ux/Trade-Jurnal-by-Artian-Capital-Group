@@ -7,7 +7,6 @@ import { ImageUploader } from "@/components/image-uploader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { OptionSelect } from "@/components/ui/option-select";
 import {
   INSTRUMENTS,
@@ -151,6 +150,19 @@ export function JournalPage({
     [form],
   );
 
+  const applyRr = (multiple: number) => {
+    const entry = num(form.entry);
+    const stop = num(form.stopLoss);
+    if (!entry || !stop) {
+      setError("Isi Entry dan Stop loss terlebih dahulu.");
+      return;
+    }
+    const risk = Math.abs(entry - stop);
+    const direction = form.side === "buy" ? 1 : -1;
+    const decimals = entry < 10 ? 5 : 2;
+    set("takeProfit", Number((entry + direction * risk * multiple).toFixed(decimals)).toString());
+  };
+
   const save = async () => {
     setBusy(true);
     setError("");
@@ -271,266 +283,339 @@ export function JournalPage({
           </Card>
         ) : (
           <>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Card>
-                <CardContent className="pt-4 text-xs">
-                  Total trade<div className="text-lg font-semibold">{stats.total}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-4 text-xs">
-                  Win rate
-                  <div className="text-lg font-semibold">{fmtNumber(stats.winRate, 1)}%</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-4 text-xs">
-                  Total P&L
-                  <div className="text-lg font-semibold">${fmtNumber(stats.totalPnl, 2)}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-4 text-xs">
-                  {form.mode === "cfd" ? "Total pips" : "Total poin / %"}
-                  <div className="text-lg font-semibold">{fmtNumber(stats.totalPips, 2)}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-4 text-xs">
-                  Profit factor
-                  <div className="text-lg font-semibold">
-                    {Number.isFinite(stats.profitFactor) ? fmtNumber(stats.profitFactor, 2) : "∞"}
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-4 text-xs">
-                  Expectancy
-                  <div className="text-lg font-semibold">${fmtNumber(stats.expectancy, 2)}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-4 text-xs">
-                  Rata-rata R
-                  <div className="text-lg font-semibold">{fmtNumber(stats.avgR, 2)}R</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-4 text-xs">
-                  Running / Closed
-                  <div className="text-lg font-semibold">
-                    {stats.running} / {stats.closed}
-                  </div>
-                </CardContent>
-              </Card>
+            <div className="terminal-tape">
+              {[
+                { label: "Total trade", value: String(stats.total) },
+                { label: "Win rate", value: `${fmtNumber(stats.winRate, 1)}%` },
+                {
+                  label: "Net P&L",
+                  value: `${stats.totalPnl >= 0 ? "+" : "−"}$${fmtNumber(
+                    Math.abs(stats.totalPnl),
+                    2,
+                  )}`,
+                  tone: stats.totalPnl > 0 ? "positive" : stats.totalPnl < 0 ? "negative" : "",
+                },
+                {
+                  label: form.mode === "cfd" ? "Total pips" : "Total poin / %",
+                  value: fmtNumber(stats.totalPips, 2),
+                },
+                {
+                  label: "Profit factor",
+                  value: Number.isFinite(stats.profitFactor)
+                    ? fmtNumber(stats.profitFactor, 2)
+                    : "∞",
+                },
+                {
+                  label: "Expectancy",
+                  value: `$${fmtNumber(stats.expectancy, 2)}`,
+                  tone: stats.expectancy > 0 ? "positive" : stats.expectancy < 0 ? "negative" : "",
+                },
+                { label: "Avg R", value: `${fmtNumber(stats.avgR, 2)}R` },
+                {
+                  label: "Running / Closed",
+                  value: `${stats.running} / ${stats.closed}`,
+                },
+              ].map((cell) => (
+                <div className="terminal-tape-cell" key={cell.label}>
+                  <span className="terminal-label">{cell.label}</span>
+                  <span
+                    className={`terminal-value ${
+                      cell.tone === "positive"
+                        ? "terminal-positive"
+                        : cell.tone === "negative"
+                          ? "terminal-negative"
+                          : ""
+                    }`}
+                  >
+                    {cell.value}
+                  </span>
+                </div>
+              ))}
             </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Tambah trade</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {modes.length > 1 && (
-                    <div className="space-y-1">
-                      <Label htmlFor="journal-mode">Mode</Label>
-                      <OptionSelect
-                        id="journal-mode"
-                        value={form.mode}
-                        onValueChange={(value) => set("mode", value as JournalMode)}
+            <div className="execution-panel">
+              <div className="execution-head">
+                <span className="execution-head-title">
+                  Execution desk / {MODE_LABELS[form.mode]}
+                </span>
+                <span className="execution-tag" data-tone={form.side}>
+                  <span className="execution-dot" />
+                  {form.side === "buy" ? "BUY" : "SELL"}
+                </span>
+                <span className="execution-tag">
+                  {preview.status === "closed" ? "CLOSED" : "RUNNING"}
+                </span>
+                <span className="execution-tag">{form.symbol}</span>
+              </div>
+
+              <div className="execution-body">
+                <div className="execution-form">
+                  <section>
+                    <p className="execution-section-label">01 · Instrumen &amp; arah</p>
+                    <div className="execution-grid">
+                      {modes.length > 1 && (
+                        <div className="execution-field">
+                          <label htmlFor="journal-mode">Mode</label>
+                          <OptionSelect
+                            id="journal-mode"
+                            value={form.mode}
+                            onValueChange={(value) => set("mode", value as JournalMode)}
+                          >
+                            {modes.map((value) => (
+                              <option key={value} value={value}>
+                                {MODE_LABELS[value]}
+                              </option>
+                            ))}
+                          </OptionSelect>
+                        </div>
+                      )}
+                      <div className="execution-field">
+                        <label htmlFor="journal-symbol">Instrument</label>
+                        <OptionSelect
+                          id="journal-symbol"
+                          value={form.symbol}
+                          onValueChange={(value) => set("symbol", value)}
+                        >
+                          {instruments.map((item) => (
+                            <option key={item.symbol} value={item.symbol}>
+                              {item.symbol} · {item.label}
+                            </option>
+                          ))}
+                        </OptionSelect>
+                      </div>
+                      <div className="execution-field">
+                        <label htmlFor="journal-opened">Waktu buka</label>
+                        <Input
+                          id="journal-opened"
+                          type="datetime-local"
+                          value={form.openedAt}
+                          onChange={(e) => set("openedAt", e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="execution-side-toggle mt-3">
+                      <button
+                        type="button"
+                        data-side="buy"
+                        data-active={form.side === "buy"}
+                        onClick={() => set("side", "buy")}
                       >
-                        {modes.map((value) => (
-                          <option key={value} value={value}>
-                            {MODE_LABELS[value]}
-                          </option>
-                        ))}
-                      </OptionSelect>
+                        BUY / LONG
+                      </button>
+                      <button
+                        type="button"
+                        data-side="sell"
+                        data-active={form.side === "sell"}
+                        onClick={() => set("side", "sell")}
+                      >
+                        SELL / SHORT
+                      </button>
                     </div>
-                  )}
-                  <div className="space-y-1">
-                    <Label htmlFor="journal-symbol">Instrument</Label>
-                    <OptionSelect
-                      id="journal-symbol"
-                      value={form.symbol}
-                      onValueChange={(value) => set("symbol", value)}
-                    >
-                      {instruments.map((item) => (
-                        <option key={item.symbol} value={item.symbol}>
-                          [{item.class.toUpperCase()}] {item.label} · {item.symbol}
-                        </option>
-                      ))}
-                    </OptionSelect>
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="journal-side">Side</Label>
-                    <OptionSelect
-                      id="journal-side"
-                      value={form.side}
-                      onValueChange={(value) => set("side", value as "buy" | "sell")}
-                    >
-                      <option value="buy">Buy / Long</option>
-                      <option value="sell">Sell / Short</option>
-                    </OptionSelect>
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="journal-lot">{SIZE_LABEL[form.mode]}</Label>
-                    <Input
-                      id="journal-lot"
-                      inputMode="decimal"
-                      placeholder={
-                        form.mode === "cfd" ? "0.10" : form.mode === "futures" ? "1" : "1000"
-                      }
-                      value={form.lot}
-                      onChange={(e) => set("lot", e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="journal-entry">Entry</Label>
-                    <Input
-                      id="journal-entry"
-                      inputMode="decimal"
-                      value={form.entry}
-                      onChange={(e) => set("entry", e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="journal-opened">Waktu buka</Label>
-                    <Input
-                      id="journal-opened"
-                      type="datetime-local"
-                      value={form.openedAt}
-                      onChange={(e) => set("openedAt", e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="journal-sl">Stop loss</Label>
-                    <Input
-                      id="journal-sl"
-                      inputMode="decimal"
-                      value={form.stopLoss}
-                      onChange={(e) => set("stopLoss", e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="journal-tp">Take profit</Label>
-                    <Input
-                      id="journal-tp"
-                      inputMode="decimal"
-                      value={form.takeProfit}
-                      onChange={(e) => set("takeProfit", e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="journal-exit">Exit (kosong = running)</Label>
-                    <Input
-                      id="journal-exit"
-                      inputMode="decimal"
-                      value={form.exit}
-                      onChange={(e) => set("exit", e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="journal-result">Sumber hasil</Label>
-                    <OptionSelect
-                      id="journal-result"
-                      value={form.resultMode}
-                      onValueChange={(value) => set("resultMode", value as ResultMode)}
-                    >
-                      <option value="auto">Otomatis dari exit</option>
-                      <option value="manual">Manual (USD)</option>
-                      <option value="breakeven">Breakeven</option>
-                    </OptionSelect>
-                  </div>
-                  {form.resultMode === "manual" && (
-                    <div className="space-y-1">
-                      <Label htmlFor="journal-pnl">Hasil manual (USD)</Label>
-                      <Input
-                        id="journal-pnl"
-                        inputMode="decimal"
-                        value={form.manualPnl}
-                        onChange={(e) => set("manualPnl", e.target.value)}
-                      />
+                  </section>
+
+                  <section>
+                    <p className="execution-section-label">02 · Parameter order</p>
+                    <div className="execution-grid">
+                      <div className="execution-field">
+                        <label htmlFor="journal-lot">{SIZE_LABEL[form.mode]}</label>
+                        <Input
+                          id="journal-lot"
+                          inputMode="decimal"
+                          placeholder={
+                            form.mode === "cfd" ? "0.10" : form.mode === "futures" ? "1" : "1000"
+                          }
+                          value={form.lot}
+                          onChange={(e) => set("lot", e.target.value)}
+                        />
+                      </div>
+                      <div className="execution-field">
+                        <label htmlFor="journal-entry">Entry</label>
+                        <Input
+                          id="journal-entry"
+                          inputMode="decimal"
+                          value={form.entry}
+                          onChange={(e) => set("entry", e.target.value)}
+                        />
+                      </div>
+                      <div className="execution-field">
+                        <label htmlFor="journal-sl">Stop loss</label>
+                        <Input
+                          id="journal-sl"
+                          inputMode="decimal"
+                          value={form.stopLoss}
+                          onChange={(e) => set("stopLoss", e.target.value)}
+                        />
+                      </div>
+                      <div className="execution-field">
+                        <label htmlFor="journal-tp">Take profit</label>
+                        <Input
+                          id="journal-tp"
+                          inputMode="decimal"
+                          value={form.takeProfit}
+                          onChange={(e) => set("takeProfit", e.target.value)}
+                        />
+                      </div>
+                      <div className="execution-field">
+                        <label htmlFor="journal-exit">Exit · kosong = running</label>
+                        <Input
+                          id="journal-exit"
+                          inputMode="decimal"
+                          value={form.exit}
+                          onChange={(e) => set("exit", e.target.value)}
+                        />
+                      </div>
+                      <div className="execution-field">
+                        <label htmlFor="journal-result">Sumber hasil</label>
+                        <OptionSelect
+                          id="journal-result"
+                          value={form.resultMode}
+                          onValueChange={(value) => set("resultMode", value as ResultMode)}
+                        >
+                          <option value="auto">Auto dari exit</option>
+                          <option value="manual">Manual USD</option>
+                          <option value="breakeven">Breakeven</option>
+                        </OptionSelect>
+                      </div>
+                      {form.resultMode === "manual" && (
+                        <div className="execution-field">
+                          <label htmlFor="journal-pnl">Hasil manual (USD)</label>
+                          <Input
+                            id="journal-pnl"
+                            inputMode="decimal"
+                            value={form.manualPnl}
+                            onChange={(e) => set("manualPnl", e.target.value)}
+                          />
+                        </div>
+                      )}
+                      {form.mode === "crypto-perp" && (
+                        <div className="execution-field">
+                          <label htmlFor="journal-lev">Leverage</label>
+                          <Input
+                            id="journal-lev"
+                            inputMode="decimal"
+                            value={form.leverage}
+                            onChange={(e) => set("leverage", e.target.value)}
+                          />
+                        </div>
+                      )}
+                      {form.mode === "cfd" && (
+                        <div className="execution-field">
+                          <label htmlFor="journal-usdpip">USD / pip override</label>
+                          <Input
+                            id="journal-usdpip"
+                            inputMode="decimal"
+                            placeholder={String(spec?.value ?? "")}
+                            value={form.usdPerPip}
+                            onChange={(e) => set("usdPerPip", e.target.value)}
+                          />
+                        </div>
+                      )}
                     </div>
-                  )}
-                  {form.mode === "crypto-perp" && (
-                    <div className="space-y-1">
-                      <Label htmlFor="journal-lev">Leverage (informasi)</Label>
-                      <Input
-                        id="journal-lev"
-                        inputMode="decimal"
-                        value={form.leverage}
-                        onChange={(e) => set("leverage", e.target.value)}
-                      />
+                    <div className="execution-quick mt-3">
+                      <span className="terminal-label mr-1">TP dari risk</span>
+                      <button type="button" onClick={() => applyRr(1)}>
+                        1R
+                      </button>
+                      <button type="button" onClick={() => applyRr(2)}>
+                        2R
+                      </button>
+                      <button type="button" onClick={() => applyRr(3)}>
+                        3R
+                      </button>
                     </div>
-                  )}
-                  {form.mode === "cfd" && (
-                    <div className="space-y-1">
-                      <Label htmlFor="journal-usdpip">USD per pip/lot (override)</Label>
-                      <Input
-                        id="journal-usdpip"
-                        inputMode="decimal"
-                        placeholder={String(spec?.value ?? "")}
-                        value={form.usdPerPip}
-                        onChange={(e) => set("usdPerPip", e.target.value)}
-                      />
-                    </div>
-                  )}
+                  </section>
+
+                  <section>
+                    <p className="execution-section-label">03 · Bukti order</p>
+                    <input
+                      id="journal-images"
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      multiple
+                      className="hidden"
+                      onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
+                    />
+                    <label htmlFor="journal-images" className="execution-file">
+                      + Lampirkan screenshot (PNG / JPG / WEBP)
+                    </label>
+                    {files.length > 0 && (
+                      <p className="terminal-label mt-2">{files.length} file siap diunggah</p>
+                    )}
+                    {savedId && (
+                      <div className="mt-3">
+                        <ImageUploader type="cfd-trade" id={savedId} label="Gambar tersimpan" />
+                      </div>
+                    )}
+                  </section>
                 </div>
-                <div className="space-y-1">
-                  <Label htmlFor="journal-images">Gambar (opsional)</Label>
-                  <Input
-                    id="journal-images"
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    multiple
-                    onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
-                  />
-                  {files.length > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      {files.length} gambar akan diunggah.
-                    </p>
-                  )}
-                </div>
-                {savedId && (
-                  <ImageUploader type="cfd-trade" id={savedId} label="Gambar tersimpan" />
-                )}
-                <div className="rounded-md border bg-muted/40 p-3 text-sm">
-                  <div>
-                    Status: <strong>{preview.status === "closed" ? "Closed" : "Running"}</strong>
+
+                <aside className="execution-rail">
+                  <p className="execution-rail-title">Order preview</p>
+                  <span className="terminal-label">Estimasi P&amp;L</span>
+                  <div
+                    className={`execution-pnl ${
+                      (preview.pnl ?? 0) > 0
+                        ? "terminal-positive"
+                        : (preview.pnl ?? 0) < 0
+                          ? "terminal-negative"
+                          : ""
+                    }`}
+                  >
+                    {(preview.pnl ?? 0) >= 0 ? "+" : "−"}${fmtNumber(Math.abs(preview.pnl ?? 0), 2)}
                   </div>
-                  <div>
-                    {form.mode === "cfd"
-                      ? "Pips"
-                      : form.mode === "crypto-spot" ||
-                          form.mode === "crypto-perp" ||
-                          form.mode === "stock"
-                        ? "Perubahan %"
-                        : "Poin"}
-                    : {fmtNumber(preview.pips ?? 0, 4)}
+                  <div className="execution-metric">
+                    <span>Status</span>
+                    <strong>{preview.status === "closed" ? "CLOSED" : "RUNNING"}</strong>
+                  </div>
+                  <div className="execution-metric">
+                    <span>{form.mode === "cfd" ? "Pips" : "Poin / %"}</span>
+                    <strong>{fmtNumber(preview.pips ?? 0, 4)}</strong>
+                  </div>
+                  <div className="execution-metric">
+                    <span>R : R</span>
+                    <strong>
+                      {preview.riskReward === null ? "—" : fmtNumber(preview.riskReward, 2)}
+                    </strong>
+                  </div>
+                  <div className="execution-metric">
+                    <span>R multiple</span>
+                    <strong>
+                      {preview.rMultiple === null ? "—" : `${fmtNumber(preview.rMultiple, 2)}R`}
+                    </strong>
                   </div>
                   {form.mode === "futures" && spec && (
-                    <div className="text-xs text-muted-foreground">
-                      Tick {spec.step} · ${spec.value}/tick · {spec.tier ?? "standard"}
+                    <div className="execution-metric">
+                      <span>Tick</span>
+                      <strong>
+                        {spec.step} / ${spec.value}
+                      </strong>
                     </div>
                   )}
-                  <div>Estimasi P&L: ${fmtNumber(preview.pnl ?? 0, 2)}</div>
-                  {preview.riskReward !== null && (
-                    <div>R:R: {fmtNumber(preview.riskReward, 2)}</div>
-                  )}
-                  {preview.rMultiple !== null && (
-                    <div>R multiple: {fmtNumber(preview.rMultiple, 2)}R</div>
-                  )}
-                </div>
+                  <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">
+                    {formatTradeSize(form.mode, num(form.lot) ?? 0)} · {spec?.tier ?? "standard"} ·
+                    kontrak dicatat di Supabase.
+                  </p>
+                </aside>
+              </div>
+
+              <div className="execution-foot">
                 {(error || message) && (
-                  <p className={`text-sm ${error ? "text-destructive" : "text-profit"}`}>
+                  <p
+                    className={`execution-note flex-1 ${error ? "text-destructive" : "terminal-positive"}`}
+                  >
                     {error || message}
                   </p>
                 )}
-                <Button onClick={save} disabled={busy || !form.entry || !form.lot}>
-                  {busy ? "Menyimpan…" : "Simpan trade"}
-                </Button>
-              </CardContent>
-            </Card>
+                <button
+                  type="button"
+                  className="execution-submit"
+                  onClick={save}
+                  disabled={busy || !form.entry || !form.lot}
+                >
+                  {busy ? "MENGIRIM ORDER…" : "KIRIM ORDER · SIMPAN TRADE"}
+                </button>
+              </div>
+            </div>
 
             {review && (
               <Card>
@@ -587,19 +672,28 @@ export function JournalPage({
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
+                  <table className="w-full text-left font-mono text-[11px] tnum">
                     <thead className="text-muted-foreground">
                       <tr>
-                        <th className="p-2">Waktu</th>
-                        <th className="p-2">Instrument</th>
-                        <th className="p-2">Mode</th>
-                        <th className="p-2">Side</th>
-                        <th className="p-2">Size / Nilai</th>
-                        <th className="p-2">Entry</th>
-                        <th className="p-2">Hasil</th>
-                        <th className="p-2">P&L</th>
-                        <th className="p-2">Status</th>
-                        <th className="p-2">Aksi</th>
+                        {[
+                          "Waktu",
+                          "Instrument",
+                          "Mode",
+                          "Side",
+                          "Size / Nilai",
+                          "Entry",
+                          "Hasil",
+                          "P&L",
+                          "Status",
+                          "Aksi",
+                        ].map((head) => (
+                          <th
+                            key={head}
+                            className="border-b p-2 text-[9px] font-semibold uppercase tracking-[0.12em]"
+                          >
+                            {head}
+                          </th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>

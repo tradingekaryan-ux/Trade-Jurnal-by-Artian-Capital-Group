@@ -31,7 +31,7 @@ export function QuoteSlideshow() {
   if (quotes.length === 0) return null;
   return (
     <div className="quote-slideshow" aria-live="polite">
-      <span className="quote-mark">“</span>
+      <span className="quote-tag">DESK NOTE</span>
       <p key={index} className="quote-slide">
         {quotes[index]}
       </p>

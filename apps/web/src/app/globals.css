@@ -1483,3 +1483,369 @@ body.dashboard-is-dragging * {
     transform: translateY(0);
   }
 }
+
+/* ─── Trading terminal surface ────────────────────────────────────────────────
+ * Deliberately quiet: hairlines, sharp corners, monospaced numerals, and
+ * uppercase micro-labels. Colour is reserved for direction and state.
+ */
+.terminal-tape {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--card);
+}
+.terminal-tape-cell {
+  min-width: 0;
+  padding: 9px 12px 10px;
+  border-right: 1px solid var(--border);
+}
+.terminal-tape-cell:last-child {
+  border-right: 0;
+}
+.terminal-label {
+  display: block;
+  color: var(--muted-foreground);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+.terminal-value {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.terminal-value-sm {
+  font-size: 13px;
+}
+.terminal-positive {
+  color: var(--profit);
+}
+.terminal-negative {
+  color: var(--loss);
+}
+
+.execution-panel {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--card);
+}
+.execution-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--muted) 28%, var(--card));
+}
+.execution-head-title {
+  margin-right: auto;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.execution-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 7px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  color: var(--muted-foreground);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+.execution-tag[data-tone="buy"] {
+  border-color: color-mix(in srgb, var(--profit) 45%, var(--border));
+  color: var(--profit);
+}
+.execution-tag[data-tone="sell"] {
+  border-color: color-mix(in srgb, var(--loss) 45%, var(--border));
+  color: var(--loss);
+}
+.execution-dot {
+  width: 5px;
+  height: 5px;
+  background: currentColor;
+  border-radius: 50%;
+}
+.execution-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 900px) {
+  .execution-body {
+    grid-template-columns: minmax(0, 1fr) 272px;
+  }
+}
+.execution-form {
+  display: grid;
+  align-content: start;
+  gap: 13px;
+  min-width: 0;
+  padding: 14px;
+}
+.execution-section-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted-foreground);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.execution-section-label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.execution-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 11px 12px;
+}
+@media (min-width: 620px) {
+  .execution-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.execution-field {
+  min-width: 0;
+}
+.execution-field > label {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--muted-foreground);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+.execution-field input,
+.execution-field [role="combobox"] {
+  width: 100%;
+  height: 36px;
+  border: 1px solid var(--input);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--background) 65%, var(--card));
+  color: var(--foreground);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  padding-inline: 10px;
+  outline: none;
+}
+.execution-field input::placeholder {
+  color: color-mix(in srgb, var(--muted-foreground) 70%, transparent);
+}
+.execution-field input:hover,
+.execution-field [role="combobox"]:hover {
+  border-color: color-mix(in srgb, var(--muted-foreground) 45%, var(--border));
+}
+.execution-field input:focus,
+.execution-field [role="combobox"]:focus-visible {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 18%, transparent);
+}
+.execution-side-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+.execution-side-toggle button {
+  height: 40px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
+}
+.execution-side-toggle button + button {
+  border-left: 1px solid var(--border);
+}
+.execution-side-toggle button[data-active="true"][data-side="buy"] {
+  background: var(--profit);
+  color: #fff;
+}
+.execution-side-toggle button[data-active="true"][data-side="sell"] {
+  background: var(--loss);
+  color: #fff;
+}
+.execution-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.execution-quick button {
+  padding: 3px 7px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  cursor: pointer;
+}
+.execution-quick button:hover {
+  border-color: var(--brand);
+  color: var(--foreground);
+}
+.execution-rail {
+  min-width: 0;
+  padding: 14px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--muted) 22%, var(--card));
+}
+@media (min-width: 900px) {
+  .execution-rail {
+    border-top: 0;
+    border-left: 1px solid var(--border);
+  }
+}
+.execution-rail-title {
+  margin-bottom: 8px;
+  color: var(--muted-foreground);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.execution-metric {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+}
+.execution-metric > span {
+  color: var(--muted-foreground);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.execution-metric > strong {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.execution-pnl {
+  padding: 12px 0 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 21px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+}
+.execution-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--muted) 28%, var(--card));
+}
+.execution-submit {
+  flex: 1;
+  min-width: 180px;
+  height: 42px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+  transition: opacity 140ms ease;
+}
+.execution-submit:hover:not(:disabled) {
+  opacity: 0.88;
+}
+.execution-submit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.execution-note {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.execution-file {
+  display: block;
+  padding: 9px 10px;
+  border: 1px dashed var(--border);
+  border-radius: 3px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  cursor: pointer;
+}
+.execution-file:hover {
+  border-color: var(--brand);
+  color: var(--foreground);
+}
+
+/* Desk note reads like a terminal ticker, not a marketing callout. */
+.quote-slideshow {
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--brand);
+  border-radius: 2px;
+  background: var(--card);
+}
+.quote-mark {
+  color: var(--brand);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 15px;
+  font-weight: 700;
+}
+.quote-tag {
+  color: var(--muted-foreground);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+}
+.quote-slide {
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 500;
+}
+.quote-dots span {
+  width: 4px;
+  height: 4px;
+  border-radius: 0;
+}

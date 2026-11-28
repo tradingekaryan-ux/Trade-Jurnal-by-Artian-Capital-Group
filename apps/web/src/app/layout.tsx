@@ -4,6 +4,7 @@ import "./globals.css";
 import { Shell } from "@/components/shell";
 import { PrivacyProvider } from "@/components/privacy";
 import { FloatingDiscord } from "@/components/floating-discord";
+import { ToastProvider } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
@@ -30,8 +31,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Suspense>
             <ThemeProvider>
               <PrivacyProvider>
-                <Shell>{children}</Shell>
-                <FloatingDiscord />
+                <ToastProvider>
+                  <Shell>{children}</Shell>
+                  <FloatingDiscord />
+                </ToastProvider>
               </PrivacyProvider>
             </ThemeProvider>
           </Suspense>

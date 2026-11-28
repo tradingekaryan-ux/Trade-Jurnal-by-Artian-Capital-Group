@@ -41,6 +41,9 @@ export function PrivacyProvider({ children }: { children: ReactNode }) {
     try {
       localStorage.setItem(PRIVACY_KEY, String(next));
       setError("");
+      // Beri tahu semua komponen data-fetching segera merender ulang
+      // agar P&L, trade, dan angka lain langsung disembunyikan/tampilkan.
+      window.dispatchEvent(new CustomEvent("privacy-toggled"));
     } catch {
       setError("Privacy changed for this page, but could not be saved in this browser.");
     }

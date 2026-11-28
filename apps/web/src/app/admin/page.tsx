@@ -9,7 +9,8 @@ import { OptionSelect } from "@/components/ui/option-select";
 import { PoweredByLuxAlgo } from "@/components/powered-by-luxalgo";
 import { LogoutButton } from "@/components/user-menu";
 import { VerifiedBadge, RoleName } from "@/components/verified-badge";
-import { postJson } from "@/lib/use-api";
+import { postJson, useMutation } from "@/lib/use-api";
+import { useToast } from "@/components/ui/toast";
 import {
   ROLE_LABELS,
   USER_ROLES,
@@ -243,6 +244,8 @@ const emptySite: SiteConfig = {
 };
 
 export default function AdminPage() {
+  const { show: showToast } = useToast();
+
   const [data, setData] = useState<AdminData | null>(null);
   const [role, setRole] = useState<UserRole | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -323,22 +326,32 @@ export default function AdminPage() {
     try {
       await postJson("/api/admin/users", newUser);
       setNewUser({ username: "", password: "", role: "member" });
-      setMessage("User berhasil dibuat.");
+      showToast({ title: "User berhasil dibuat.", variant: "success" });
       loadUsers();
       loadMembers();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Gagal membuat user.");
+      showToast({
+        title: "Gagal membuat user.",
+        description: cause instanceof Error ? cause.message : "",
+        variant: "destructive",
+      });
     }
   };
 
   const changeRole = async (id: string, next: string) => {
     try {
       await postJson("/api/admin/users", { id, role: next }, "PATCH");
-      setMessage("Role diperbarui.");
+      showToast({ title: "Role diperbarui.", variant: "success" });
       loadUsers();
       loadMembers();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Gagal mengubah role.");
+      showToast({
+        title: "Gagal mengubah role.",
+        description: cause instanceof Error ? cause.message : "",
+        variant: "destructive",
+      });
     }
   };
 
@@ -362,6 +375,13 @@ export default function AdminPage() {
         "DELETE",
       );
       const removed = result.removed ?? {};
+      showToast({
+        title: `Akun ${user.username} dihapus.`,
+        description:
+          `${removed.trades ?? 0} trade, ${removed.posts ?? 0} postingan, ` +
+          `${(removed.receivedVotes ?? 0) + (removed.castVotes ?? 0)} vote, ${removed.images ?? 0} gambar.`,
+        variant: "success",
+      });
       setMessage(
         `Akun ${user.username} dihapus: ${removed.trades ?? 0} trade, ${removed.posts ?? 0} postingan, ` +
           `${(removed.receivedVotes ?? 0) + (removed.castVotes ?? 0)} vote, ${removed.images ?? 0} gambar, ` +
@@ -402,7 +422,7 @@ export default function AdminPage() {
           throw new Error(json.error ?? "Gagal menghapus.");
         }
       });
-      setMessage(`Data ${resource} ${memberName} berhasil dihapus.`);
+      showToast({ title: `Data ${resource} ${memberName} dihapus.`, variant: "success" });
       // Reload detail
       const body = await fetch(`/api/admin/member-data?userId=${encodeURIComponent(userId)}`).then(
         (r) => (r.ok ? r.json() : Promise.reject()),
@@ -420,9 +440,11 @@ export default function AdminPage() {
     setMessage(null);
     try {
       await postJson("/api/admin/site", site);
-      setMessage(
-        "Konfigurasi situs disimpan. Tombol Discord akan diperbarui pada halaman berikutnya.",
-      );
+      showToast({
+        title: "Konfigurasi situs disimpan.",
+        description: "Tombol Discord diperbarui pada halaman berikutnya.",
+        variant: "success",
+      });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Gagal menyimpan konfigurasi.");
     } finally {
@@ -441,7 +463,7 @@ export default function AdminPage() {
     }
     try {
       await postJson("/api/admin/quotes", { quotes });
-      setMessage(`${quotes.length} quote disimpan. Slide berganti setiap 3 detik.`);
+      showToast({ title: `${quotes.length} quote disimpan.`, variant: "success" });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Gagal menyimpan quote.");
     }
@@ -458,9 +480,10 @@ export default function AdminPage() {
         supportsPdf: newModelCaps.supportsPdf,
         supportsVision: newModelCaps.supportsVision,
       });
-      setMessage(
-        `${result.added} model ditambahkan${result.skipped ? `, ${result.skipped} sudah ada` : ""}.`,
-      );
+      showToast({
+        title: `${result.added} model ditambahkan${result.skipped ? `, ${result.skipped} sudah ada` : ""}.`,
+        variant: "success",
+      });
       if (result.added > 0) setModelInput("");
       load();
     } catch (cause) {
@@ -477,7 +500,7 @@ export default function AdminPage() {
         action: "remove",
         id,
       });
-      setMessage(`${result.removed} model dihapus dari katalog.`);
+      showToast({ title: `${result.removed} model dihapus dari katalog.`, variant: "success" });
       load();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Gagal menghapus model.");
@@ -490,7 +513,7 @@ export default function AdminPage() {
     try {
       await postJson("/api/admin/keys", { action: "set", slot, key });
       setKeyDrafts((current) => ({ ...current, [slot]: "" }));
-      setMessage(`Kunci slot ${slot} disimpan (terenkripsi).`);
+      showToast({ title: `Kunci slot ${slot} disimpan (terenkripsi).`, variant: "success" });
       loadKeys();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Gagal menyimpan kunci.");
@@ -501,7 +524,7 @@ export default function AdminPage() {
     if (!window.confirm(`Hapus kunci OpenRouter slot ${slot}?`)) return;
     try {
       await postJson("/api/admin/keys", { action: "clear", slot });
-      setMessage(`Kunci slot ${slot} dihapus.`);
+      showToast({ title: `Kunci slot ${slot} dihapus.`, variant: "success" });
       loadKeys();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Gagal menghapus kunci.");

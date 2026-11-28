@@ -26,7 +26,7 @@ export function AskJournal() {
 function ScopedAskJournal({ filters, timeZone }: { filters: AnalysisFilters; timeZone: string }) {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<{ answer: string; scope: AiScope } | null>(null);
-  const { run, busy, error, dismiss } = useAiRequest();
+  const { run, busy, elapsed, error, dismiss } = useAiRequest();
   const [lastQuestion, setLastQuestion] = useState("");
 
   const ask = async (q: string) => {
@@ -69,7 +69,7 @@ function ScopedAskJournal({ filters, timeZone }: { filters: AnalysisFilters; tim
           />
           <Button type="submit" disabled={busy || !question.trim()}>
             <Sparkles />
-            {busy ? "Thinking…" : "Ask"}
+            {busy ? `Thinking… ${elapsed}s` : "Ask"}
           </Button>
         </form>
         <div className="flex flex-wrap gap-1.5">

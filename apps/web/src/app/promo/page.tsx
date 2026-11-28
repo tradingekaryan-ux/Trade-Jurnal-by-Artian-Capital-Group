@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { VerifiedBadge } from "@/components/verified-badge";
-import { postJson } from "@/lib/use-api";
+import { postJson, useMutation } from "@/lib/use-api";
+import { useToast } from "@/components/ui/toast";
 import { VoteBar } from "@/components/vote-bar";
 
 interface Promo {
@@ -83,6 +84,8 @@ export default function PromoPage() {
       .catch(() => setSession(null));
   }, []);
 
+  const { show: showToast } = useToast();
+
   const submit = async () => {
     setBusy(true);
     setError("");
@@ -106,10 +109,15 @@ export default function PromoPage() {
       setUrl("");
       setUrlEnabled(false);
       setImage(null);
-      setMessage("Promo berhasil diposting.");
+      showToast({ title: "Promo berhasil diposting.", variant: "success" });
       load();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Gagal membuat promo.");
+      showToast({
+        title: "Gagal membuat promo.",
+        description: cause instanceof Error ? cause.message : "",
+        variant: "destructive",
+      });
     } finally {
       setBusy(false);
     }
@@ -126,9 +134,14 @@ export default function PromoPage() {
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "Gagal memberi vote.");
       setVotes((current) => ({ ...current, [promo.id]: body as VoteSummary }));
-      setMessage("Vote tersimpan. Terima kasih atas testimoni Anda.");
+      showToast({ title: "Vote tersimpan.", variant: "success" });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Gagal memberi vote.");
+      showToast({
+        title: "Gagal memberi vote.",
+        description: cause instanceof Error ? cause.message : "",
+        variant: "destructive",
+      });
     }
   };
 

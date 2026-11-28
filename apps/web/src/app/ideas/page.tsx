@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { VoteBar } from "@/components/vote-bar";
 import { VerifiedBadge } from "@/components/verified-badge";
 import { postJson } from "@/lib/use-api";
+import { useToast } from "@/components/ui/toast";
 
 import type { Post } from "@/lib/posts";
 
@@ -63,6 +64,8 @@ export default function IdeasPage() {
       .catch(() => setSession(null));
   }, []);
 
+  const { show: showToast } = useToast();
+
   const submit = async () => {
     setBusy(true);
     setError("");
@@ -79,10 +82,15 @@ export default function IdeasPage() {
       setTitle("");
       setDescription("");
       setImage(null);
-      setMessage("Trade idea berhasil diposting.");
+      showToast({ title: "Trade idea berhasil diposting.", variant: "success" });
       load();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Gagal memposting idea.");
+      showToast({
+        title: "Gagal memposting idea.",
+        description: cause instanceof Error ? cause.message : "",
+        variant: "destructive",
+      });
     } finally {
       setBusy(false);
     }
@@ -94,8 +102,14 @@ export default function IdeasPage() {
     try {
       const result = await postJson<{ text: string }>("/api/ai/community", { kind: "idea" });
       setAiSummary(result.text);
+      showToast({ title: "Ringkasan AI selesai.", variant: "success" });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Gagal membuat ringkasan AI.");
+      showToast({
+        title: "Gagal membuat ringkasan AI.",
+        description: cause instanceof Error ? cause.message : "",
+        variant: "destructive",
+      });
     } finally {
       setAiBusy(false);
     }
@@ -112,8 +126,14 @@ export default function IdeasPage() {
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "Gagal memberi vote.");
       setVotes((current) => ({ ...current, [idea.id]: body as IdeaVote }));
+      showToast({ title: "Vote tersimpan.", variant: "success" });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Gagal memberi vote.");
+      showToast({
+        title: "Gagal memberi vote.",
+        description: cause instanceof Error ? cause.message : "",
+        variant: "destructive",
+      });
     }
   };
 

@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { VerifiedBadge, RoleName } from "@/components/verified-badge";
-import { postJson } from "@/lib/use-api";
+import { postJson, useMutation } from "@/lib/use-api";
+import { useToast } from "@/components/ui/toast";
 
 interface OwnPost {
   id: string;
@@ -65,6 +66,8 @@ export default function ProfilePage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  const { show: showToast } = useToast();
+
   const load = () => {
     fetch("/api/profile")
       .then((response) => (response.ok ? response.json() : Promise.reject()))
@@ -105,10 +108,15 @@ export default function ProfilePage() {
       if (!response.ok) throw new Error(body.error ?? "Gagal menyimpan profil.");
       setAvatar(null);
       setBanner(null);
-      setMessage("Profil tersimpan.");
+      showToast({ title: "Profil tersimpan.", variant: "success" });
       load();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Gagal menyimpan profil.");
+      showToast({
+        title: "Gagal menyimpan profil.",
+        description: cause instanceof Error ? cause.message : "",
+        variant: "destructive",
+      });
     } finally {
       setBusy(false);
     }
@@ -128,8 +136,23 @@ export default function ProfilePage() {
     setMessage("");
   };
 
+  const savePostMutation = useMutation({
+    url: "/api/promos",
+    method: "PATCH",
+    successTitle: "Postingan diperbarui.",
+    errorTitle: "Gagal memperbarui postingan.",
+    onSuccess: () => {
+      setEditingId(null);
+      Promise.all([
+        fetch("/api/auth").then((r) => r.json()),
+        fetch("/api/posts").then((r) => r.json()),
+      ]).then(([session, body]: [{ id: string | null }, { posts: OwnPost[] }]) => {
+        setMyPosts(body.posts.filter((item) => item.userId === session.id));
+      });
+    },
+  });
+
   const savePost = async (post: OwnPost) => {
-    setBusy(true);
     setError("");
     setMessage("");
     try {
@@ -144,19 +167,9 @@ export default function ProfilePage() {
         payload.url = editForm.url;
         payload.urlEnabled = editForm.urlEnabled;
       }
-      await postJson("/api/promos", payload, "PATCH");
-      setEditingId(null);
-      setMessage("Postingan diperbarui.");
-      Promise.all([
-        fetch("/api/auth").then((r) => r.json()),
-        fetch("/api/posts").then((r) => r.json()),
-      ]).then(([session, body]: [{ id: string | null }, { posts: OwnPost[] }]) => {
-        setMyPosts(body.posts.filter((item) => item.userId === session.id));
-      });
+      await savePostMutation.mutate(payload);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Gagal memperbarui postingan.");
-    } finally {
-      setBusy(false);
     }
   };
 
@@ -165,11 +178,19 @@ export default function ProfilePage() {
     if (!window.confirm(`Hapus ${label} "${post.title}" beserta semua votingnya?`)) return;
     try {
       await postJson(`/api/promos?id=${encodeURIComponent(post.id)}`, undefined, "DELETE");
-      setMessage(`${label.charAt(0).toUpperCase()}${label.slice(1)} dihapus beserta votingnya.`);
+      showToast({
+        title: `${label.charAt(0).toUpperCase()}${label.slice(1)} dihapus beserta votingnya.`,
+        variant: "success",
+      });
       setMyPosts((current) => current.filter((item) => item.id !== post.id));
       if (editingId === post.id) setEditingId(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Gagal menghapus postingan.");
+      showToast({
+        title: "Gagal menghapus postingan.",
+        description: cause instanceof Error ? cause.message : "",
+        variant: "destructive",
+      });
     }
   };
 
@@ -414,7 +435,11 @@ export default function ProfilePage() {
                           </div>
                         )}
                         <div className="flex gap-2">
-                          <Button size="sm" disabled={busy} onClick={() => void savePost(post)}>
+                          <Button
+                            size="sm"
+                            disabled={savePostMutation.loading}
+                            onClick={() => void savePost(post)}
+                          >
                             Simpan postingan
                           </Button>
                           <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>

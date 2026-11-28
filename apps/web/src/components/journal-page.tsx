@@ -20,8 +20,9 @@ import {
   type ResultMode,
   type TradFiCategory,
 } from "@/lib/cfd";
-import { postJson } from "@/lib/use-api";
+import { postJson, useMutation } from "@/lib/use-api";
 import { fmtNumber } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast";
 
 interface JournalTrade {
   id: string;
@@ -115,6 +116,7 @@ export function JournalPage({
   const [savedId, setSavedId] = useState<string | null>(null);
   const [review, setReview] = useState<{ title: string; text: string; model: string } | null>(null);
   const [reviewBusy, setReviewBusy] = useState<string | null>(null);
+  const [aiElapsed, setAiElapsed] = useState(0);
 
   const load = () => {
     fetch(`/api/cfd-journal?mode=${modes.join(",")}`)
@@ -123,6 +125,36 @@ export function JournalPage({
       .catch(() => setError("Gagal memuat jurnal."));
   };
   useEffect(load, [modes.join(",")]);
+
+  const saveTrade = useMutation({
+    url: "/api/cfd-journal",
+    method: "POST",
+    successTitle: "Trade tersimpan.",
+    errorTitle: "Gagal menyimpan trade.",
+    onSuccess: (data: any) => {
+      setSavedId(data.id);
+      setForm((current) => ({ ...current, entry: "", exit: "", manualPnl: "" }));
+      load();
+    },
+  });
+
+  const closeTradeMutation = useMutation({
+    url: "/api/cfd-journal",
+    method: "PATCH",
+    successTitle: "Trade ditutup.",
+    errorTitle: "Gagal menutup trade.",
+    onSuccess: () => load(),
+  });
+
+  const deleteJournalMutation = useMutation({
+    url: `/api/cfd-journal?mode=${encodeURIComponent(modes.join(","))}`,
+    method: "DELETE",
+    successTitle: "Jurnal dihapus.",
+    errorTitle: "Gagal menghapus jurnal.",
+    onSuccess: () => load(),
+  });
+
+  const { show: showToast } = useToast();
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -164,11 +196,10 @@ export function JournalPage({
   };
 
   const save = async () => {
-    setBusy(true);
     setError("");
     setMessage("");
     try {
-      const saved = await postJson<{ id: string }>("/api/cfd-journal", {
+      await saveTrade.mutate({
         ...form,
         lot: num(form.lot),
         entry: num(form.entry),
@@ -180,41 +211,28 @@ export function JournalPage({
         usdPerPip: form.mode === "cfd" ? num(form.usdPerPip) : undefined,
         openedAt: form.openedAt ? new Date(form.openedAt).toISOString() : new Date().toISOString(),
       });
-      setSavedId(saved.id);
       for (const file of files) {
         const formImage = new FormData();
         formImage.set("type", "cfd-trade");
-        formImage.set("id", saved.id);
+        formImage.set("id", savedId!);
         formImage.set("file", file);
         const response = await fetch("/api/attachments", { method: "POST", body: formImage });
         if (!response.ok) throw new Error("Gagal mengunggah gambar.");
       }
       setFiles([]);
-      setMessage(
-        preview.status === "closed" ? "Trade closed tersimpan." : "Running trade tersimpan.",
-      );
-      setForm((current) => ({ ...current, entry: "", exit: "", manualPnl: "" }));
-      load();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Gagal menyimpan trade.");
-    } finally {
-      setBusy(false);
     }
   };
 
   const closeTrade = async (trade: JournalTrade, result: number) => {
     try {
-      await postJson(
-        "/api/cfd-journal",
-        {
-          id: trade.id,
-          exit: trade.exitPrice ?? trade.entry,
-          resultMode: "manual",
-          manualPnl: result,
-        },
-        "PATCH",
-      );
-      load();
+      await closeTradeMutation.mutate({
+        id: trade.id,
+        exit: trade.exitPrice ?? trade.entry,
+        resultMode: "manual",
+        manualPnl: result,
+      });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Gagal menutup trade.");
     }
@@ -222,7 +240,9 @@ export function JournalPage({
 
   const reviewTrade = async (trade: JournalTrade) => {
     setReviewBusy(trade.id);
+    setAiElapsed(0);
     setError("");
+    const timer = window.setInterval(() => setAiElapsed((v) => v + 1), 1000);
     try {
       const result = await postJson<{ review: string; model: string; imagesUsed: number }>(
         "/api/cfd-journal/ai-review",
@@ -233,9 +253,16 @@ export function JournalPage({
         text: result.review,
         model: `${result.model}${result.imagesUsed ? ` · ${result.imagesUsed} gambar` : ""}`,
       });
+      showToast({ title: "AI review selesai.", variant: "success" });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Gagal membuat AI review.");
+      showToast({
+        title: "Gagal membuat AI review.",
+        description: cause instanceof Error ? cause.message : "",
+        variant: "destructive",
+      });
     } finally {
+      window.clearInterval(timer);
       setReviewBusy(null);
     }
   };
@@ -610,9 +637,9 @@ export function JournalPage({
                   type="button"
                   className="execution-submit"
                   onClick={save}
-                  disabled={busy || !form.entry || !form.lot}
+                  disabled={saveTrade.loading || !form.entry || !form.lot}
                 >
-                  {busy ? "MENGIRIM ORDER…" : "KIRIM ORDER · SIMPAN TRADE"}
+                  {saveTrade.loading ? "MENGIRIM ORDER…" : "KIRIM ORDER · SIMPAN TRADE"}
                 </button>
               </div>
             </div>
@@ -655,9 +682,10 @@ export function JournalPage({
                           undefined,
                           "DELETE",
                         );
-                        setMessage(
-                          `Jurnal dihapus: ${result.trades} trade dan ${result.images} lampiran gambar.`,
-                        );
+                        showToast({
+                          title: `Jurnal dihapus: ${result.trades} trade dan ${result.images} lampiran gambar.`,
+                          variant: "success",
+                        });
                         load();
                       } catch (cause) {
                         setError(
@@ -725,7 +753,7 @@ export function JournalPage({
                                 disabled={reviewBusy !== null}
                                 onClick={() => void reviewTrade(trade)}
                               >
-                                {reviewBusy === trade.id ? "AI…" : "AI review"}
+                                {reviewBusy === trade.id ? `AI… ${aiElapsed}s` : "AI review"}
                               </Button>
                               {trade.status === "running" && (
                                 <Button

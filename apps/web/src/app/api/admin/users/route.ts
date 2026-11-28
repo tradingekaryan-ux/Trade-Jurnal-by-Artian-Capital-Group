@@ -28,7 +28,7 @@ export const GET = handler(async () => {
     users: rows.map((row) => ({
       id: row.id,
       username: row.username,
-      role: row.role,
+      role: isUserRole(row.role) ? row.role : "member",
       createdAt: row.created_at,
     })),
   });

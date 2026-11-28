@@ -72,3 +72,12 @@ Audit mencakup database Supabase, 69 endpoint API, seluruh halaman/komponen, aut
 - Isolasi tenant SQLite via `handler` + `runAsUser` konsisten; tidak ada endpoint SQLite biasa yang bisa membaca data user lain.
 - SQL injection, XSS (`react-markdown` tanpa `rehype-raw`), dan path traversal tidak ditemukan.
 - Role owner/admin/member ditegakkan server-side; admin tidak bisa mengakses kunci/model config.
+
+## Pembaruan audit lanjutan (28 Nov 2026)
+
+- `api/accounts/[id]` DELETE / actions `clear` / `transfer`: hapus/update `cfd_trades` Supabase sebelum transaksi SQLite → trade tidak "hidup kembali". Verifikasi runtime: buat akun + trade → hapus akun → dashboard 0, Supabase 0.
+- `api/ai/community` cabang promo: prompt kini menyisipkan `${lines.join("\n")}` dan budget dinaikkan ke 2000 token.
+- `lib/video-export.ts`: `exportCanvasVideo` menerima `startTime` → frame yang dipilih di slider dipakai saat export MP4.
+- `share/page.tsx`: console kontrol diberi `lg:col-span-2` → benar-benar penuh lebar di desktop.
+- `ranking/page.tsx`: slider frame video duplikat dihapus.
+- Role normalization diterapkan di `GET /api/auth` dan `GET /api/admin/users`.

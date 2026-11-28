@@ -410,7 +410,14 @@ export default function SharePage() {
           background: null,
           transparentBackground: true,
         });
-        const { blob, extension } = await exportCanvasVideo(bgMedia, hudBlob, cW, cH, transform);
+        const { blob, extension } = await exportCanvasVideo(
+          bgMedia,
+          hudBlob,
+          cW,
+          cH,
+          transform,
+          videoTime,
+        );
         downloadBlob(blob, `${baseName}.${extension}`);
       } else {
         const canvas = document.createElement("canvas");
@@ -566,7 +573,7 @@ export default function SharePage() {
                       ? "Background video ≤15 detik. Atur posisi, zoom, dan opacity lewat panel kontrol. Export: MP4."
                       : bgMedia
                         ? "Background gambar. Atur posisi, zoom, dan opacity lewat panel kontrol. Export: PNG."
-                        : "Background default: grafik chart. Panel kontrol tetap tersedia setelah gambar/video dipilih."}
+                        : "Background default: grafik chart. Posisi/zoom aktif setelah gambar/video dipilih; opacity bisa diatur kapan saja."}
                   </p>
                 </CardContent>
               </Card>
@@ -683,7 +690,7 @@ export default function SharePage() {
               )}
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-3 lg:col-span-2">
               <BackgroundControls
                 transform={transform}
                 onChange={setTransform}

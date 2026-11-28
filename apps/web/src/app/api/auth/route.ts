@@ -12,6 +12,7 @@ import {
 } from "@/server/auth";
 import { bad, handler, ok } from "@/server/api";
 import { sql } from "@/server/pg";
+import { isUserRole } from "@/lib/roles";
 
 interface AuthBody {
   username?: string;
@@ -34,7 +35,7 @@ export const GET = handler(
       authenticated: Boolean(user),
       username: user?.username ?? null,
       isAdmin: user?.isAdmin ?? false,
-      role: user?.role ?? "member",
+      role: isUserRole(user?.role) ? user!.role : "member",
     });
   },
   { public: true },
@@ -75,7 +76,7 @@ export const POST = handler(
       authenticated: true,
       username: user.username,
       isAdmin: Boolean(user.is_admin),
-      role: user.role,
+      role: isUserRole(user.role) ? user.role : "member",
     });
   },
   { public: true },

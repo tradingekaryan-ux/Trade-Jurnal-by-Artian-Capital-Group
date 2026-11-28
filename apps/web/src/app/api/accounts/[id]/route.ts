@@ -3,6 +3,9 @@ import { accounts, db, executions, trades } from "@/db";
 import { bad, handler, ok, requireValue } from "@/server/api";
 import { rebuildAccount } from "@/server/rebuild";
 import { hasSyncedExecutions, isIbkrSyncAccount } from "@/server/ibkr-sync-timezone";
+import { currentUser } from "@/server/auth";
+import { sql } from "@/server/pg";
+import { deleteTradeCascade } from "@/server/cascade";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -58,6 +61,15 @@ export const PATCH = handler(async (request: Request, { params }: Params) => {
 
 export const DELETE = handler(async (_request: Request, { params }: Params) => {
   const { id } = await params;
+  // Supabase adalah source of truth: hapus trade mirror dulu, kalau tidak
+  // syncJournalsToLegacy akan mengembalikannya pada request berikutnya.
+  const user = await currentUser();
+  if (!user && process.env.AUTH_DISABLED !== "1") requireValue(false, "Unauthorized.");
+  if (user) {
+    const rows =
+      await sql`select id from cfd_trades where owner_id = ${user.id} and account_id = ${id}`;
+    for (const row of rows) await deleteTradeCascade(user.id, String(row.id));
+  }
   db.transaction((tx) => {
     tx.delete(trades).where(eq(trades.accountId, id)).run();
     tx.delete(executions).where(eq(executions.accountId, id)).run();

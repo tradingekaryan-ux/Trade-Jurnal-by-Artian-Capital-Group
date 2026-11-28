@@ -51,6 +51,7 @@ export const exportCanvasVideo = async (
   width: number,
   height: number,
   transform: BgTransform,
+  startTime = 0,
 ): Promise<VideoExportResult> => {
   const offscreen = document.createElement("canvas");
   offscreen.width = width;
@@ -78,7 +79,7 @@ export const exportCanvasVideo = async (
   video.pause();
   video.loop = false;
   video.muted = true;
-  video.currentTime = 0;
+  video.currentTime = Math.min(Math.max(0, startTime), Math.max(0, video.duration - 0.1));
   await new Promise<void>((res) => {
     const onSeeked = () => {
       video.removeEventListener("seeked", onSeeked);

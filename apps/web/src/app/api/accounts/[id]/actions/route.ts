@@ -5,6 +5,9 @@ import { nowIso } from "@/server/ids";
 import { rebuildAccount } from "@/server/rebuild";
 import { syncAccount } from "@/server/sync";
 import { ibkrTransferTimeZone } from "@/server/ibkr-sync-timezone";
+import { currentUser } from "@/server/auth";
+import { sql } from "@/server/pg";
+import { deleteTradeCascade } from "@/server/cascade";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -27,13 +30,21 @@ export const POST = handler(async (request: Request, { params }: Params) => {
     case "unarchive":
       db.update(accounts).set({ archivedAt: null }).where(eq(accounts.id, id)).run();
       return ok({ archived: false });
-    case "clear":
+    case "clear": {
+      const user = await currentUser();
+      if (!user && process.env.AUTH_DISABLED !== "1") requireValue(false, "Unauthorized.");
+      if (user) {
+        const rows =
+          await sql`select id from cfd_trades where owner_id = ${user.id} and account_id = ${id}`;
+        for (const row of rows) await deleteTradeCascade(user.id, String(row.id));
+      }
       db.transaction((tx) => {
         tx.delete(trades).where(eq(trades.accountId, id)).run();
         tx.delete(executions).where(eq(executions.accountId, id)).run();
         tx.update(accounts).set({ ibkrSyncTimeZone: null }).where(eq(accounts.id, id)).run();
       });
       return ok({ cleared: true });
+    }
     case "sync":
       return ok({ sync: await syncAccount(id) });
     case "transfer": {
@@ -42,6 +53,11 @@ export const POST = handler(async (request: Request, { params }: Params) => {
       requireValue(destinationId !== id, "Choose a different destination account.");
       const destination = db.select().from(accounts).where(eq(accounts.id, destinationId)).get();
       if (!destination) return bad("Destination account not found", 404);
+      const user = await currentUser();
+      if (!user && process.env.AUTH_DISABLED !== "1") requireValue(false, "Unauthorized.");
+      if (user)
+        await sql`update cfd_trades set account_id = ${destinationId}, updated_at = ${nowIso()}
+          where owner_id = ${user.id} and account_id = ${id}`;
 
       // Remember annotations before the move; trade keys are account-prefixed,
       // so after the rebuild they re-anchor under the destination's prefix.

@@ -44,8 +44,10 @@ Sebutkan idea dengan dukungan Take Profit tertinggi, yang paling kontroversial, 
       `@${row.author} | ${row.title} | code ${row.promo_code || "-"} | URL ${row.url || "-"} | ${String(row.description).slice(0, 160)}`,
   );
   const text = await runAi(
-    `Periksa daftar promo komunitas berikut. Tandai secara ringkas (maks. 180 kata, Bahasa Indonesia) entri yang berisiko: URL bukan https, shortener mencurigakan, janji hasil tidak realistis, kode/deskripsi tidak konsisten, atau tautan yang tidak sesuai judul. Sebutkan ID bagian dari baris yang bermasalah dan alasannya. Jangan menyimpulkan hal yang tidak terlihat dari teks.`,
-    900,
+    `Periksa daftar promo komunitas berikut. Tandai secara ringkas (maks. 180 kata, Bahasa Indonesia) entri yang berisiko: URL bukan https, shortener mencurigakan, janji hasil tidak realistis, kode/deskripsi tidak konsisten, atau tautan yang tidak sesuai judul. Sebutkan ID bagian dari baris yang bermasalah dan alasannya. Jangan menyimpulkan hal yang tidak terlihat dari teks.
+
+${lines.join("\n")}`,
+    2000,
   );
   return ok({ text });
 });

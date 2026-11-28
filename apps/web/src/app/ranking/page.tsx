@@ -227,6 +227,7 @@ export default function RankingPage() {
           CERT_WIDTH,
           CERT_HEIGHT,
           transform,
+          videoTime,
         );
         downloadBlob(blob, `${baseName}.${extension}`);
       } else {
@@ -348,23 +349,8 @@ export default function RankingPage() {
                       ? "Background video ≤15 detik. Atur posisi, zoom, dan opacity lewat panel kontrol. Export: MP4."
                       : bgMedia
                         ? "Background gambar. Atur posisi, zoom, dan opacity lewat panel kontrol. Export: PNG."
-                        : "Background default: grafik chart. Panel kontrol tersedia setelah gambar/video dipilih."}
+                        : "Background default: grafik chart. Posisi/zoom aktif setelah gambar/video dipilih; opacity bisa diatur kapan saja."}
                   </p>
-
-                  {bgIsVideo && bgMedia instanceof HTMLVideoElement && videoDuration > 0 && (
-                    <div className="space-y-1 border-t pt-3">
-                      <Label>Frame video (detik ke-{videoTime.toFixed(1)})</Label>
-                      <input
-                        type="range"
-                        min={0}
-                        max={videoDuration}
-                        step={0.1}
-                        value={videoTime}
-                        onChange={(e) => seekVideo(Number(e.target.value))}
-                        className="w-full"
-                      />
-                    </div>
-                  )}
                 </div>
               </div>
 

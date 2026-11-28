@@ -291,7 +291,7 @@ export default function RankingPage() {
             <CardContent className="space-y-4">
               <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
                 <div className="space-y-3">
-                  <div className="flex justify-center overflow-x-auto">
+                  <div className="w-full min-w-0">
                     <SharePreview
                       key={`cert-bg-${bgVersion}`}
                       customRender={renderCertHud}
@@ -305,6 +305,27 @@ export default function RankingPage() {
                     />
                   </div>
                   {certError && <p className="text-sm text-destructive">{certError}</p>}
+                  <BackgroundControls
+                    transform={transform}
+                    onChange={setTransform}
+                    opacity={overlayOpacity}
+                    onOpacityChange={setOverlayOpacity}
+                    disabled={!bgMedia}
+                  />
+                  {bgIsVideo && bgMedia instanceof HTMLVideoElement && videoDuration > 0 && (
+                    <div className="space-y-1 border-t pt-3">
+                      <Label>Frame video (detik ke-{videoTime.toFixed(1)})</Label>
+                      <input
+                        type="range"
+                        min={0}
+                        max={videoDuration}
+                        step={0.1}
+                        value={videoTime}
+                        onChange={(e) => seekVideo(Number(e.target.value))}
+                        className="w-full"
+                      />
+                    </div>
+                  )}
                   <Button disabled={certBusy} onClick={() => void downloadCertificate()}>
                     {certBusy
                       ? "Memproses…"
@@ -352,30 +373,6 @@ export default function RankingPage() {
                         : "Background default: grafik chart. Posisi/zoom aktif setelah gambar/video dipilih; opacity bisa diatur kapan saja."}
                   </p>
                 </div>
-              </div>
-
-              <div className="space-y-3">
-                <BackgroundControls
-                  transform={transform}
-                  onChange={setTransform}
-                  opacity={overlayOpacity}
-                  onOpacityChange={setOverlayOpacity}
-                  disabled={!bgMedia}
-                />
-                {bgIsVideo && bgMedia instanceof HTMLVideoElement && videoDuration > 0 && (
-                  <div className="space-y-1 border-t pt-3">
-                    <Label>Frame video (detik ke-{videoTime.toFixed(1)})</Label>
-                    <input
-                      type="range"
-                      min={0}
-                      max={videoDuration}
-                      step={0.1}
-                      value={videoTime}
-                      onChange={(e) => seekVideo(Number(e.target.value))}
-                      className="w-full"
-                    />
-                  </div>
-                )}
               </div>
             </CardContent>
           </Card>

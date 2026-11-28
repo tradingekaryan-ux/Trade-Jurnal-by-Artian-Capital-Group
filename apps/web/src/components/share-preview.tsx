@@ -82,7 +82,6 @@ export function SharePreview({
   const [rendering, setRendering] = useState(false);
 
   const [w, h] = dimensions ?? (options?.size === "1080x1080" ? [1080, 1080] : [1920, 1080]);
-  const displayH = Math.round((displayWidth / w) * h);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -105,15 +104,13 @@ export function SharePreview({
 
   return (
     <div className="space-y-2">
-      <div
-        className="relative overflow-hidden rounded-lg border border-border bg-black select-none"
-        style={{ width: displayWidth, height: displayH }}
-      >
+      <div className="relative w-full min-w-0 overflow-hidden rounded-lg border border-border bg-black select-none">
         <canvas
           ref={canvasRef}
           width={w}
           height={h}
-          style={{ width: displayWidth, maxWidth: "100%", height: displayH, display: "block" }}
+          className="block h-auto w-full"
+          style={{ maxWidth: displayWidth, aspectRatio: `${w} / ${h}` }}
         />
         {rendering && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/40">

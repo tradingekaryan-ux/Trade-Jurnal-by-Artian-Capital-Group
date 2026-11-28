@@ -2139,3 +2139,8 @@ body.dashboard-is-dragging * {
   font-size: 10px;
   line-height: 1.4;
 }
+
+.edit-console {
+  min-width: 0;
+  max-width: 100%;
+}

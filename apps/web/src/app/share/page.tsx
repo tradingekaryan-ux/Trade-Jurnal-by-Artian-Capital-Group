@@ -223,9 +223,6 @@ export default function SharePage() {
 
   const shareOptions = useMemo<ShareImageOptions | null>(() => {
     if (!data) return null;
-    const siteUrl =
-      data.discordUrl ||
-      (typeof window !== "undefined" ? window.location.origin : "https://discord.com/");
     const journalLabel = journalModeLabels[journalFilter] ?? journalFilter.toUpperCase();
     const rankText = data.rank ? `Rank #${data.rank}/${data.totalParticipants}` : "";
 
@@ -248,7 +245,6 @@ export default function SharePage() {
         }),
         background: bgMedia,
         overlayOpacity,
-        siteUrl,
       };
     }
 
@@ -284,7 +280,6 @@ export default function SharePage() {
         avatarUrl: data.avatarUrl,
         background: bgMedia,
         overlayOpacity,
-        siteUrl,
       };
     }
 
@@ -306,7 +301,6 @@ export default function SharePage() {
       avatarUrl: data.avatarUrl,
       background: bgMedia,
       overlayOpacity,
-      siteUrl,
     };
   }, [
     data,

@@ -1,5 +1,8 @@
 import { drawQrCode } from "./barcode";
 
+/** URL website yang tertanam di QR code semua share PNG/sertifikat. */
+export const SHARE_SITE_URL = "https://artiancapitalgroup.vercel.app";
+
 export type ShareSize = "1920x1080" | "1080x1080";
 export type ShareBgTheme = "default" | "dark" | "light";
 
@@ -578,10 +581,7 @@ export const renderSharePng = async (options: ShareImageOptions): Promise<Blob> 
 
   // ── 4. QR code tile (bottom-right) ───────────────────────────────────────
   const qrSize = Math.round(H * (isLandscape ? 0.205 : 0.17));
-  const siteUrl =
-    options.siteUrl ??
-    (typeof window !== "undefined" ? window.location.origin : "https://artian.capital");
-  drawQrTile(ctx, siteUrl, W - pad - qrSize, H - pad - qrSize, qrSize);
+  drawQrTile(ctx, SHARE_SITE_URL, W - pad - qrSize, H - pad - qrSize, qrSize);
 
   return new Promise<Blob>((res, rej) =>
     canvas.toBlob((b) => (b ? res(b) : rej(new Error("Gagal membuat PNG."))), "image/png"),

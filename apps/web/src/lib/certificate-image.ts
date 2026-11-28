@@ -15,6 +15,7 @@
 import type { EdgeScoreComponents } from "@luxalgo/journal-core";
 import {
   SANS_FONT,
+  SHARE_SITE_URL,
   drawArtianWordmark,
   drawBlackLeftGradient,
   drawDefaultChartBackground,
@@ -195,10 +196,7 @@ export const renderCertificatePng = async (opt: CertificateOptions): Promise<Blo
 
   // ── 7. Bottom-Right Crisp QR Code ─────────────────────────────────────────
   const qrSize = 230;
-  const siteUrl =
-    opt.siteUrl ??
-    (typeof window !== "undefined" ? window.location.origin : "https://artian.capital");
-  drawQrTile(ctx, siteUrl, W - pad - qrSize, H - pad - qrSize, qrSize);
+  drawQrTile(ctx, SHARE_SITE_URL, W - pad - qrSize, H - pad - qrSize, qrSize);
 
   return new Promise<Blob>((res, rej) =>
     canvas.toBlob((b) => (b ? res(b) : rej(new Error("Gagal membuat PNG."))), "image/png"),

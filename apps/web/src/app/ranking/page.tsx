@@ -129,9 +129,8 @@ export default function RankingPage() {
       background: bgMedia,
       transparentBackground: transparentBg,
       overlayOpacity,
-      siteUrl: discordUrl,
     }),
-    [entries.length, bgMedia, overlayOpacity, discordUrl],
+    [entries.length, bgMedia, overlayOpacity],
   );
 
   const renderCertHud = useMemo(() => {

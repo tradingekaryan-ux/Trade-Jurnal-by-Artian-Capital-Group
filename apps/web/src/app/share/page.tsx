@@ -486,32 +486,6 @@ export default function SharePage() {
                 </CardContent>
               </Card>
 
-              <div className="space-y-3">
-                <BackgroundControls
-                  transform={transform}
-                  onChange={setTransform}
-                  opacity={overlayOpacity}
-                  onOpacityChange={setOverlayOpacity}
-                  disabled={!bgMedia}
-                />
-                {bgIsVideo && bgMedia instanceof HTMLVideoElement && videoDuration > 0 && (
-                  <Card>
-                    <CardContent className="space-y-1 pt-4">
-                      <Label>Frame video (detik ke-{videoTime.toFixed(1)})</Label>
-                      <input
-                        type="range"
-                        min={0}
-                        max={videoDuration}
-                        step={0.1}
-                        value={videoTime}
-                        onChange={(e) => seekVideo(Number(e.target.value))}
-                        className="w-full"
-                      />
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-
               <Button disabled={busy} onClick={() => void exportAuto()}>
                 {busy ? "Memproses…" : bgIsVideo ? "⬇ Download MP4" : "⬇ Download PNG"}
               </Button>
@@ -704,6 +678,32 @@ export default function SharePage() {
                         ))}
                       </OptionSelect>
                     )}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              <BackgroundControls
+                transform={transform}
+                onChange={setTransform}
+                opacity={overlayOpacity}
+                onOpacityChange={setOverlayOpacity}
+                disabled={!bgMedia}
+              />
+              {bgIsVideo && bgMedia instanceof HTMLVideoElement && videoDuration > 0 && (
+                <Card>
+                  <CardContent className="space-y-1 pt-4">
+                    <Label>Frame video (detik ke-{videoTime.toFixed(1)})</Label>
+                    <input
+                      type="range"
+                      min={0}
+                      max={videoDuration}
+                      step={0.1}
+                      value={videoTime}
+                      onChange={(e) => seekVideo(Number(e.target.value))}
+                      className="w-full"
+                    />
                   </CardContent>
                 </Card>
               )}

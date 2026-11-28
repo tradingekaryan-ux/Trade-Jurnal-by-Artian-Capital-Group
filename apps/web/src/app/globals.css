@@ -156,6 +156,7 @@
 }
 .journal-main {
   container: journal / inline-size;
+  overflow-x: clip;
 }
 .journal-hover-card {
   box-shadow:
@@ -420,8 +421,10 @@ body.dashboard-is-dragging .journal-hover-card {
     background-color 160ms ease;
 }
 .journal-sidebar-footer {
-  max-height: 5rem;
-  overflow: hidden;
+  max-height: 12rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+  flex-shrink: 0;
   opacity: 1;
   transition:
     max-height 220ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -2029,11 +2032,19 @@ body.dashboard-is-dragging * {
 .edit-console-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 14px;
+  gap: 12px;
 }
-@media (min-width: 560px) {
+.edit-console-section {
+  min-width: 0;
+}
+@media (min-width: 860px) {
   .edit-console-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+  }
+  .edit-console-section + .edit-console-section {
+    border-left: 1px solid #2d2540;
+    padding-left: 18px;
   }
 }
 .edit-console-label {

@@ -113,7 +113,7 @@ export function SharePreview({
           ref={canvasRef}
           width={w}
           height={h}
-          style={{ width: displayWidth, height: displayH, display: "block" }}
+          style={{ width: displayWidth, maxWidth: "100%", height: displayH, display: "block" }}
         />
         {rendering && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/40">

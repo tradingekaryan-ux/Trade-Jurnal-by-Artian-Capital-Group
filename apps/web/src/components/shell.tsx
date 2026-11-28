@@ -205,19 +205,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
     </nav>
   );
   const footer = (
-    <div className="journal-sidebar-footer space-y-2 border-t p-3 text-xs text-muted-foreground">
+    <div className="journal-sidebar-footer space-y-1.5 border-t p-3 text-xs text-muted-foreground">
       <UserMenu />
-      <div>
-        Powered by{" "}
-        <a
-          href="https://www.luxalgo.com/"
-          className="underline underline-offset-2 hover:text-foreground"
-          target="_blank"
-          rel="noreferrer"
-        >
-          LuxAlgo
-        </a>
-      </div>
       <PoweredByLuxAlgo />
       <div>Bukan nasihat investasi.</div>
     </div>
@@ -259,7 +248,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 </DialogPrimitive.Close>
               </div>
               {navigation()}
-              <div className="border-t p-3">
+              <div className="shrink-0 border-t p-3">
                 <PrivacyToggle />
               </div>
               {footer}
@@ -309,7 +298,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </Button>
         </div>
         {navigation(sidebarCollapsed)}
-        <div className="journal-sidebar-privacy border-t p-3">
+        <div className="journal-sidebar-privacy shrink-0 border-t p-3">
           <div className="w-full space-y-1">
             <ThemeToggle iconOnly={sidebarCollapsed} />
             <PrivacyToggle iconOnly={sidebarCollapsed} />

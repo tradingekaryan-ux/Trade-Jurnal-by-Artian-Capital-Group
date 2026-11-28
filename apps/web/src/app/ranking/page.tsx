@@ -287,69 +287,88 @@ export default function RankingPage() {
                 Tutup
               </Button>
             </CardHeader>
-            <CardContent className="grid gap-4 lg:grid-cols-[1fr_340px]">
-              <div className="space-y-3">
-                <div className="flex justify-center overflow-x-auto">
-                  <SharePreview
-                    key={`cert-bg-${bgVersion}`}
-                    customRender={renderCertHud}
-                    dimensions={[CERT_WIDTH, CERT_HEIGHT]}
-                    background={bgMedia}
-                    transform={transform}
-                    displayWidth={Math.min(
-                      640,
-                      typeof window !== "undefined" ? window.innerWidth - 64 : 640,
-                    )}
-                  />
-                </div>
-                {certError && <p className="text-sm text-destructive">{certError}</p>}
-                <Button disabled={certBusy} onClick={() => void downloadCertificate()}>
-                  {certBusy
-                    ? "Memproses…"
-                    : bgIsVideo
-                      ? "⬇ Unduh sertifikat MP4"
-                      : "⬇ Unduh sertifikat PNG"}
-                </Button>
-              </div>
-
-              <div className="space-y-3 rounded-md border p-3">
-                <p className="text-sm font-medium">Background Certificate (gambar / video)</p>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*,video/*"
-                  className="hidden"
-                  onChange={(e) => void pickFile(e.target.files?.[0])}
-                />
-                <div className="flex flex-wrap gap-2">
-                  <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()}>
-                    Pilih gambar / video…
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
+                <div className="space-y-3">
+                  <div className="flex justify-center overflow-x-auto">
+                    <SharePreview
+                      key={`cert-bg-${bgVersion}`}
+                      customRender={renderCertHud}
+                      dimensions={[CERT_WIDTH, CERT_HEIGHT]}
+                      background={bgMedia}
+                      transform={transform}
+                      displayWidth={Math.min(
+                        640,
+                        typeof window !== "undefined" ? window.innerWidth - 64 : 640,
+                      )}
+                    />
+                  </div>
+                  {certError && <p className="text-sm text-destructive">{certError}</p>}
+                  <Button disabled={certBusy} onClick={() => void downloadCertificate()}>
+                    {certBusy
+                      ? "Memproses…"
+                      : bgIsVideo
+                        ? "⬇ Unduh sertifikat MP4"
+                        : "⬇ Unduh sertifikat PNG"}
                   </Button>
-                  {bgMedia && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        setBgMedia(null);
-                        setBgIsVideo(false);
-                        setOverlayOpacity(0);
-                        resetTransform();
-                        setBgVersion((v) => v + 1);
-                      }}
-                    >
-                      Gunakan Chart Default
+                </div>
+
+                <div className="space-y-3 rounded-md border p-3">
+                  <p className="text-sm font-medium">Background Certificate (gambar / video)</p>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/*,video/*"
+                    className="hidden"
+                    onChange={(e) => void pickFile(e.target.files?.[0])}
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()}>
+                      Pilih gambar / video…
                     </Button>
+                    {bgMedia && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setBgMedia(null);
+                          setBgIsVideo(false);
+                          setOverlayOpacity(0);
+                          resetTransform();
+                          setBgVersion((v) => v + 1);
+                        }}
+                      >
+                        Gunakan Chart Default
+                      </Button>
+                    )}
+                  </div>
+                  {bgError && <p className="text-xs text-destructive">{bgError}</p>}
+                  <p className="text-xs text-muted-foreground">
+                    {bgIsVideo
+                      ? "Background video ≤15 detik. Atur posisi, zoom, dan opacity lewat panel kontrol. Export: MP4."
+                      : bgMedia
+                        ? "Background gambar. Atur posisi, zoom, dan opacity lewat panel kontrol. Export: PNG."
+                        : "Background default: grafik chart. Panel kontrol tersedia setelah gambar/video dipilih."}
+                  </p>
+
+                  {bgIsVideo && bgMedia instanceof HTMLVideoElement && videoDuration > 0 && (
+                    <div className="space-y-1 border-t pt-3">
+                      <Label>Frame video (detik ke-{videoTime.toFixed(1)})</Label>
+                      <input
+                        type="range"
+                        min={0}
+                        max={videoDuration}
+                        step={0.1}
+                        value={videoTime}
+                        onChange={(e) => seekVideo(Number(e.target.value))}
+                        className="w-full"
+                      />
+                    </div>
                   )}
                 </div>
-                {bgError && <p className="text-xs text-destructive">{bgError}</p>}
-                <p className="text-xs text-muted-foreground">
-                  {bgIsVideo
-                    ? "Background video ≤15 detik. Atur posisi, zoom, dan opacity lewat panel kontrol. Export: MP4."
-                    : bgMedia
-                      ? "Background gambar. Atur posisi, zoom, dan opacity lewat panel kontrol. Export: PNG."
-                      : "Background default: grafik chart. Panel kontrol tersedia setelah gambar/video dipilih."}
-                </p>
+              </div>
 
+              <div className="space-y-3">
                 <BackgroundControls
                   transform={transform}
                   onChange={setTransform}
@@ -357,7 +376,6 @@ export default function RankingPage() {
                   onOpacityChange={setOverlayOpacity}
                   disabled={!bgMedia}
                 />
-
                 {bgIsVideo && bgMedia instanceof HTMLVideoElement && videoDuration > 0 && (
                   <div className="space-y-1 border-t pt-3">
                     <Label>Frame video (detik ke-{videoTime.toFixed(1)})</Label>
